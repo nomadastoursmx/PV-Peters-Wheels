@@ -1407,20 +1407,20 @@ function recalcTotals() {
   const metodo = document.getElementById('pv-metodo')?.value;
   const mp = DB.metodosPago.find(m=>m.nombre===metodo);
   const factor = mp?.factor||1;
-  const precioTotal = subtotal; // precio a cobrar sin taxi ni comisión extra
   const comisionTarjeta = factor>1 ? (subtotal * (factor-1)) : 0;
+  const totalACobrar = Math.max(0, subtotal - cambio);
   const costoTotal = subtotalCosto + cambio + comisionTarjeta + taxi;
-  const utilidad = precioTotal - subtotalCosto - cambio - comisionTarjeta - taxi;
+  const utilidad = totalACobrar - subtotalCosto - comisionTarjeta - taxi;
   const comisionVendedor = utilidad > 0 ? (utilidad * (DB.config.comisionPct||0)/100) : 0;
   setText('res-subtotal', fmt(subtotal));
   setText('res-cambio', '-'+fmt(cambio));
   setText('res-comision', fmt(comisionTarjeta));
   setText('res-taxi', fmt(taxi));
   setText('res-costo-total', fmt(costoTotal));
-  setText('res-precio-cobrar', fmt(precioTotal));
+  setText('res-precio-cobrar', fmt(totalACobrar));
   setText('res-utilidad', fmt(utilidad));
   setText('res-comision-vendedor', fmt(comisionVendedor));
-  setText('res-total', fmt(precioTotal));
+  setText('res-total', fmt(totalACobrar));
 }
 function saveSale() {
   const vale = document.getElementById('pv-vale').value;
@@ -1438,7 +1438,8 @@ function saveSale() {
   const cambioDesc = document.getElementById('pv-cambio-desc')?.value||'';
   const taxi = document.getElementById('pv-taxi-check')?.checked ? (parseFloat(document.getElementById('pv-taxi-costo')?.value)||0) : 0;
   const comisionTarjeta = factor>1 ? (subtotal*(factor-1)) : 0;
-  const utilidad = subtotal - subtotalCosto - cambio - comisionTarjeta - taxi;
+  const precioTotal = Math.max(0, subtotal - cambio);
+  const utilidad = precioTotal - subtotalCosto - comisionTarjeta - taxi;
   const comisionVendedor = utilidad>0 ? (utilidad*(DB.config.comisionPct||0)/100) : 0;
   const venta = {
     id: Date.now(),
@@ -1454,7 +1455,7 @@ function saveSale() {
     facturaNombre: document.getElementById('pv-factura-nombre')?.value,
     facturaRFC: document.getElementById('pv-factura-rfc')?.value,
     comentario: document.getElementById('pv-comentario')?.value,
-    precioTotal: subtotal,
+    precioTotal,
     utilidad, comisionVendedor,
   };
   DB.ventas.push(venta);
