@@ -308,7 +308,7 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
       <div id="inv-global-carga">
         <div class="card">
           <div class="card-title">📥 Carga de Inventario por CSV</div>
-          <div class="alert alert-warning">El CSV debe contener: <strong>sucursal, codigo, descripcion, medida, pz, costo, precio</strong></div>
+          <div class="alert alert-warning">Formato: <strong>id, codigo, descripcion, medida, costo, precio, [Sucursal 1], [Sucursal 2]...</strong> — Las columnas de sucursal deben llamarse igual que en Configuración. El valor de cada columna de sucursal es la cantidad (pz) en esa tienda. Descarga la plantilla para ver el formato con tus sucursales actuales.</div>
           <div class="upload-area" id="csvDropArea" onclick="document.getElementById('csvFileInput').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleCSVDrop(event)">
             <div class="icon">📂</div>
             <p>Arrastra tu archivo CSV aquí o <strong>haz clic para seleccionar</strong></p>
@@ -331,7 +331,7 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Sucursal</th><th>Código</th><th>Descripción / Medida</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio Venta</th><th class="td-right">Utilidad</th></tr></thead>
+              <thead><tr><th>ID</th><th>Sucursal</th><th>Código</th><th>Descripción / Medida</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio Venta</th><th class="td-right">Utilidad</th></tr></thead>
               <tbody id="inv-global-tbody"></tbody>
             </table>
           </div>
@@ -798,6 +798,7 @@ let DB = {
   sucursales: [
     { id: 's1', nombre: 'Sucursal 1' },
     { id: 's2', nombre: 'Sucursal 2' },
+    { id: 's3', nombre: 'Sucursal 3' },
   ],
   vendedores: ['Juan Pérez','María López'],
   metodosPago: [
@@ -884,7 +885,7 @@ function showSection(id) {
   document.getElementById('topbarTitle').textContent = sectionTitles[id]||id.toUpperCase();
   if (id==='dashboard') renderDashboard();
   if (id==='inventario-global') renderGlobalInventory();
-  if (id==='inventario-sucursal') { refreshSucursalSelect(); loadSucursalInventory(); }
+  if (id==='inventario-sucursal') { loadSucursalInventory(); }
   if (id==='punto-venta') { refreshPVSelects(); if (!pvProductRows.length) addProductRow(); }
   if (id==='reportes') renderReportes();
   if (id==='configuracion') renderConfig();
@@ -1002,10 +1003,25 @@ function renderDashboard() {
 }
 
 // ═══════════ GLOBAL INVENTORY ═══════════
-function downloadTemplate() {
-  const csv = 'sucursal,codigo,descripcion,medida,pz,costo,precio\ns1,LLN-195-65-15,Llanta,195/65R15,4,800,1200\ns1,RIN-15-5,Rin,15x5H,2,500,900\n';
-  downloadFile('plantilla_inventario.csv', csv, 'text/csv');
+// CSV FORMAT: id, codigo, descripcion, medida, costo, precio, Sucursal1_pz, Sucursal2_pz, ... (up to 10)
+// Each sucursal column header must match exactly a sucursal nombre in DB.sucursales
+
+function getSucursalHeaders() {
+  // Returns up to 10 sucursal names for the template
+  const base = DB.sucursales.slice(0,10).map(s=>s.nombre);
+  while (base.length < 10) base.push('Sucursal '+(base.length+1));
+  return base;
 }
+
+function downloadTemplate() {
+  const sucHeaders = getSucursalHeaders();
+  const headerRow = ['id','codigo','descripcion','medida','costo','precio',...sucHeaders].join(',');
+  const ex1 = ['001','LLN-195-65-15','Llanta','195/65R15','800','1200',...sucHeaders.map((_,i)=>i===0?'4':'0')].join(',');
+  const ex2 = ['002','RIN-15-5','Rin aluminio','15x5H','500','900',...sucHeaders.map((_,i)=>i===0?'2':'0')].join(',');
+  const csv = headerRow+'\n'+ex1+'\n'+ex2+'\n';
+  downloadFile('plantilla_inventario_peters_wheels.csv', csv, 'text/csv');
+}
+
 let csvRawData = '';
 function handleCSVDrop(e) {
   e.preventDefault();
@@ -1014,31 +1030,121 @@ function handleCSVDrop(e) {
   if (file) readCSVFile(file);
 }
 function loadCSVFile(input) { if (input.files[0]) readCSVFile(input.files[0]); }
+
+function parseCSVLine(line) {
+  // Handles quoted fields with commas inside
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i=0; i<line.length; i++) {
+    const c = line[i];
+    if (c==='"') { inQ=!inQ; }
+    else if (c===',' && !inQ) { result.push(cur.trim()); cur=''; }
+    else { cur+=c; }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
 function readCSVFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
     csvRawData = e.target.result;
-    const lines = csvRawData.trim().split('\n').slice(1);
-    csvBuffer = lines.map(l => {
-      const cols = l.split(',');
-      return { sucursal:cols[0]?.trim(), codigo:cols[1]?.trim(), descripcion:cols[2]?.trim(), medida:cols[3]?.trim(), pz:parseFloat(cols[4])||0, costo:parseFloat(cols[5])||0, precio:parseFloat(cols[6])||0 };
-    }).filter(r=>r.codigo);
-    document.getElementById('csv-preview').innerHTML = `<div class="alert alert-success">✅ ${csvBuffer.length} productos listos para importar. Haz clic en "Procesar e Importar".</div>`;
+    const lines = csvRawData.trim().split(/\r?\n/);
+    if (lines.length < 2) { document.getElementById('csv-preview').innerHTML='<div class="alert alert-error">El archivo está vacío o sin datos.</div>'; return; }
+
+    const headers = parseCSVLine(lines[0]).map(h=>h.toLowerCase().trim());
+    // Detect sucursal columns: everything after 'precio' column
+    const idxId = headers.indexOf('id');
+    const idxCodigo = headers.indexOf('codigo');
+    const idxDesc = headers.findIndex(h=>h.includes('desc'));
+    const idxMedida = headers.findIndex(h=>h.includes('medida'));
+    const idxCosto = headers.indexOf('costo');
+    const idxPrecio = headers.indexOf('precio');
+
+    // Sucursal columns: all headers after 'precio' (index > idxPrecio), or any not in base set
+    const baseCols = new Set(['id','codigo','descripcion','medida','costo','precio','pz','sucursal']);
+    // Get original headers for sucursal matching (preserve case)
+    const origHeaders = parseCSVLine(lines[0]).map(h=>h.trim());
+    const sucColIndices = []; // {index, nombre}
+    origHeaders.forEach((h,i) => {
+      if (i > Math.max(idxCosto,idxPrecio) && !baseCols.has(h.toLowerCase())) {
+        sucColIndices.push({ index:i, nombre:h });
+      }
+    });
+
+    csvBuffer = [];
+    let skipped = 0;
+
+    for (let li=1; li<lines.length; li++) {
+      const line = lines[li].trim();
+      if (!line) continue;
+      const cols = parseCSVLine(line);
+      const id = idxId>=0 ? cols[idxId]?.trim() : '';
+      const codigo = idxCodigo>=0 ? cols[idxCodigo]?.trim() : '';
+      const descripcion = idxDesc>=0 ? cols[idxDesc]?.trim() : '';
+      const medida = idxMedida>=0 ? cols[idxMedida]?.trim() : '';
+      const costo = parseFloat(idxCosto>=0 ? cols[idxCosto] : 0)||0;
+      const precio = parseFloat(idxPrecio>=0 ? cols[idxPrecio] : 0)||0;
+      if (!codigo) { skipped++; continue; }
+
+      if (sucColIndices.length > 0) {
+        // Multi-sucursal format: one row per product, columns per sucursal
+        sucColIndices.forEach(sc => {
+          const pz = parseFloat(cols[sc.index])||0;
+          // Find matching sucursal in DB by name (case-insensitive)
+          const sucMatch = DB.sucursales.find(s=>s.nombre.toLowerCase()===sc.nombre.toLowerCase());
+          const sucId = sucMatch ? sucMatch.id : sc.nombre; // fallback to name as id
+          // Auto-create sucursal if not found
+          if (!sucMatch) {
+            const exists = DB.sucursales.find(s=>s.id===sc.nombre||s.nombre===sc.nombre);
+            if (!exists) DB.sucursales.push({ id: 'suc_'+sc.nombre.replace(/\s+/g,'_').toLowerCase(), nombre: sc.nombre });
+          }
+          csvBuffer.push({ id, sucursal: sucMatch?sucMatch.id:'suc_'+sc.nombre.replace(/\s+/g,'_').toLowerCase(), codigo, descripcion, medida, pz, costo, precio });
+        });
+      } else {
+        // Legacy single-row format with sucursal column
+        const idxSuc = headers.indexOf('sucursal');
+        const idxPz = headers.indexOf('pz');
+        const suc = idxSuc>=0 ? cols[idxSuc]?.trim() : '';
+        const pz = parseFloat(idxPz>=0 ? cols[idxPz] : 0)||0;
+        csvBuffer.push({ id, sucursal:suc, codigo, descripcion, medida, pz, costo, precio });
+      }
+    }
+
+    // Show preview table
+    const preview = csvBuffer.slice(0,5);
+    const sucNames = [...new Set(csvBuffer.map(r=>r.sucursal))];
+    document.getElementById('csv-preview').innerHTML = `
+      <div class="alert alert-success" style="margin-bottom:12px">
+        ✅ <strong>${csvBuffer.length} registros</strong> detectados para <strong>${sucNames.length} sucursales</strong>${skipped?' ('+skipped+' filas omitidas)':''}.
+        Sucursales: ${sucNames.map(s=>getSucNombreOrId(s)).join(', ')}
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>ID</th><th>Sucursal</th><th>Código</th><th>Descripción</th><th>Medida</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th></tr></thead>
+        <tbody>${preview.map(r=>`<tr><td>${r.id||'-'}</td><td>${getSucNombreOrId(r.sucursal)}</td><td>${r.codigo}</td><td>${r.descripcion}</td><td>${r.medida}</td><td class="td-right">${r.pz}</td><td class="td-right">${fmt(r.costo)}</td><td class="td-right">${fmt(r.precio)}</td></tr>`).join('')}
+        ${csvBuffer.length>5?`<tr><td colspan="8" style="text-align:center;color:var(--text3)">... y ${csvBuffer.length-5} más</td></tr>`:''}</tbody></table>
+      </div>`;
   };
-  reader.readAsText(file);
+  reader.readAsText(file, 'UTF-8');
 }
+
+function getSucNombreOrId(id) {
+  return DB.sucursales.find(s=>s.id===id)?.nombre || id;
+}
+
 function processCSV() {
   if (!csvBuffer.length) { alert('Primero carga un archivo CSV'); return; }
-  // Merge: update if same sucursal+codigo, else add
+  let added=0, updated=0;
   csvBuffer.forEach(item => {
+    if (!item.codigo || !item.sucursal) return;
     const idx = DB.inventario.findIndex(i=>i.sucursal===item.sucursal && i.codigo===item.codigo);
-    if (idx>=0) DB.inventario[idx] = item;
-    else DB.inventario.push(item);
+    if (idx>=0) { DB.inventario[idx] = {...DB.inventario[idx], ...item}; updated++; }
+    else { DB.inventario.push(item); added++; }
   });
   saveToStorage();
   refreshSelectsGlobal();
   csvBuffer = [];
-  document.getElementById('csv-preview').innerHTML = '<div class="alert alert-success">✅ Inventario importado correctamente.</div>';
+  document.getElementById('csv-preview').innerHTML = `<div class="alert alert-success">✅ Importación completa: <strong>${added} nuevos</strong> productos agregados, <strong>${updated} actualizados</strong>.</div>`;
   renderGlobalInventory();
 }
 function renderGlobalInventory() {
@@ -1056,7 +1162,8 @@ function renderGlobalInventory() {
     const util = i.precio - i.costo;
     const pct = i.costo ? ((util/i.costo)*100).toFixed(1) : 0;
     return `<tr>
-      <td><span class="badge-pill badge-blue">${getSucNombre(i.sucursal)}</span></td>
+      <td style="font-family:monospace;font-size:11px;color:var(--text3)">${i.id||'-'}</td>
+      <td><span class="badge-pill badge-blue">${getSucNombreOrId(i.sucursal)}</span></td>
       <td style="font-family:monospace">${i.codigo}</td>
       <td>${i.descripcion} <span style="color:var(--text3)">${i.medida||''}</span></td>
       <td class="td-right">${i.pz}</td>
@@ -1071,18 +1178,27 @@ function renderGlobalInventory() {
 function refreshSucursalSelect() {
   const sel = document.getElementById('inv-suc-selector');
   if (!sel) return;
+  const prevVal = sel.value;
   sel.innerHTML = '';
   DB.sucursales.forEach(s => { const o=document.createElement('option');o.value=s.id;o.textContent=s.nombre;sel.appendChild(o); });
+  // Restore previous value if still valid, else default to first
+  if (prevVal && DB.sucursales.find(s=>s.id===prevVal)) sel.value=prevVal;
+  else if (DB.sucursales.length) sel.value=DB.sucursales[0].id;
 }
-function loadSucursalInventory() { renderSucursalInventory(); renderMovimientos(); }
+function loadSucursalInventory() { refreshSucursalSelect(); renderSucursalInventory(); renderMovimientos(); }
 function renderSucursalInventory() {
-  const suc = document.getElementById('inv-suc-selector')?.value;
+  const sel = document.getElementById('inv-suc-selector');
+  const suc = sel?.value || DB.sucursales[0]?.id || '';
   const search = (document.getElementById('inv-suc-search')?.value||'').toLowerCase();
-  let items = DB.inventario.filter(i=>i.sucursal===suc);
+  // Match by id OR by nombre (covers cases where CSV used name as id)
+  const sucObj = DB.sucursales.find(s=>s.id===suc);
+  let items = DB.inventario.filter(i=>{
+    return i.sucursal===suc || (sucObj && i.sucursal===sucObj.nombre) || (sucObj && i.sucursal==='suc_'+sucObj.nombre.replace(/\s+/g,'_').toLowerCase());
+  });
   if (search) items = items.filter(i=>(i.codigo+i.descripcion+i.medida).toLowerCase().includes(search));
   document.getElementById('inv-suc-count').textContent = items.length+' productos';
   const tbody = document.getElementById('inv-suc-tbody');
-  if (!items.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin productos para esta sucursal</td></tr>'; return; }
+  if (!items.length) { tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin productos para esta sucursal.<br><span style="font-size:11px">Carga el inventario desde "Inventario Global → Cargar Inventario"</span></td></tr>`; return; }
   tbody.innerHTML = items.map(i=>{
     const util = i.precio - i.costo;
     const status = i.pz <= 0 ? '<span class="badge-pill badge-red">Agotado</span>' : i.pz <= 2 ? '<span class="badge-pill badge-accent">Bajo</span>' : '<span class="badge-pill badge-green">OK</span>';
