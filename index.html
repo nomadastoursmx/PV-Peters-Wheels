@@ -351,6 +351,10 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
         <div class="card-title">🏪 Inventario de Sucursal <span class="badge" id="inv-suc-count">0 productos</span></div>
         <div class="form-row" style="margin-bottom:12px">
           <input type="text" id="inv-suc-search" placeholder="🔍 Buscar..." oninput="renderSucursalInventory()" style="flex:1">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer;white-space:nowrap;padding:0 4px">
+            <input type="checkbox" id="inv-suc-solo-disponibles" onchange="renderSucursalInventory()" style="width:auto;accent-color:var(--accent)">
+            Solo con existencias
+          </label>
         </div>
         <div class="table-wrap">
           <table>
@@ -1211,6 +1215,8 @@ function renderSucursalInventory() {
     return i.sucursal===suc || (sucObj && i.sucursal===sucObj.nombre) || (sucObj && i.sucursal==='suc_'+sucObj.nombre.replace(/\s+/g,'_').toLowerCase());
   });
   if (search) items = items.filter(i=>(i.codigo+i.descripcion+i.medida).toLowerCase().includes(search));
+  const soloDisponibles = document.getElementById('inv-suc-solo-disponibles')?.checked;
+  if (soloDisponibles) items = items.filter(i=>i.pz > 0);
   document.getElementById('inv-suc-count').textContent = items.length+' productos';
   const tbody = document.getElementById('inv-suc-tbody');
   if (!items.length) { tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin productos para esta sucursal.<br><span style="font-size:11px">Carga el inventario desde "Inventario Global → Cargar Inventario"</span></td></tr>`; return; }
@@ -1295,7 +1301,7 @@ function addProductRow() {
       <input type="text" id="prow-search-${id}" placeholder="Código o descripción..." oninput="filterProductSelect(${id})" style="width:100%;margin-bottom:4px">
       <select style="width:100%" onchange="onProductSelect(${id},this)" id="prow-codigo-${id}" size="1">
         <option value="">-- Seleccionar --</option>
-        ${DB.inventario.map(i=>`<option value="${i.codigo}|${i.sucursal}">${i.codigo} – ${i.descripcion}${i.medida?' '+i.medida:''}</option>`).join('')}
+        ${DB.inventario.filter(i=>i.pz>0).map(i=>`<option value="${i.codigo}|${i.sucursal}">${i.codigo} – ${i.descripcion}${i.medida?' '+i.medida:''} (${i.pz} pz)</option>`).join('')}
       </select>
     </div>
     <div>
@@ -1325,12 +1331,12 @@ function filterProductSelect(id) {
   const prev = sel.value;
   sel.innerHTML = '<option value="">-- Seleccionar --</option>';
   const filtered = q
-    ? DB.inventario.filter(i=>(i.codigo+' '+i.descripcion+' '+(i.medida||'')).toLowerCase().includes(q))
-    : DB.inventario;
+    ? DB.inventario.filter(i=>i.pz>0 && (i.codigo+' '+i.descripcion+' '+(i.medida||'')).toLowerCase().includes(q))
+    : DB.inventario.filter(i=>i.pz>0);
   filtered.forEach(i=>{
     const o = document.createElement('option');
     o.value = `${i.codigo}|${i.sucursal}`;
-    o.textContent = `${i.codigo} – ${i.descripcion}${i.medida?' '+i.medida:''}`;
+    o.textContent = `${i.codigo} – ${i.descripcion}${i.medida?' '+i.medida:''} (${i.pz} pz)`;
     sel.appendChild(o);
   });
   // Auto-select if only one result
@@ -1348,6 +1354,10 @@ function onProductSelect(id, sel) {
   document.getElementById(`prow-desc-${id}`).value = prod.descripcion + (prod.medida?' '+prod.medida:'');
   document.getElementById(`prow-costo-${id}`).value = prod.costo;
   document.getElementById(`prow-precio-${id}`).value = prod.precio;
+  const pzInput = document.getElementById(`prow-pz-${id}`);
+  pzInput.max = prod.pz;
+  pzInput.title = `Máx: ${prod.pz} pz disponibles`;
+  if (parseFloat(pzInput.value) > prod.pz) pzInput.value = prod.pz;
   recalcTotals();
 }
 function removeProductRow(id) {
@@ -1358,9 +1368,14 @@ function removeProductRow(id) {
 }
 function getProductRows() {
   return pvProductRows.map(id=>{
-    const codigo = (document.getElementById(`prow-codigo-${id}`)?.value||'').split('|')[0];
+    const codigoSuc = document.getElementById(`prow-codigo-${id}`)?.value||'';
+    const codigo = codigoSuc.split('|')[0];
+    const suc = codigoSuc.split('|')[1];
     const desc = document.getElementById(`prow-desc-${id}`)?.value||'';
-    const pz = parseFloat(document.getElementById(`prow-pz-${id}`)?.value)||0;
+    const pzInput = document.getElementById(`prow-pz-${id}`);
+    const maxPz = parseFloat(pzInput?.max)||Infinity;
+    let pz = parseFloat(pzInput?.value)||0;
+    if (pz > maxPz) { pz = maxPz; if(pzInput) pzInput.value = maxPz; }
     const costo = parseFloat(document.getElementById(`prow-costo-${id}`)?.value)||0;
     const precio = parseFloat(document.getElementById(`prow-precio-${id}`)?.value)||0;
     return { codigo, desc, pz, costo, precio, subtotalCosto:costo*pz, subtotal:precio*pz };
