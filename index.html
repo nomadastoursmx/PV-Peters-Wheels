@@ -1428,6 +1428,8 @@ function saveSale() {
   const fecha = document.getElementById('pv-fecha').value;
   const rows = getProductRows().filter(r=>r.precio>0||r.desc);
   if (!rows.length) { showAlert('sale-alert','error','Agrega al menos un producto'); return; }
+  if (!vale.trim()) { showAlert('sale-alert','error','El número de vale es obligatorio'); return; }
+  if (!vendedor) { showAlert('sale-alert','error','Selecciona un vendedor'); return; }
   if (!fecha) { showAlert('sale-alert','error','Selecciona la fecha'); return; }
   const metodo = document.getElementById('pv-metodo').value;
   const mp = DB.metodosPago.find(m=>m.nombre===metodo);
