@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peters Wheels – Sistema de Gestión</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0c0f;
+  --surface: #12151a;
+  --surface2: #1a1f27;
+  --surface3: #222832;
+  --border: #2a3340;
+  --accent: #e8b84b;
+  --accent2: #c9922a;
+  --red: #e84b4b;
+  --green: #4be87a;
+  --blue: #4b8de8;
+  --text: #eef1f5;
+  --text2: #8a9ab0;
+  --text3: #4a5a70;
+  --radius: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Barlow', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: var(--surface); } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* LAYOUT */
+.app { display: flex; min-height: 100vh; }
+
+/* SIDEBAR */
+.sidebar {
+  width: 220px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100;
+}
+.logo-area {
+  padding: 20px 16px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px;
+}
+.logo-img { width: 42px; height: 42px; border-radius: 8px; object-fit: contain; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; overflow: hidden; }
+.logo-img img { width: 100%; height: 100%; object-fit: contain; }
+.logo-text { line-height: 1.1; }
+.logo-text .brand { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; color: var(--accent); }
+.logo-text .sub { font-size: 10px; color: var(--text2); letter-spacing: 2px; text-transform: uppercase; }
+nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
+.nav-section { margin-bottom: 20px; }
+.nav-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text3); padding: 0 8px; margin-bottom: 6px; font-weight: 600; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px;
+  cursor: pointer; font-size: 13px; color: var(--text2); transition: all .18s; margin-bottom: 2px;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: linear-gradient(135deg,rgba(232,184,75,.18),rgba(201,146,42,.08)); color: var(--accent); border-left: 2px solid var(--accent); }
+.nav-item .icon { font-size: 16px; flex-shrink: 0; }
+.sidebar-footer { padding: 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text3); text-align: center; }
+
+/* MAIN */
+.main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px;
+  height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50;
+}
+.topbar-title { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.date-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 14px; font-size: 12px; color: var(--text2); }
+.sucursal-badge { background: var(--accent); color: #000; border-radius: 20px; padding: 5px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+/* CONTENT */
+.content { flex: 1; padding: 24px 28px; }
+.section { display: none; }
+.section.active { display: block; }
+
+/* CARDS */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+.card-title { font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: .5px; margin-bottom: 16px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.card-title .badge { background: var(--accent); color: #000; border-radius: 4px; padding: 1px 8px; font-size: 11px; font-weight: 700; }
+
+/* GRID */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+/* STAT CARDS */
+.stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.stat-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; }
+.stat-value.green { color: var(--green); } .stat-value.accent { color: var(--accent); } .stat-value.red { color: var(--red); } .stat-value.blue { color: var(--blue); }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* FORMS */
+.form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px; }
+.form-group.full { flex: 100%; }
+.form-group.w2 { flex: 2; }
+label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: .5px; text-transform: uppercase; }
+input, select, textarea {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  color: var(--text); font-family: 'Barlow', sans-serif; font-size: 13px; padding: 9px 12px;
+  outline: none; transition: border-color .15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+textarea { resize: vertical; min-height: 70px; }
+select option { background: var(--surface2); }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 600; transition: all .15s; }
+.btn-primary { background: var(--accent); color: #000; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-danger { background: rgba(232,75,75,.15); color: var(--red); border: 1px solid rgba(232,75,75,.3); }
+.btn-danger:hover { background: rgba(232,75,75,.25); }
+.btn-green { background: rgba(75,232,122,.15); color: var(--green); border: 1px solid rgba(75,232,122,.3); }
+.btn-green:hover { background: rgba(75,232,122,.25); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* TABLES */
+.table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead { background: var(--surface2); }
+th { padding: 10px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); font-weight: 700; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 9px 12px; border-bottom: 1px solid rgba(42,51,64,.5); color: var(--text); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,.02); }
+.td-right { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* TABS */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.tab { padding: 10px 18px; cursor: pointer; font-size: 13px; color: var(--text2); border-bottom: 2px solid transparent; transition: all .15s; font-weight: 600; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* BADGE */
+.badge-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-green { background: rgba(75,232,122,.15); color: var(--green); }
+.badge-red { background: rgba(232,75,75,.15); color: var(--red); }
+.badge-accent { background: rgba(232,184,75,.15); color: var(--accent); }
+.badge-blue { background: rgba(75,141,232,.15); color: var(--blue); }
+
+/* DIVIDER */
+.divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* ALERT */
+.alert { border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; }
+.alert-success { background: rgba(75,232,122,.1); border: 1px solid rgba(75,232,122,.3); color: var(--green); }
+.alert-warning { background: rgba(232,184,75,.1); border: 1px solid rgba(232,184,75,.3); color: var(--accent); }
+.alert-error { background: rgba(232,75,75,.1); border: 1px solid rgba(232,75,75,.3); color: var(--red); }
+
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; max-width: 600px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow); }
+.modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 20px; color: var(--accent); }
+
+/* PRODUCT ROWS */
+.product-row { display: grid; grid-template-columns: 2fr 3fr 1fr 1fr 1fr 40px; gap: 8px; align-items: start; margin-bottom: 8px; }
+.sale-total-box { background: var(--surface2); border: 1px solid var(--accent); border-radius: var(--radius); padding: 16px; }
+.total-line { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.total-line:last-child { border-bottom: none; font-family: 'Bebas Neue', sans-serif; font-size: 22px; }
+.total-line .lbl { color: var(--text2); }
+.total-line .val { color: var(--accent); font-weight: 700; }
+.total-line:last-child .val { font-size: 26px; }
+
+/* CHART WRAPPER */
+.chart-wrap { position: relative; height: 260px; }
+
+/* UPLOAD AREA */
+.upload-area { border: 2px dashed var(--border); border-radius: var(--radius); padding: 30px; text-align: center; cursor: pointer; transition: all .2s; }
+.upload-area:hover, .upload-area.drag { border-color: var(--accent); background: rgba(232,184,75,.05); }
+.upload-area .icon { font-size: 36px; margin-bottom: 10px; }
+.upload-area p { font-size: 13px; color: var(--text2); }
+.upload-area strong { color: var(--accent); }
+
+/* SUCURSAL SELECT */
+.sucursal-selector { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; padding: 14px; background: var(--surface2); border-radius: var(--radius); border: 1px solid var(--border); }
+
+/* RESPONSIVE ADJUSTMENTS */
+@media (max-width: 900px) {
+  .grid-4 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .sidebar { width: 56px; min-width: 56px; }
+  .logo-text, .nav-item span, .nav-label { display: none; }
+  .main { margin-left: 56px; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .product-row { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+/* SWITCH */
+.switch { position: relative; display: inline-block; width: 38px; height: 20px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; inset: 0; background: var(--border); border-radius: 20px; transition: .3s; }
+.slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background: var(--text2); border-radius: 50%; transition: .3s; }
+input:checked + .slider { background: var(--accent); }
+input:checked + .slider:before { transform: translateX(18px); background: #000; }
+
+/* COMMISSION INFO */
+.commission-tag { font-size: 11px; color: var(--accent); background: rgba(232,184,75,.1); border-radius: 4px; padding: 2px 6px; margin-left: 6px; }
+
+/* PRINT HIDE */
+@media print { .sidebar, .topbar, .btn, .tabs { display: none !important; } .main { margin: 0; } }
+</style>
+</head>
+<body>
+<div class="app">
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo-area">
+    <div class="logo-img" id="sidebarLogo">🔧</div>
+    <div class="logo-text">
+      <div class="brand">Peters Wheels</div>
+      <div class="sub">Sistema de Gestión</div>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-section">
+      <div class="nav-label">Principal</div>
+      <div class="nav-item active" onclick="showSection('dashboard')"><span class="icon">📊</span><span>Dashboard</span></div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Operaciones</div>
+      <div class="nav-item" onclick="showSection('inventario-global')"><span class="icon">📦</span><span>Inventario Global</span></div>
+      <div class="nav-item" onclick="showSection('inventario-sucursal')"><span class="icon">🏪</span><span>Inv. Sucursal</span></div>
+      <div class="nav-item" onclick="showSection('punto-venta')"><span class="icon">💰</span><span>Punto de Venta</span></div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Análisis</div>
+      <div class="nav-item" onclick="showSection('reportes')"><span class="icon">📈</span><span>Reportes</span></div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Sistema</div>
+      <div class="nav-item" onclick="showSection('configuracion')"><span class="icon">⚙️</span><span>Configuración</span></div>
+    </div>
+  </nav>
+  <div class="sidebar-footer">v2.0 · Peters Wheels</div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbarTitle">DASHBOARD</div>
+    <div class="topbar-right">
+      <div class="date-badge" id="dateBadge"></div>
+      <div class="sucursal-badge" onclick="showSection('configuracion')" id="sucursalBadge">SUCURSAL 1</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ═══════════════════════════════ DASHBOARD ═══════════════════════════════ -->
+    <div class="section active" id="section-dashboard">
+      <div class="grid-4" style="margin-bottom:20px">
+        <div class="stat-card">
+          <div class="stat-label">Ventas Hoy</div>
+          <div class="stat-value accent" id="dash-ventas-hoy">$0</div>
+          <div class="stat-sub" id="dash-ventas-hoy-n">0 operaciones</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Ventas del Mes</div>
+          <div class="stat-value green" id="dash-ventas-mes">$0</div>
+          <div class="stat-sub" id="dash-ventas-mes-n">0 operaciones</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Gastos del Mes</div>
+          <div class="stat-value red" id="dash-gastos-mes">$0</div>
+          <div class="stat-sub">Incl. comisiones</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Productos en Inventario</div>
+          <div class="stat-value blue" id="dash-productos">0</div>
+          <div class="stat-sub" id="dash-sucursal-nombre">Sucursal activa</div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">📅 Ventas últimos 7 días</div>
+          <div class="chart-wrap"><canvas id="chartDashVentas"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">💳 Métodos de Pago (mes)</div>
+          <div class="chart-wrap"><canvas id="chartDashMetodos"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🕒 Últimas ventas registradas</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Vale</th><th>Fecha</th><th>Vendedor</th><th>Método</th><th>Sucursal</th><th class="td-right">Total</th></tr></thead>
+            <tbody id="dash-tabla-ventas"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Sin ventas registradas</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ INVENTARIO GLOBAL ═══════════════════════════════ -->
+    <div class="section" id="section-inventario-global">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(this,'inv-global-carga')">📥 Cargar Inventario</div>
+        <div class="tab" onclick="switchTab(this,'inv-global-ver')">📋 Ver Inventario</div>
+      </div>
+      <div id="inv-global-carga">
+        <div class="card">
+          <div class="card-title">📥 Carga de Inventario por CSV</div>
+          <div class="alert alert-warning">El CSV debe contener: <strong>sucursal, codigo, descripcion, medida, pz, costo, precio</strong></div>
+          <div class="upload-area" id="csvDropArea" onclick="document.getElementById('csvFileInput').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleCSVDrop(event)">
+            <div class="icon">📂</div>
+            <p>Arrastra tu archivo CSV aquí o <strong>haz clic para seleccionar</strong></p>
+            <p style="margin-top:8px;font-size:11px">Formatos aceptados: .csv</p>
+          </div>
+          <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="loadCSVFile(this)">
+          <div class="btn-group" style="margin-top:16px">
+            <button class="btn btn-secondary" onclick="downloadTemplate()">📄 Descargar Plantilla CSV</button>
+            <button class="btn btn-primary" onclick="processCSV()">✅ Procesar e Importar</button>
+          </div>
+          <div id="csv-preview" style="margin-top:16px"></div>
+        </div>
+      </div>
+      <div id="inv-global-ver" style="display:none">
+        <div class="card">
+          <div class="card-title">📋 Inventario Global <span class="badge" id="inv-global-count">0 productos</span></div>
+          <div class="form-row" style="margin-bottom:12px">
+            <input type="text" id="inv-global-search" placeholder="🔍 Buscar por código, descripción, sucursal..." oninput="renderGlobalInventory()" style="flex:1">
+            <select id="inv-global-filter-suc" onchange="renderGlobalInventory()"><option value="">Todas las sucursales</option></select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Sucursal</th><th>Código</th><th>Descripción / Medida</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio Venta</th><th class="td-right">Utilidad</th></tr></thead>
+              <tbody id="inv-global-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ INVENTARIO SUCURSAL ═══════════════════════════════ -->
+    <div class="section" id="section-inventario-sucursal">
+      <div class="sucursal-selector">
+        <span style="font-size:13px;color:var(--text2);font-weight:600">SUCURSAL ACTIVA:</span>
+        <select id="inv-suc-selector" onchange="loadSucursalInventory()" style="flex:1;max-width:220px"></select>
+        <button class="btn btn-secondary btn-sm" onclick="showAddMovModal('entrada')">➕ Recibir mercancía</button>
+        <button class="btn btn-secondary btn-sm" onclick="showAddMovModal('salida')">➖ Dar salida</button>
+      </div>
+      <div class="card">
+        <div class="card-title">🏪 Inventario de Sucursal <span class="badge" id="inv-suc-count">0 productos</span></div>
+        <div class="form-row" style="margin-bottom:12px">
+          <input type="text" id="inv-suc-search" placeholder="🔍 Buscar..." oninput="renderSucursalInventory()" style="flex:1">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Código</th><th>Descripción / Medida</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th><th class="td-right">Utilidad</th><th>Estado</th></tr></thead>
+            <tbody id="inv-suc-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 Movimientos Recientes</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Tipo</th><th>Código</th><th>Descripción</th><th class="td-right">Cantidad</th><th>Motivo</th></tr></thead>
+            <tbody id="mov-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ PUNTO DE VENTA ═══════════════════════════════ -->
+    <div class="section" id="section-punto-venta">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(this,'pv-venta')">🧾 Nueva Venta</div>
+        <div class="tab" onclick="switchTab(this,'pv-gastos')">💸 Gastos Generales</div>
+        <div class="tab" onclick="switchTab(this,'pv-historial')">📋 Historial del Día</div>
+      </div>
+
+      <!-- NUEVA VENTA -->
+      <div id="pv-venta">
+        <div class="grid-2">
+          <div>
+            <div class="card">
+              <div class="card-title">📝 Datos de la Venta</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>N° de Vale</label>
+                  <input type="text" id="pv-vale" placeholder="001">
+                </div>
+                <div class="form-group">
+                  <label>Vendedor</label>
+                  <select id="pv-vendedor"><option value="">-- Seleccionar --</option></select>
+                </div>
+                <div class="form-group">
+                  <label>Fecha</label>
+                  <input type="date" id="pv-fecha">
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🛒 Productos de la Venta</div>
+              <div id="product-rows"></div>
+              <button class="btn btn-secondary btn-sm" onclick="addProductRow()">➕ Agregar producto</button>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🔄 Mercancía Recibida a Cambio</div>
+              <div class="form-row">
+                <div class="form-group w2">
+                  <label>Descripción del producto recibido</label>
+                  <input type="text" id="pv-cambio-desc" placeholder="Ej: Llanta usada 195/65R15">
+                </div>
+                <div class="form-group">
+                  <label>Valor recibido ($)</label>
+                  <input type="number" id="pv-cambio-valor" placeholder="0.00" oninput="recalcTotals()">
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🚖 Taxi / Flete</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label><label class="switch"><input type="checkbox" id="pv-taxi-check" onchange="toggleTaxi()"><span class="slider"></span></label> ¿Usó taxi?</label>
+                </div>
+                <div class="form-group" id="pv-taxi-group" style="display:none">
+                  <label>Costo del taxi ($)</label>
+                  <input type="number" id="pv-taxi-costo" placeholder="0.00" oninput="recalcTotals()">
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">💳 Método de Pago</div>
+              <div class="form-row">
+                <div class="form-group w2">
+                  <label>Método <span id="pv-commission-info" class="commission-tag" style="display:none"></span></label>
+                  <select id="pv-metodo" onchange="onPaymentMethodChange()"><option value="">-- Seleccionar --</option></select>
+                </div>
+                <div class="form-group">
+                  <label>¿Requiere factura?</label>
+                  <select id="pv-factura" onchange="toggleFactura()"><option value="no">No</option><option value="si">Sí</option></select>
+                </div>
+              </div>
+              <div id="pv-factura-fields" style="display:none">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Nombre para factura</label>
+                    <input type="text" id="pv-factura-nombre">
+                  </div>
+                  <div class="form-group">
+                    <label>RFC</label>
+                    <input type="text" id="pv-factura-rfc">
+                  </div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group full">
+                  <label>Comentario de venta</label>
+                  <textarea id="pv-comentario" placeholder="Notas, observaciones..."></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RESUMEN -->
+          <div>
+            <div class="card" style="position:sticky;top:76px">
+              <div class="card-title">🧮 Resumen de Venta</div>
+              <div class="sale-total-box">
+                <div class="total-line"><span class="lbl">Subtotal productos</span><span class="val" id="res-subtotal">$0.00</span></div>
+                <div class="total-line"><span class="lbl">Mercancía a cambio</span><span class="val red" id="res-cambio">-$0.00</span></div>
+                <div class="total-line"><span class="lbl">Comisión método pago</span><span class="val red" id="res-comision">$0.00</span></div>
+                <div class="total-line"><span class="lbl">Costo taxi</span><span class="val red" id="res-taxi">$0.00</span></div>
+                <div class="total-line"><span class="lbl">Costo total (gastos)</span><span class="val red" id="res-costo-total">$0.00</span></div>
+                <hr class="divider" style="margin:8px 0">
+                <div class="total-line"><span class="lbl">Precio a cobrar al cliente</span><span class="val" id="res-precio-cobrar">$0.00</span></div>
+                <div class="total-line"><span class="lbl">Utilidad estimada</span><span class="val green" id="res-utilidad">$0.00</span></div>
+                <div class="total-line"><span class="lbl">Comisión vendedor</span><span class="val accent" id="res-comision-vendedor">$0.00</span></div>
+                <hr class="divider" style="margin:8px 0">
+                <div class="total-line"><span class="lbl">TOTAL A COBRAR</span><span class="val" id="res-total">$0.00</span></div>
+              </div>
+              <div style="margin-top:16px">
+                <button class="btn btn-primary" style="width:100%" onclick="saveSale()">✅ Registrar Venta</button>
+                <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="clearSaleForm()">🗑️ Limpiar</button>
+              </div>
+              <div id="sale-alert" style="margin-top:12px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GASTOS GENERALES -->
+      <div id="pv-gastos" style="display:none">
+        <div class="card">
+          <div class="card-title">💸 Registrar Gasto General</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Fecha</label>
+              <input type="date" id="gasto-fecha">
+            </div>
+            <div class="form-group w2">
+              <label>Concepto</label>
+              <input type="text" id="gasto-concepto" placeholder="Ej: Gasolina, papelería...">
+            </div>
+            <div class="form-group">
+              <label>Monto ($)</label>
+              <input type="number" id="gasto-monto" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label>Sucursal</label>
+              <select id="gasto-sucursal"></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group full">
+              <label>Notas</label>
+              <input type="text" id="gasto-notas" placeholder="Opcional">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="saveGasto()">➕ Registrar Gasto</button>
+        </div>
+        <div class="card">
+          <div class="card-title">📋 Gastos Registrados</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Concepto</th><th>Sucursal</th><th class="td-right">Monto</th><th>Notas</th><th></th></tr></thead>
+              <tbody id="gastos-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- HISTORIAL DEL DÍA -->
+      <div id="pv-historial" style="display:none">
+        <div class="card">
+          <div class="card-title">📋 Ventas del Día <span class="badge" id="historial-count">0</span></div>
+          <div class="form-row" style="margin-bottom:12px">
+            <div class="form-group">
+              <label>Filtrar por fecha</label>
+              <input type="date" id="historial-fecha" oninput="renderHistorial()">
+            </div>
+            <div class="form-group">
+              <label>Sucursal</label>
+              <select id="historial-suc" onchange="renderHistorial()"><option value="">Todas</option></select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Vale</th><th>Vendedor</th><th>Método</th><th>Factura</th><th class="td-right">Subtotal</th><th class="td-right">Comisión</th><th class="td-right">Total</th><th></th></tr></thead>
+              <tbody id="historial-tbody"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px">
+            <div style="background:var(--surface2);border-radius:8px;padding:10px 20px;font-size:13px;color:var(--text2)">
+              Total del día: <strong class="accent" id="historial-total" style="color:var(--accent)">$0.00</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ REPORTES ═══════════════════════════════ -->
+    <div class="section" id="section-reportes">
+      <div class="card">
+        <div class="card-title">📊 Filtros de Reporte</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Mes</label>
+            <input type="month" id="rep-mes" oninput="renderReportes()">
+          </div>
+          <div class="form-group">
+            <label>Sucursal</label>
+            <select id="rep-sucursal" onchange="renderReportes()"><option value="">Todas</option></select>
+          </div>
+          <div class="form-group" style="justify-content:flex-end;padding-top:20px">
+            <div class="btn-group">
+              <button class="btn btn-secondary" onclick="downloadReportPDF()">📄 PDF</button>
+              <button class="btn btn-secondary" onclick="downloadReportCSV()">📊 CSV</button>
+              <button class="btn btn-green" onclick="shareWhatsApp()">💬 WhatsApp</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-4" id="rep-stats" style="margin-bottom:16px"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">📅 Ventas por Día</div>
+          <div class="chart-wrap"><canvas id="chartRepVentas"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">💳 Métodos de Pago</div>
+          <div class="chart-wrap"><canvas id="chartRepMetodos"></canvas></div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">💸 Resumen de Gastos y Comisiones</div>
+          <div class="chart-wrap"><canvas id="chartRepGastos"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🔄 Productos Recibidos a Cambio</div>
+          <div class="table-wrap" style="max-height:240px;overflow-y:auto">
+            <table>
+              <thead><tr><th>Descripción</th><th class="td-right">Valor</th><th>Fecha</th></tr></thead>
+              <tbody id="rep-cambio-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 Detalle de Ventas del Período</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Vale</th><th>Fecha</th><th>Sucursal</th><th>Vendedor</th><th>Método</th><th class="td-right">Subtotal</th><th class="td-right">Com. Tarj.</th><th class="td-right">Com. Vend.</th><th class="td-right">Taxi</th><th class="td-right">Total</th></tr></thead>
+            <tbody id="rep-tabla-ventas"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ CONFIGURACIÓN ═══════════════════════════════ -->
+    <div class="section" id="section-configuracion">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(this,'cfg-general')">⚙️ General</div>
+        <div class="tab" onclick="switchTab(this,'cfg-sucursales')">🏪 Sucursales</div>
+        <div class="tab" onclick="switchTab(this,'cfg-vendedores')">👤 Vendedores</div>
+        <div class="tab" onclick="switchTab(this,'cfg-metodos')">💳 Métodos de Pago</div>
+        <div class="tab" onclick="switchTab(this,'cfg-datos')">💾 Datos</div>
+      </div>
+
+      <div id="cfg-general">
+        <div class="card">
+          <div class="card-title">🏢 Información General</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nombre del Negocio</label>
+              <input type="text" id="cfg-nombre" value="Peters Wheels">
+            </div>
+            <div class="form-group">
+              <label>Logo (Google Drive Image ID)</label>
+              <input type="text" id="cfg-logo-id" placeholder="ID del archivo en Google Drive">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Comisión a vendedor por utilidad (%)</label>
+              <input type="number" id="cfg-comision-pct" placeholder="Ej: 5" min="0" max="100" step="0.5">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="saveConfig()">💾 Guardar Configuración</button>
+        </div>
+        <div class="card">
+          <div class="card-title">🖼️ Vista previa del Logo</div>
+          <div id="logo-preview" style="width:120px;height:120px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:40px;overflow:hidden">🔧</div>
+          <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="previewLogo()">🔄 Cargar Logo</button>
+          <p style="font-size:11px;color:var(--text3);margin-top:6px">Ingresa el ID del archivo de Google Drive. El archivo debe ser público o compartido con vista.</p>
+        </div>
+      </div>
+
+      <div id="cfg-sucursales" style="display:none">
+        <div class="card">
+          <div class="card-title">🏪 Sucursales</div>
+          <div class="form-row">
+            <div class="form-group w2">
+              <label>Nombre de Sucursal</label>
+              <input type="text" id="cfg-suc-nombre" placeholder="Ej: Sucursal Centro">
+            </div>
+            <div class="form-group" style="justify-content:flex-end;padding-top:20px">
+              <button class="btn btn-primary" onclick="addSucursal()">➕ Agregar</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>ID</th><th>Nombre</th><th>Productos</th><th></th></tr></thead>
+              <tbody id="cfg-suc-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="cfg-vendedores" style="display:none">
+        <div class="card">
+          <div class="card-title">👤 Vendedores</div>
+          <div class="form-row">
+            <div class="form-group w2">
+              <label>Nombre del Vendedor</label>
+              <input type="text" id="cfg-vend-nombre" placeholder="Nombre completo">
+            </div>
+            <div class="form-group" style="justify-content:flex-end;padding-top:20px">
+              <button class="btn btn-primary" onclick="addVendedor()">➕ Agregar</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nombre</th><th></th></tr></thead>
+              <tbody id="cfg-vend-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="cfg-metodos" style="display:none">
+        <div class="card">
+          <div class="card-title">💳 Métodos de Pago y Comisiones</div>
+          <div class="form-row">
+            <div class="form-group w2">
+              <label>Nombre del Método</label>
+              <input type="text" id="cfg-mp-nombre" placeholder="Ej: EFECTIVO">
+            </div>
+            <div class="form-group">
+              <label>Factor de comisión (K6/X.XX)</label>
+              <input type="text" id="cfg-mp-factor" placeholder="Ej: 1.04 o sin comisión">
+            </div>
+            <div class="form-group" style="justify-content:flex-end;padding-top:20px">
+              <button class="btn btn-primary" onclick="addMetodoPago()">➕ Agregar</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Método</th><th>Factor</th><th>Comisión aprox.</th><th></th></tr></thead>
+              <tbody id="cfg-mp-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="cfg-datos" style="display:none">
+        <div class="card">
+          <div class="card-title">💾 Respaldo de Datos</div>
+          <div class="btn-group">
+            <button class="btn btn-primary" onclick="exportJSON()">⬇️ Descargar JSON</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('importJSON').click()">⬆️ Cargar JSON</button>
+          </div>
+          <input type="file" id="importJSON" accept=".json" style="display:none" onchange="importJSONFile(this)">
+          <p style="margin-top:12px;font-size:12px;color:var(--text3)">Descarga el archivo JSON para hacer respaldo de toda la información o carga uno para restaurar.</p>
+          <hr class="divider">
+          <button class="btn btn-danger" onclick="if(confirm('¿Eliminar TODOS los datos? Esta acción no se puede deshacer.'))clearAllData()">🗑️ Borrar todos los datos</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- MODAL MOVIMIENTO INVENTARIO -->
+<div class="modal-overlay" id="modalMov">
+  <div class="modal">
+    <div class="modal-title" id="modalMovTitle">Movimiento de Inventario</div>
+    <div class="form-row">
+      <div class="form-group w2">
+        <label>Buscar Producto (código o descripción)</label>
+        <input type="text" id="mov-search" placeholder="Ej: LLN-195..." oninput="filterMovProducts()">
+      </div>
+    </div>
+    <div id="mov-products-list" style="max-height:200px;overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:8px"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Cantidad</label>
+        <input type="number" id="mov-cantidad" placeholder="0" min="1">
+      </div>
+      <div class="form-group w2">
+        <label>Motivo / Referencia</label>
+        <input type="text" id="mov-motivo" placeholder="Ej: Traslado de bodega, ajuste...">
+      </div>
+    </div>
+    <div id="mov-selected" style="background:var(--surface2);border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px;color:var(--text2)">Ningún producto seleccionado</div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveMovimiento()">✅ Guardar</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalMov')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE VENTA -->
+<div class="modal-overlay" id="modalVentaDetail">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-title">📋 Detalle de Venta</div>
+    <div id="venta-detail-content"></div>
+    <div class="btn-group" style="margin-top:16px">
+      <button class="btn btn-secondary" onclick="closeModal('modalVentaDetail')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════ STATE ═══════════
+let DB = {
+  config: {
+    nombre: 'Peters Wheels',
+    logoId: '',
+    comisionPct: 5,
+  },
+  sucursales: [
+    { id: 's1', nombre: 'Sucursal 1' },
+    { id: 's2', nombre: 'Sucursal 2' },
+  ],
+  vendedores: ['Juan Pérez','María López'],
+  metodosPago: [
+    { nombre: 'EFECTIVO', factor: null },
+    { nombre: 'DISPOSITIVO IZETTLE', factor: 1.04 },
+    { nombre: 'MERCADO PAGO', factor: 1.06 },
+    { nombre: 'TRANSFERENCIA BBVA', factor: null },
+    { nombre: 'KONFIO', factor: null },
+    { nombre: 'TRANSFERENCIA SANT', factor: null },
+    { nombre: 'CREDITO', factor: null },
+    { nombre: 'TPV BANAMEX', factor: null },
+    { nombre: 'TPV BBVA CREDITO', factor: 1.02 },
+    { nombre: 'TPV BBVA DEBITO', factor: 1.02 },
+    { nombre: 'TPV SANTANDER CREDITO', factor: 1.02 },
+    { nombre: 'TPV SANTANDER DEBITO', factor: 1.02 },
+    { nombre: 'TRANSFERENCIA BANAMEX', factor: null },
+    { nombre: '3MESES-IZETTLE', factor: 1.09 },
+    { nombre: '6MESES-IZETTLE', factor: 1.125 },
+    { nombre: '9MESES-IZETTLE', factor: 1.1479 },
+    { nombre: '12MESES-IZETTLE', factor: 1.1827 },
+    { nombre: '3MESES-KONFIO', factor: 1.08345 },
+    { nombre: '6MESES-KONFIO', factor: 1.11832 },
+    { nombre: '9MESES-KONFIO', factor: 1.15688 },
+    { nombre: '12MESES-KONFIO', factor: 1.20544 },
+    { nombre: 'SR PAGO', factor: 1.035 },
+    { nombre: 'DISPOSITIVO AZTECA', factor: 1.04 },
+  ],
+  inventario: [], // {sucursal, codigo, descripcion, medida, pz, costo, precio}
+  ventas: [],     // sale objects
+  gastos: [],     // expense objects
+  movimientos: [],// inventory movements
+};
+
+let csvBuffer = [];
+let movType = 'entrada';
+let movSelectedProduct = null;
+let pvProductRows = [];
+let pvRowId = 0;
+let dashCharts = {};
+
+// ═══════════ INIT ═══════════
+function init() {
+  loadFromStorage();
+  setTodayDates();
+  renderAll();
+  updateDateBadge();
+  refreshSelectsGlobal();
+  updateLogoDisplay();
+}
+
+function loadFromStorage() {
+  const saved = localStorage.getItem('peters_wheels_db');
+  if (saved) {
+    try { DB = JSON.parse(saved); } catch(e) {}
+  }
+}
+function saveToStorage() { localStorage.setItem('peters_wheels_db', JSON.stringify(DB)); }
+function setTodayDates() {
+  const today = new Date().toISOString().slice(0,10);
+  const ym = today.slice(0,7);
+  if (document.getElementById('pv-fecha')) document.getElementById('pv-fecha').value = today;
+  if (document.getElementById('gasto-fecha')) document.getElementById('gasto-fecha').value = today;
+  if (document.getElementById('historial-fecha')) document.getElementById('historial-fecha').value = today;
+  if (document.getElementById('rep-mes')) document.getElementById('rep-mes').value = ym;
+}
+function updateDateBadge() {
+  const now = new Date();
+  document.getElementById('dateBadge').textContent = now.toLocaleDateString('es-MX',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+}
+
+// ═══════════ NAVIGATION ═══════════
+const sectionTitles = {
+  'dashboard':'DASHBOARD','inventario-global':'INVENTARIO GLOBAL','inventario-sucursal':'INV. SUCURSAL',
+  'punto-venta':'PUNTO DE VENTA','reportes':'REPORTES','configuracion':'CONFIGURACIÓN'
+};
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const sec = document.getElementById('section-'+id);
+  if (sec) sec.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'"+id+"'")) n.classList.add('active');
+  });
+  document.getElementById('topbarTitle').textContent = sectionTitles[id]||id.toUpperCase();
+  if (id==='dashboard') renderDashboard();
+  if (id==='inventario-global') renderGlobalInventory();
+  if (id==='inventario-sucursal') { refreshSucursalSelect(); loadSucursalInventory(); }
+  if (id==='punto-venta') { refreshPVSelects(); if (!pvProductRows.length) addProductRow(); }
+  if (id==='reportes') renderReportes();
+  if (id==='configuracion') renderConfig();
+}
+function switchTab(el, targetId) {
+  const parent = el.closest('.card, .section');
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const siblings = el.closest('.tabs').nextElementSibling;
+  // find all tab content siblings
+  let node = el.closest('.tabs').nextElementSibling;
+  while (node) {
+    if (!node.classList.contains('tabs')) {
+      node.style.display = node.id === targetId ? '' : 'none';
+    }
+    node = node.nextElementSibling;
+  }
+}
+
+// ═══════════ GLOBAL SELECTS REFRESH ═══════════
+function refreshSelectsGlobal() {
+  // Sucursal selects
+  ['inv-suc-selector','historial-suc','rep-sucursal','gasto-sucursal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const val = el.value;
+    const hasAll = el.options[0]&&el.options[0].value==='';
+    el.innerHTML = (hasAll ? '<option value="">Todas</option>' : '');
+    DB.sucursales.forEach(s => {
+      const o = document.createElement('option'); o.value=s.id; o.textContent=s.nombre; el.appendChild(o);
+    });
+    el.value = val;
+  });
+  // global filter
+  const gf = document.getElementById('inv-global-filter-suc');
+  if (gf) {
+    gf.innerHTML = '<option value="">Todas las sucursales</option>';
+    DB.sucursales.forEach(s => { const o=document.createElement('option');o.value=s.id;o.textContent=s.nombre;gf.appendChild(o); });
+  }
+  // Vendedores
+  ['pv-vendedor'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '<option value="">-- Seleccionar --</option>';
+    DB.vendedores.forEach(v => { const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o); });
+  });
+  // Métodos de pago
+  const mpEl = document.getElementById('pv-metodo');
+  if (mpEl) {
+    mpEl.innerHTML = '<option value="">-- Seleccionar --</option>';
+    DB.metodosPago.forEach(m => { const o=document.createElement('option');o.value=m.nombre;o.textContent=m.nombre+(m.factor?` (×${m.factor})`:'');mpEl.appendChild(o); });
+  }
+  // Sucursal badge
+  const activeSuc = DB.sucursales[0];
+  if (activeSuc) document.getElementById('sucursalBadge').textContent = activeSuc.nombre.toUpperCase();
+}
+function refreshPVSelects() { refreshSelectsGlobal(); }
+
+// ═══════════ LOGO ═══════════
+function updateLogoDisplay() {
+  if (!DB.config.logoId) return;
+  const url = `https://drive.google.com/thumbnail?id=${DB.config.logoId}&sz=w200`;
+  ['sidebarLogo','logo-preview'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (id==='sidebarLogo') { el.innerHTML = `<img src="${url}" alt="Logo" onerror="this.parentElement.innerHTML='🔧'">`; }
+    else { el.innerHTML = `<img src="${url}" alt="Logo" style="width:100%;height:100%;object-fit:contain" onerror="this.innerHTML='🔧'">`; }
+  });
+}
+function previewLogo() {
+  const id = document.getElementById('cfg-logo-id').value.trim();
+  DB.config.logoId = id;
+  updateLogoDisplay();
+  saveToStorage();
+}
+
+// ═══════════ DASHBOARD ═══════════
+function renderDashboard() {
+  const today = new Date().toISOString().slice(0,10);
+  const ym = today.slice(0,7);
+  const ventasHoy = DB.ventas.filter(v=>v.fecha===today);
+  const ventasMes = DB.ventas.filter(v=>v.fecha&&v.fecha.startsWith(ym));
+  const gastosMes = DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(ym));
+  const totalHoy = ventasHoy.reduce((a,v)=>a+(v.precioTotal||0),0);
+  const totalMes = ventasMes.reduce((a,v)=>a+(v.precioTotal||0),0);
+  const totalGastos = gastosMes.reduce((a,g)=>a+(g.monto||0),0) + ventasMes.reduce((a,v)=>a+(v.comisionTarjeta||0),0);
+  document.getElementById('dash-ventas-hoy').textContent = fmt(totalHoy);
+  document.getElementById('dash-ventas-hoy-n').textContent = ventasHoy.length+' operaciones';
+  document.getElementById('dash-ventas-mes').textContent = fmt(totalMes);
+  document.getElementById('dash-ventas-mes-n').textContent = ventasMes.length+' operaciones';
+  document.getElementById('dash-gastos-mes').textContent = fmt(totalGastos);
+  document.getElementById('dash-productos').textContent = DB.inventario.length;
+  document.getElementById('dash-sucursal-nombre').textContent = DB.sucursales[0]?.nombre||'';
+
+  // Last 5 sales
+  const tbody = document.getElementById('dash-tabla-ventas');
+  const last = [...DB.ventas].reverse().slice(0,8);
+  if (!last.length) { tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Sin ventas registradas</td></tr>'; }
+  else tbody.innerHTML = last.map(v=>`<tr><td>${v.vale||'-'}</td><td>${v.fecha||'-'}</td><td>${v.vendedor||'-'}</td><td><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></td><td>${getSucNombre(v.sucursal)}</td><td class="td-right">${fmt(v.precioTotal||0)}</td></tr>`).join('');
+
+  // Charts
+  const labels7 = []; const data7 = [];
+  for(let i=6;i>=0;i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const ds = d.toISOString().slice(0,10);
+    labels7.push(ds.slice(5));
+    data7.push(DB.ventas.filter(v=>v.fecha===ds).reduce((a,v2)=>a+(v2.precioTotal||0),0));
+  }
+  renderChart('chartDashVentas', dashCharts, 'bar', labels7, [{ label:'Ventas', data:data7, backgroundColor:'rgba(232,184,75,0.7)', borderColor:'#e8b84b', borderWidth:1 }]);
+
+  // Métodos pie
+  const metCount = {};
+  ventasMes.forEach(v=>{ if(v.metodoPago) metCount[v.metodoPago]=(metCount[v.metodoPago]||0)+(v.precioTotal||0); });
+  renderChart('chartDashMetodos', dashCharts, 'doughnut', Object.keys(metCount), [{ data:Object.values(metCount), backgroundColor:['#e8b84b','#4be87a','#4b8de8','#e84b4b','#be4be8','#4be8d8','#e8824b','#8ae84b'] }]);
+}
+
+// ═══════════ GLOBAL INVENTORY ═══════════
+function downloadTemplate() {
+  const csv = 'sucursal,codigo,descripcion,medida,pz,costo,precio\ns1,LLN-195-65-15,Llanta,195/65R15,4,800,1200\ns1,RIN-15-5,Rin,15x5H,2,500,900\n';
+  downloadFile('plantilla_inventario.csv', csv, 'text/csv');
+}
+let csvRawData = '';
+function handleCSVDrop(e) {
+  e.preventDefault();
+  document.getElementById('csvDropArea').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) readCSVFile(file);
+}
+function loadCSVFile(input) { if (input.files[0]) readCSVFile(input.files[0]); }
+function readCSVFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    csvRawData = e.target.result;
+    const lines = csvRawData.trim().split('\n').slice(1);
+    csvBuffer = lines.map(l => {
+      const cols = l.split(',');
+      return { sucursal:cols[0]?.trim(), codigo:cols[1]?.trim(), descripcion:cols[2]?.trim(), medida:cols[3]?.trim(), pz:parseFloat(cols[4])||0, costo:parseFloat(cols[5])||0, precio:parseFloat(cols[6])||0 };
+    }).filter(r=>r.codigo);
+    document.getElementById('csv-preview').innerHTML = `<div class="alert alert-success">✅ ${csvBuffer.length} productos listos para importar. Haz clic en "Procesar e Importar".</div>`;
+  };
+  reader.readAsText(file);
+}
+function processCSV() {
+  if (!csvBuffer.length) { alert('Primero carga un archivo CSV'); return; }
+  // Merge: update if same sucursal+codigo, else add
+  csvBuffer.forEach(item => {
+    const idx = DB.inventario.findIndex(i=>i.sucursal===item.sucursal && i.codigo===item.codigo);
+    if (idx>=0) DB.inventario[idx] = item;
+    else DB.inventario.push(item);
+  });
+  saveToStorage();
+  refreshSelectsGlobal();
+  csvBuffer = [];
+  document.getElementById('csv-preview').innerHTML = '<div class="alert alert-success">✅ Inventario importado correctamente.</div>';
+  renderGlobalInventory();
+}
+function renderGlobalInventory() {
+  const search = (document.getElementById('inv-global-search')?.value||'').toLowerCase();
+  const suc = document.getElementById('inv-global-filter-suc')?.value||'';
+  let items = DB.inventario.filter(i=>{
+    const matchSuc = !suc || i.sucursal===suc;
+    const matchSearch = !search || (i.codigo+i.descripcion+i.medida+i.sucursal).toLowerCase().includes(search);
+    return matchSuc && matchSearch;
+  });
+  document.getElementById('inv-global-count').textContent = items.length+' productos';
+  const tbody = document.getElementById('inv-global-tbody');
+  if (!items.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin datos</td></tr>'; return; }
+  tbody.innerHTML = items.map(i=>{
+    const util = i.precio - i.costo;
+    const pct = i.costo ? ((util/i.costo)*100).toFixed(1) : 0;
+    return `<tr>
+      <td><span class="badge-pill badge-blue">${getSucNombre(i.sucursal)}</span></td>
+      <td style="font-family:monospace">${i.codigo}</td>
+      <td>${i.descripcion} <span style="color:var(--text3)">${i.medida||''}</span></td>
+      <td class="td-right">${i.pz}</td>
+      <td class="td-right">${fmt(i.costo)}</td>
+      <td class="td-right">${fmt(i.precio)}</td>
+      <td class="td-right"><span class="badge-pill ${util>0?'badge-green':'badge-red'}">${fmt(util)} (${pct}%)</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════ SUCURSAL INVENTORY ═══════════
+function refreshSucursalSelect() {
+  const sel = document.getElementById('inv-suc-selector');
+  if (!sel) return;
+  sel.innerHTML = '';
+  DB.sucursales.forEach(s => { const o=document.createElement('option');o.value=s.id;o.textContent=s.nombre;sel.appendChild(o); });
+}
+function loadSucursalInventory() { renderSucursalInventory(); renderMovimientos(); }
+function renderSucursalInventory() {
+  const suc = document.getElementById('inv-suc-selector')?.value;
+  const search = (document.getElementById('inv-suc-search')?.value||'').toLowerCase();
+  let items = DB.inventario.filter(i=>i.sucursal===suc);
+  if (search) items = items.filter(i=>(i.codigo+i.descripcion+i.medida).toLowerCase().includes(search));
+  document.getElementById('inv-suc-count').textContent = items.length+' productos';
+  const tbody = document.getElementById('inv-suc-tbody');
+  if (!items.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin productos para esta sucursal</td></tr>'; return; }
+  tbody.innerHTML = items.map(i=>{
+    const util = i.precio - i.costo;
+    const status = i.pz <= 0 ? '<span class="badge-pill badge-red">Agotado</span>' : i.pz <= 2 ? '<span class="badge-pill badge-accent">Bajo</span>' : '<span class="badge-pill badge-green">OK</span>';
+    return `<tr>
+      <td style="font-family:monospace">${i.codigo}</td>
+      <td>${i.descripcion} <span style="color:var(--text3)">${i.medida||''}</span></td>
+      <td class="td-right"><strong>${i.pz}</strong></td>
+      <td class="td-right">${fmt(i.costo)}</td>
+      <td class="td-right">${fmt(i.precio)}</td>
+      <td class="td-right">${fmt(util)}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+function renderMovimientos() {
+  const suc = document.getElementById('inv-suc-selector')?.value;
+  const movs = [...DB.movimientos].filter(m=>m.sucursal===suc).reverse().slice(0,30);
+  const tbody = document.getElementById('mov-tbody');
+  if (!movs.length) { tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Sin movimientos</td></tr>'; return; }
+  tbody.innerHTML = movs.map(m=>`<tr>
+    <td>${m.fecha}</td>
+    <td><span class="badge-pill ${m.tipo==='entrada'?'badge-green':'badge-red'}">${m.tipo.toUpperCase()}</span></td>
+    <td style="font-family:monospace">${m.codigo}</td>
+    <td>${m.descripcion}</td>
+    <td class="td-right">${m.tipo==='entrada'?'+':'-'}${m.cantidad}</td>
+    <td>${m.motivo}</td>
+  </tr>`).join('');
+}
+function showAddMovModal(type) {
+  movType = type;
+  movSelectedProduct = null;
+  document.getElementById('modalMovTitle').textContent = type==='entrada' ? '➕ Recibir Mercancía' : '➖ Dar Salida';
+  document.getElementById('mov-search').value='';
+  document.getElementById('mov-cantidad').value='';
+  document.getElementById('mov-motivo').value='';
+  document.getElementById('mov-selected').textContent='Ningún producto seleccionado';
+  filterMovProducts();
+  document.getElementById('modalMov').classList.add('open');
+}
+function filterMovProducts() {
+  const suc = document.getElementById('inv-suc-selector')?.value;
+  const q = document.getElementById('mov-search').value.toLowerCase();
+  const items = DB.inventario.filter(i=>i.sucursal===suc && (!q||(i.codigo+i.descripcion).toLowerCase().includes(q)));
+  const list = document.getElementById('mov-products-list');
+  list.innerHTML = items.map(i=>`<div onclick="selectMovProduct('${i.codigo}','${suc}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+    <span>${i.codigo} – ${i.descripcion} ${i.medida}</span><span style="color:var(--text3)">Pz: ${i.pz}</span>
+  </div>`).join('') || '<div style="padding:12px;color:var(--text3);text-align:center">Sin resultados</div>';
+}
+function selectMovProduct(codigo, suc) {
+  movSelectedProduct = DB.inventario.find(i=>i.codigo===codigo && i.sucursal===suc);
+  if (movSelectedProduct) document.getElementById('mov-selected').innerHTML = `<strong>${movSelectedProduct.codigo}</strong> – ${movSelectedProduct.descripcion} ${movSelectedProduct.medida} | Stock actual: <strong>${movSelectedProduct.pz}</strong>`;
+}
+function saveMovimiento() {
+  if (!movSelectedProduct) { alert('Selecciona un producto'); return; }
+  const cant = parseInt(document.getElementById('mov-cantidad').value)||0;
+  const motivo = document.getElementById('mov-motivo').value;
+  if (!cant) { alert('Ingresa la cantidad'); return; }
+  const idx = DB.inventario.findIndex(i=>i.codigo===movSelectedProduct.codigo && i.sucursal===movSelectedProduct.sucursal);
+  if (movType==='entrada') DB.inventario[idx].pz += cant;
+  else DB.inventario[idx].pz = Math.max(0, DB.inventario[idx].pz - cant);
+  DB.movimientos.push({ fecha:new Date().toISOString().slice(0,10), tipo:movType, sucursal:movSelectedProduct.sucursal, codigo:movSelectedProduct.codigo, descripcion:movSelectedProduct.descripcion, cantidad:cant, motivo });
+  saveToStorage();
+  closeModal('modalMov');
+  renderSucursalInventory();
+  renderMovimientos();
+}
+
+// ═══════════ PUNTO DE VENTA ═══════════
+function addProductRow() {
+  pvRowId++;
+  const id = pvRowId;
+  pvProductRows.push(id);
+  const row = document.createElement('div');
+  row.className = 'product-row';
+  row.id = 'prow-'+id;
+  row.innerHTML = `
+    <div>
+      <label style="font-size:10px;color:var(--text3)">CÓDIGO</label>
+      <select style="width:100%" onchange="onProductSelect(${id},this)" id="prow-codigo-${id}">
+        <option value="">-- Buscar --</option>
+        ${DB.inventario.map(i=>`<option value="${i.codigo}|${i.sucursal}">${i.codigo}</option>`).join('')}
+      </select>
+    </div>
+    <div>
+      <label style="font-size:10px;color:var(--text3)">MEDIDA / DESC</label>
+      <input type="text" id="prow-desc-${id}" placeholder="Descripción" oninput="recalcTotals()">
+    </div>
+    <div>
+      <label style="font-size:10px;color:var(--text3)">PZ</label>
+      <input type="number" id="prow-pz-${id}" value="1" min="1" oninput="recalcTotals()">
+    </div>
+    <div>
+      <label style="font-size:10px;color:var(--text3)">COSTO UNIT.</label>
+      <input type="number" id="prow-costo-${id}" placeholder="0.00" oninput="recalcTotals()">
+    </div>
+    <div>
+      <label style="font-size:10px;color:var(--text3)">PRECIO VENTA</label>
+      <input type="number" id="prow-precio-${id}" placeholder="0.00" oninput="recalcTotals()">
+    </div>
+    <button class="btn btn-danger btn-sm" onclick="removeProductRow(${id})" style="margin-top:16px">✕</button>
+  `;
+  document.getElementById('product-rows').appendChild(row);
+}
+function onProductSelect(id, sel) {
+  const [codigo, suc] = sel.value.split('|');
+  const prod = DB.inventario.find(i=>i.codigo===codigo && i.sucursal===suc);
+  if (!prod) return;
+  document.getElementById(`prow-desc-${id}`).value = prod.descripcion + (prod.medida?' '+prod.medida:'');
+  document.getElementById(`prow-costo-${id}`).value = prod.costo;
+  document.getElementById(`prow-precio-${id}`).value = prod.precio;
+  recalcTotals();
+}
+function removeProductRow(id) {
+  pvProductRows = pvProductRows.filter(r=>r!==id);
+  const el = document.getElementById('prow-'+id);
+  if (el) el.remove();
+  recalcTotals();
+}
+function getProductRows() {
+  return pvProductRows.map(id=>{
+    const codigo = (document.getElementById(`prow-codigo-${id}`)?.value||'').split('|')[0];
+    const desc = document.getElementById(`prow-desc-${id}`)?.value||'';
+    const pz = parseFloat(document.getElementById(`prow-pz-${id}`)?.value)||0;
+    const costo = parseFloat(document.getElementById(`prow-costo-${id}`)?.value)||0;
+    const precio = parseFloat(document.getElementById(`prow-precio-${id}`)?.value)||0;
+    return { codigo, desc, pz, costo, precio, subtotalCosto:costo*pz, subtotal:precio*pz };
+  });
+}
+function onPaymentMethodChange() {
+  const metodo = document.getElementById('pv-metodo').value;
+  const mp = DB.metodosPago.find(m=>m.nombre===metodo);
+  const info = document.getElementById('pv-commission-info');
+  if (mp && mp.factor) { info.style.display='inline'; info.textContent=`Factor: ×${mp.factor} (${((mp.factor-1)*100).toFixed(2)}%)`; }
+  else { info.style.display='none'; }
+  recalcTotals();
+}
+function toggleTaxi() {
+  const checked = document.getElementById('pv-taxi-check').checked;
+  document.getElementById('pv-taxi-group').style.display = checked ? '' : 'none';
+  recalcTotals();
+}
+function toggleFactura() {
+  const val = document.getElementById('pv-factura').value;
+  document.getElementById('pv-factura-fields').style.display = val==='si' ? '' : 'none';
+}
+function recalcTotals() {
+  const rows = getProductRows();
+  const subtotal = rows.reduce((a,r)=>a+r.subtotal, 0);
+  const subtotalCosto = rows.reduce((a,r)=>a+r.subtotalCosto, 0);
+  const cambio = parseFloat(document.getElementById('pv-cambio-valor')?.value)||0;
+  const taxi = document.getElementById('pv-taxi-check')?.checked ? (parseFloat(document.getElementById('pv-taxi-costo')?.value)||0) : 0;
+  const metodo = document.getElementById('pv-metodo')?.value;
+  const mp = DB.metodosPago.find(m=>m.nombre===metodo);
+  const factor = mp?.factor||1;
+  const precioTotal = subtotal; // precio a cobrar sin taxi ni comisión extra
+  const comisionTarjeta = factor>1 ? (subtotal * (factor-1)) : 0;
+  const costoTotal = subtotalCosto + cambio + comisionTarjeta + taxi;
+  const utilidad = precioTotal - subtotalCosto - cambio;
+  const comisionVendedor = utilidad > 0 ? (utilidad * (DB.config.comisionPct||0)/100) : 0;
+  setText('res-subtotal', fmt(subtotal));
+  setText('res-cambio', '-'+fmt(cambio));
+  setText('res-comision', fmt(comisionTarjeta));
+  setText('res-taxi', fmt(taxi));
+  setText('res-costo-total', fmt(costoTotal));
+  setText('res-precio-cobrar', fmt(precioTotal));
+  setText('res-utilidad', fmt(utilidad));
+  setText('res-comision-vendedor', fmt(comisionVendedor));
+  setText('res-total', fmt(precioTotal));
+}
+function saveSale() {
+  const vale = document.getElementById('pv-vale').value;
+  const vendedor = document.getElementById('pv-vendedor').value;
+  const fecha = document.getElementById('pv-fecha').value;
+  const rows = getProductRows().filter(r=>r.precio>0||r.desc);
+  if (!rows.length) { showAlert('sale-alert','error','Agrega al menos un producto'); return; }
+  if (!fecha) { showAlert('sale-alert','error','Selecciona la fecha'); return; }
+  const metodo = document.getElementById('pv-metodo').value;
+  const mp = DB.metodosPago.find(m=>m.nombre===metodo);
+  const factor = mp?.factor||1;
+  const subtotal = rows.reduce((a,r)=>a+r.subtotal,0);
+  const subtotalCosto = rows.reduce((a,r)=>a+r.subtotalCosto,0);
+  const cambio = parseFloat(document.getElementById('pv-cambio-valor')?.value)||0;
+  const cambioDesc = document.getElementById('pv-cambio-desc')?.value||'';
+  const taxi = document.getElementById('pv-taxi-check')?.checked ? (parseFloat(document.getElementById('pv-taxi-costo')?.value)||0) : 0;
+  const comisionTarjeta = factor>1 ? (subtotal*(factor-1)) : 0;
+  const utilidad = subtotal - subtotalCosto - cambio;
+  const comisionVendedor = utilidad>0 ? (utilidad*(DB.config.comisionPct||0)/100) : 0;
+  const venta = {
+    id: Date.now(),
+    vale, vendedor, fecha,
+    sucursal: document.getElementById('inv-suc-selector')?.value || DB.sucursales[0]?.id,
+    productos: rows,
+    subtotal, subtotalCosto,
+    cambio, cambioDesc,
+    taxi, usaTaxi: document.getElementById('pv-taxi-check')?.checked,
+    metodoPago: metodo,
+    comisionTarjeta,
+    factura: document.getElementById('pv-factura')?.value,
+    facturaNombre: document.getElementById('pv-factura-nombre')?.value,
+    facturaRFC: document.getElementById('pv-factura-rfc')?.value,
+    comentario: document.getElementById('pv-comentario')?.value,
+    precioTotal: subtotal,
+    utilidad, comisionVendedor,
+  };
+  DB.ventas.push(venta);
+  // Descontar del inventario
+  rows.forEach(r => {
+    const suc = venta.sucursal;
+    const idx = DB.inventario.findIndex(i=>i.codigo===r.codigo && i.sucursal===suc);
+    if (idx>=0) DB.inventario[idx].pz = Math.max(0, DB.inventario[idx].pz - r.pz);
+  });
+  saveToStorage();
+  showAlert('sale-alert','success','✅ Venta registrada correctamente');
+  clearSaleForm();
+  renderHistorial();
+}
+function clearSaleForm() {
+  document.getElementById('product-rows').innerHTML='';
+  pvProductRows=[]; pvRowId=0;
+  addProductRow();
+  ['pv-vale','pv-cambio-desc','pv-cambio-valor','pv-taxi-costo','pv-comentario','pv-factura-nombre','pv-factura-rfc'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('pv-metodo').value='';
+  document.getElementById('pv-factura').value='no';
+  document.getElementById('pv-factura-fields').style.display='none';
+  document.getElementById('pv-taxi-check').checked=false;
+  document.getElementById('pv-taxi-group').style.display='none';
+  document.getElementById('pv-commission-info').style.display='none';
+  recalcTotals();
+}
+
+// ═══════════ GASTOS ═══════════
+function saveGasto() {
+  const fecha=document.getElementById('gasto-fecha').value;
+  const concepto=document.getElementById('gasto-concepto').value;
+  const monto=parseFloat(document.getElementById('gasto-monto').value)||0;
+  const sucursal=document.getElementById('gasto-sucursal').value;
+  const notas=document.getElementById('gasto-notas').value;
+  if (!concepto||!monto) { alert('Completa concepto y monto'); return; }
+  DB.gastos.push({ id:Date.now(), fecha, concepto, monto, sucursal, notas });
+  saveToStorage();
+  renderGastos();
+  document.getElementById('gasto-concepto').value='';
+  document.getElementById('gasto-monto').value='';
+  document.getElementById('gasto-notas').value='';
+}
+function renderGastos() {
+  const tbody = document.getElementById('gastos-tbody');
+  const items = [...DB.gastos].reverse();
+  if (!items.length) { tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Sin gastos</td></tr>'; return; }
+  tbody.innerHTML = items.map(g=>`<tr>
+    <td>${g.fecha}</td><td>${g.concepto}</td><td>${getSucNombre(g.sucursal)}</td>
+    <td class="td-right">${fmt(g.monto)}</td><td>${g.notas||'-'}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteGasto(${g.id})">✕</button></td>
+  </tr>`).join('');
+}
+function deleteGasto(id) {
+  DB.gastos = DB.gastos.filter(g=>g.id!==id);
+  saveToStorage(); renderGastos();
+}
+
+// ═══════════ HISTORIAL ═══════════
+function renderHistorial() {
+  const fecha = document.getElementById('historial-fecha')?.value||'';
+  const suc = document.getElementById('historial-suc')?.value||'';
+  let ventas = DB.ventas.filter(v=>(!fecha||v.fecha===fecha)&&(!suc||v.sucursal===suc));
+  const tbody = document.getElementById('historial-tbody');
+  document.getElementById('historial-count').textContent = ventas.length;
+  if (!ventas.length) { tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:16px">Sin ventas</td></tr>'; document.getElementById('historial-total').textContent='$0.00'; return; }
+  tbody.innerHTML = [...ventas].reverse().map(v=>`<tr style="cursor:pointer" onclick="showVentaDetail(${v.id})">
+    <td>${v.vale||'-'}</td><td>${v.vendedor||'-'}</td>
+    <td><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></td>
+    <td>${v.factura==='si'?`<span class="badge-pill badge-blue">Sí</span>`:'–'}</td>
+    <td class="td-right">${fmt(v.subtotal)}</td>
+    <td class="td-right">${fmt(v.comisionTarjeta||0)}</td>
+    <td class="td-right"><strong>${fmt(v.precioTotal||0)}</strong></td>
+    <td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteVenta(${v.id})">✕</button></td>
+  </tr>`).join('');
+  const total = ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
+  document.getElementById('historial-total').textContent = fmt(total);
+}
+function deleteVenta(id) {
+  if (!confirm('¿Eliminar esta venta?')) return;
+  DB.ventas = DB.ventas.filter(v=>v.id!==id);
+  saveToStorage(); renderHistorial();
+}
+function showVentaDetail(id) {
+  const v = DB.ventas.find(v2=>v2.id===id);
+  if (!v) return;
+  document.getElementById('venta-detail-content').innerHTML = `
+    <div class="grid-2" style="margin-bottom:12px">
+      <div><span class="stat-label">Vale</span><div style="font-size:18px;font-weight:700">${v.vale||'-'}</div></div>
+      <div><span class="stat-label">Fecha</span><div>${v.fecha}</div></div>
+      <div><span class="stat-label">Vendedor</span><div>${v.vendedor||'-'}</div></div>
+      <div><span class="stat-label">Método de Pago</span><div><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></div></div>
+    </div>
+    <div class="table-wrap" style="margin-bottom:12px">
+      <table><thead><tr><th>Código</th><th>Descripción</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th><th class="td-right">Subtotal</th></tr></thead>
+      <tbody>${(v.productos||[]).map(p=>`<tr><td>${p.codigo}</td><td>${p.desc}</td><td class="td-right">${p.pz}</td><td class="td-right">${fmt(p.costo)}</td><td class="td-right">${fmt(p.precio)}</td><td class="td-right">${fmt(p.subtotal)}</td></tr>`).join('')}</tbody></table>
+    </div>
+    ${v.cambioDesc?`<p style="font-size:13px;margin-bottom:8px">🔄 <strong>A cambio:</strong> ${v.cambioDesc} – ${fmt(v.cambio)}</p>`:''}
+    ${v.usaTaxi?`<p style="font-size:13px;margin-bottom:8px">🚖 <strong>Taxi:</strong> ${fmt(v.taxi)}</p>`:''}
+    ${v.factura==='si'?`<p style="font-size:13px;margin-bottom:8px">🧾 <strong>Factura:</strong> ${v.facturaNombre} – ${v.facturaRFC}</p>`:''}
+    ${v.comentario?`<p style="font-size:13px;margin-bottom:8px">💬 ${v.comentario}</p>`:''}
+    <div class="sale-total-box" style="margin-top:12px">
+      <div class="total-line"><span class="lbl">Subtotal</span><span class="val">${fmt(v.subtotal)}</span></div>
+      <div class="total-line"><span class="lbl">Comisión tarjeta</span><span class="val red">${fmt(v.comisionTarjeta||0)}</span></div>
+      <div class="total-line"><span class="lbl">Utilidad</span><span class="val green">${fmt(v.utilidad||0)}</span></div>
+      <div class="total-line"><span class="lbl">Com. vendedor (${DB.config.comisionPct}%)</span><span class="val accent">${fmt(v.comisionVendedor||0)}</span></div>
+      <div class="total-line"><span class="lbl">TOTAL COBRADO</span><span class="val">${fmt(v.precioTotal)}</span></div>
+    </div>
+  `;
+  document.getElementById('modalVentaDetail').classList.add('open');
+}
+
+// ═══════════ REPORTES ═══════════
+let repCharts = {};
+function renderReportes() {
+  const mes = document.getElementById('rep-mes')?.value||new Date().toISOString().slice(0,7);
+  const suc = document.getElementById('rep-sucursal')?.value||'';
+  let ventas = DB.ventas.filter(v=>v.fecha&&v.fecha.startsWith(mes)&&(!suc||v.sucursal===suc));
+  let gastos = DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(mes)&&(!suc||g.sucursal===suc));
+
+  const totalVentas = ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
+  const totalGastos = gastos.reduce((a,g)=>a+(g.monto||0),0);
+  const totalComTarj = ventas.reduce((a,v)=>a+(v.comisionTarjeta||0),0);
+  const totalComVend = ventas.reduce((a,v)=>a+(v.comisionVendedor||0),0);
+  const totalUtilidad = ventas.reduce((a,v)=>a+(v.utilidad||0),0);
+
+  // Stats
+  const ventasPorDia = {};
+  ventas.forEach(v=>{ ventasPorDia[v.fecha]=(ventasPorDia[v.fecha]||0)+(v.precioTotal||0); });
+  const dias = Object.keys(ventasPorDia).sort();
+  const mejorDia = dias.sort((a,b)=>ventasPorDia[b]-ventasPorDia[a])[0];
+  const peorDia = dias.sort((a,b)=>ventasPorDia[a]-ventasPorDia[b])[0];
+
+  document.getElementById('rep-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Ventas</div><div class="stat-value accent">${fmt(totalVentas)}</div><div class="stat-sub">${ventas.length} ventas</div></div>
+    <div class="stat-card"><div class="stat-label">Mejor Día</div><div class="stat-value green" style="font-size:18px">${mejorDia||'-'}</div><div class="stat-sub">${fmt(ventasPorDia[mejorDia]||0)}</div></div>
+    <div class="stat-card"><div class="stat-label">Día Más Bajo</div><div class="stat-value red" style="font-size:18px">${peorDia||'-'}</div><div class="stat-sub">${fmt(ventasPorDia[peorDia]||0)}</div></div>
+    <div class="stat-card"><div class="stat-label">Utilidad Estimada</div><div class="stat-value blue">${fmt(totalUtilidad)}</div><div class="stat-sub">Com. vendedores: ${fmt(totalComVend)}</div></div>
+  `;
+
+  // Chart ventas por día
+  const sortedDias = Object.keys(ventasPorDia).sort();
+  renderChart('chartRepVentas', repCharts, 'bar', sortedDias, [{ label:'Ventas', data:sortedDias.map(d=>ventasPorDia[d]), backgroundColor:'rgba(232,184,75,0.7)', borderColor:'#e8b84b', borderWidth:1 }]);
+
+  // Chart métodos de pago
+  const metCount = {};
+  ventas.forEach(v=>{ if(v.metodoPago) metCount[v.metodoPago]=(metCount[v.metodoPago]||0)+(v.precioTotal||0); });
+  renderChart('chartRepMetodos', repCharts, 'doughnut', Object.keys(metCount), [{ data:Object.values(metCount), backgroundColor:['#e8b84b','#4be87a','#4b8de8','#e84b4b','#be4be8','#4be8d8','#e8824b','#8ae84b','#e8e84b','#84b4e8'] }]);
+
+  // Chart gastos
+  renderChart('chartRepGastos', repCharts, 'bar', ['Ventas','Gastos Gen.','Com. Tarjeta','Com. Vendedores'],
+    [{ label:'Monto', data:[totalVentas,totalGastos,totalComTarj,totalComVend], backgroundColor:['rgba(75,232,122,.7)','rgba(232,75,75,.7)','rgba(232,75,75,.5)','rgba(232,184,75,.7)'] }]);
+
+  // Tabla cambios
+  const cambios = ventas.filter(v=>v.cambioDesc||v.cambio>0);
+  const cambioTbody = document.getElementById('rep-cambio-tbody');
+  cambioTbody.innerHTML = cambios.length ? cambios.map(v=>`<tr><td>${v.cambioDesc}</td><td class="td-right">${fmt(v.cambio)}</td><td>${v.fecha}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--text3);text-align:center;padding:12px">Sin productos a cambio</td></tr>';
+
+  // Tabla ventas
+  const reptbody = document.getElementById('rep-tabla-ventas');
+  reptbody.innerHTML = ventas.length ? [...ventas].reverse().map(v=>`<tr onclick="showVentaDetail(${v.id})" style="cursor:pointer">
+    <td>${v.vale||'-'}</td><td>${v.fecha}</td><td>${getSucNombre(v.sucursal)}</td><td>${v.vendedor||'-'}</td>
+    <td><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></td>
+    <td class="td-right">${fmt(v.subtotal)}</td>
+    <td class="td-right">${fmt(v.comisionTarjeta||0)}</td>
+    <td class="td-right">${fmt(v.comisionVendedor||0)}</td>
+    <td class="td-right">${fmt(v.taxi||0)}</td>
+    <td class="td-right"><strong>${fmt(v.precioTotal)}</strong></td>
+  </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:24px">Sin ventas en el período</td></tr>';
+}
+
+function downloadReportCSV() {
+  const mes = document.getElementById('rep-mes')?.value||'';
+  const ventas = DB.ventas.filter(v=>!mes||v.fecha?.startsWith(mes));
+  let csv = 'Vale,Fecha,Sucursal,Vendedor,Método,Subtotal,Com.Tarjeta,Com.Vendedor,Taxi,Total\n';
+  ventas.forEach(v=>{ csv+=`${v.vale},${v.fecha},${getSucNombre(v.sucursal)},${v.vendedor},${v.metodoPago},${v.subtotal},${v.comisionTarjeta||0},${v.comisionVendedor||0},${v.taxi||0},${v.precioTotal}\n`; });
+  downloadFile('reporte_ventas.csv', csv, 'text/csv');
+}
+function downloadReportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(18); doc.text('Peters Wheels – Reporte de Ventas', 14, 20);
+  const mes = document.getElementById('rep-mes')?.value||'';
+  doc.setFontSize(11); doc.text('Período: '+mes, 14, 30);
+  const ventas = DB.ventas.filter(v=>!mes||v.fecha?.startsWith(mes));
+  let y = 45;
+  doc.setFontSize(9);
+  ventas.forEach(v=>{
+    if (y>270) { doc.addPage(); y=20; }
+    doc.text(`${v.fecha} | Vale: ${v.vale} | ${v.vendedor} | ${v.metodoPago} | $${v.precioTotal}`, 14, y);
+    y+=7;
+  });
+  doc.save('reporte_peters_wheels.pdf');
+}
+function shareWhatsApp() {
+  const mes = document.getElementById('rep-mes')?.value||'';
+  const ventas = DB.ventas.filter(v=>!mes||v.fecha?.startsWith(mes));
+  const total = ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
+  const msg = `*Peters Wheels – Reporte ${mes}*\nTotal ventas: $${total.toFixed(2)}\nN° ventas: ${ventas.length}\nGenerado: ${new Date().toLocaleDateString('es-MX')}`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg));
+}
+
+// ═══════════ CONFIGURACIÓN ═══════════
+function renderConfig() {
+  document.getElementById('cfg-nombre').value = DB.config.nombre||'Peters Wheels';
+  document.getElementById('cfg-logo-id').value = DB.config.logoId||'';
+  document.getElementById('cfg-comision-pct').value = DB.config.comisionPct||5;
+  renderCfgSucursales();
+  renderCfgVendedores();
+  renderCfgMetodos();
+}
+function saveConfig() {
+  DB.config.nombre = document.getElementById('cfg-nombre').value;
+  DB.config.logoId = document.getElementById('cfg-logo-id').value;
+  DB.config.comisionPct = parseFloat(document.getElementById('cfg-comision-pct').value)||0;
+  saveToStorage(); updateLogoDisplay(); refreshSelectsGlobal();
+  alert('Configuración guardada');
+}
+function addSucursal() {
+  const nombre = document.getElementById('cfg-suc-nombre').value.trim();
+  if (!nombre) return;
+  DB.sucursales.push({ id:'s'+Date.now(), nombre });
+  document.getElementById('cfg-suc-nombre').value='';
+  saveToStorage(); renderCfgSucursales(); refreshSelectsGlobal();
+}
+function renderCfgSucursales() {
+  const tbody = document.getElementById('cfg-suc-tbody');
+  tbody.innerHTML = DB.sucursales.map(s=>`<tr>
+    <td style="font-family:monospace;font-size:11px">${s.id}</td><td>${s.nombre}</td>
+    <td>${DB.inventario.filter(i=>i.sucursal===s.id).length}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteSucursal('${s.id}')">✕</button></td>
+  </tr>`).join('');
+}
+function deleteSucursal(id) {
+  if (!confirm('¿Eliminar sucursal?')) return;
+  DB.sucursales = DB.sucursales.filter(s=>s.id!==id);
+  saveToStorage(); renderCfgSucursales(); refreshSelectsGlobal();
+}
+function addVendedor() {
+  const nombre = document.getElementById('cfg-vend-nombre').value.trim();
+  if (!nombre||DB.vendedores.includes(nombre)) return;
+  DB.vendedores.push(nombre);
+  document.getElementById('cfg-vend-nombre').value='';
+  saveToStorage(); renderCfgVendedores(); refreshSelectsGlobal();
+}
+function renderCfgVendedores() {
+  const tbody = document.getElementById('cfg-vend-tbody');
+  tbody.innerHTML = DB.vendedores.map(v=>`<tr><td>${v}</td><td><button class="btn btn-danger btn-sm" onclick="deleteVendedor('${v}')">✕</button></td></tr>`).join('');
+}
+function deleteVendedor(nombre) {
+  DB.vendedores = DB.vendedores.filter(v=>v!==nombre);
+  saveToStorage(); renderCfgVendedores(); refreshSelectsGlobal();
+}
+function addMetodoPago() {
+  const nombre = document.getElementById('cfg-mp-nombre').value.trim().toUpperCase();
+  const factorStr = document.getElementById('cfg-mp-factor').value.trim();
+  const factor = factorStr ? parseFloat(factorStr) : null;
+  if (!nombre) return;
+  if (DB.metodosPago.find(m=>m.nombre===nombre)) { alert('Ya existe'); return; }
+  DB.metodosPago.push({ nombre, factor });
+  document.getElementById('cfg-mp-nombre').value='';
+  document.getElementById('cfg-mp-factor').value='';
+  saveToStorage(); renderCfgMetodos(); refreshSelectsGlobal();
+}
+function renderCfgMetodos() {
+  const tbody = document.getElementById('cfg-mp-tbody');
+  tbody.innerHTML = DB.metodosPago.map((m,i)=>`<tr>
+    <td>${m.nombre}</td>
+    <td>${m.factor?`×${m.factor}`:'Sin comisión'}</td>
+    <td>${m.factor?`${((m.factor-1)*100).toFixed(2)}%`:'0%'}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteMetodo(${i})">✕</button></td>
+  </tr>`).join('');
+}
+function deleteMetodo(idx) {
+  DB.metodosPago.splice(idx,1);
+  saveToStorage(); renderCfgMetodos(); refreshSelectsGlobal();
+}
+
+// ═══════════ DATA BACKUP ═══════════
+function exportJSON() { downloadFile('peters_wheels_backup.json', JSON.stringify(DB, null, 2), 'application/json'); }
+function importJSONFile(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      DB = JSON.parse(e.target.result);
+      saveToStorage(); renderAll(); alert('✅ Datos cargados correctamente');
+    } catch { alert('Error al leer el archivo JSON'); }
+  };
+  reader.readAsText(input.files[0]);
+}
+function clearAllData() {
+  localStorage.removeItem('peters_wheels_db');
+  location.reload();
+}
+
+// ═══════════ CHARTS ═══════════
+function renderChart(canvasId, registry, type, labels, datasets) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  if (registry[canvasId]) { registry[canvasId].destroy(); }
+  registry[canvasId] = new Chart(canvas, {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8a9ab0', font: { family: 'Barlow', size: 11 } } } },
+      scales: type==='doughnut'||type==='pie' ? {} : {
+        x: { ticks: { color: '#8a9ab0', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' } },
+        y: { ticks: { color: '#8a9ab0', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' } },
+      }
+    }
+  });
+}
+
+// ═══════════ HELPERS ═══════════
+function fmt(n) { return '$'+(parseFloat(n)||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,','); }
+function setText(id, txt) { const el=document.getElementById(id); if(el) el.textContent=txt; }
+function getSucNombre(id) { return DB.sucursales.find(s=>s.id===id)?.nombre||id||'-'; }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+function showAlert(containerId, type, msg) {
+  const el=document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML=`<div class="alert alert-${type}">${msg}</div>`;
+  setTimeout(()=>el.innerHTML='',3500);
+}
+function downloadFile(name, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+
+function renderAll() {
+  refreshSelectsGlobal();
+  renderGastos();
+  renderHistorial();
+  setTodayDates();
+  // Refresh sucursal select options for historial
+  ['historial-suc','rep-sucursal'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&!el.querySelector('option[value=""]')) {
+      const o=document.createElement('option');o.value='';o.textContent='Todas';el.prepend(o);
+    }
+  });
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay=>{
+  overlay.addEventListener('click', e => { if(e.target===overlay) overlay.classList.remove('open'); });
+});
+
+// ═══════════ START ═══════════
+init();
+// Init first product row for PV
+addProductRow();
+</script>
+</body>
+</html>
