@@ -159,7 +159,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
 .modal-title { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 20px; color: var(--accent); }
 
 /* PRODUCT ROWS */
-.product-row { display: grid; grid-template-columns: 2fr 3fr 1fr 1fr 1fr 40px; gap: 8px; align-items: start; margin-bottom: 8px; }
+.product-row { display: grid; grid-template-columns: 2.5fr 2fr 1fr 1fr 1fr 40px; gap: 8px; align-items: start; margin-bottom: 8px; }
 .sale-total-box { background: var(--surface2); border: 1px solid var(--accent); border-radius: var(--radius); padding: 16px; }
 .total-line { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .total-line:last-child { border-bottom: none; font-family: 'Bebas Neue', sans-serif; font-size: 22px; }
@@ -550,13 +550,28 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Vale</th><th>Vendedor</th><th>Método</th><th>Factura</th><th class="td-right">Subtotal</th><th class="td-right">Comisión</th><th class="td-right">Total</th><th></th></tr></thead>
+              <thead><tr><th>Vale</th><th>Vendedor</th><th>Método</th><th>Factura</th><th class="td-right">Subtotal</th><th class="td-right">Com.Tarjeta</th><th class="td-right">Taxi</th><th class="td-right">Utilidad</th><th class="td-right">Total Cobrado</th><th></th></tr></thead>
               <tbody id="historial-tbody"></tbody>
             </table>
           </div>
-          <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px">
+          <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
             <div style="background:var(--surface2);border-radius:8px;padding:10px 20px;font-size:13px;color:var(--text2)">
-              Total del día: <strong class="accent" id="historial-total" style="color:var(--accent)">$0.00</strong>
+              Total cobrado: <strong class="accent" id="historial-total" style="color:var(--accent)">$0.00</strong>
+            </div>
+            <div style="background:var(--surface2);border-radius:8px;padding:10px 20px;font-size:13px;color:var(--text2)">
+              Gastos del día: <strong id="historial-gastos-total" style="color:var(--red)">$0.00</strong>
+            </div>
+            <div style="background:var(--surface2);border-radius:8px;padding:10px 20px;font-size:13px;color:var(--text2)">
+              Utilidad neta: <strong id="historial-utilidad-total" style="color:var(--green)">$0.00</strong>
+            </div>
+          </div>
+          <div id="historial-gastos-section" style="margin-top:16px;display:none">
+            <div class="card-title" style="margin-bottom:8px">💸 Gastos Generales del Día</div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Concepto</th><th>Sucursal</th><th class="td-right">Monto</th><th>Notas</th></tr></thead>
+                <tbody id="historial-gastos-tbody"></tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -1276,10 +1291,11 @@ function addProductRow() {
   row.id = 'prow-'+id;
   row.innerHTML = `
     <div>
-      <label style="font-size:10px;color:var(--text3)">CÓDIGO</label>
-      <select style="width:100%" onchange="onProductSelect(${id},this)" id="prow-codigo-${id}">
-        <option value="">-- Buscar --</option>
-        ${DB.inventario.map(i=>`<option value="${i.codigo}|${i.sucursal}">${i.codigo}</option>`).join('')}
+      <label style="font-size:10px;color:var(--text3)">BUSCAR PRODUCTO</label>
+      <input type="text" id="prow-search-${id}" placeholder="Código o descripción..." oninput="filterProductSelect(${id})" style="width:100%;margin-bottom:4px">
+      <select style="width:100%" onchange="onProductSelect(${id},this)" id="prow-codigo-${id}" size="1">
+        <option value="">-- Seleccionar --</option>
+        ${DB.inventario.map(i=>`<option value="${i.codigo}|${i.sucursal}">${i.codigo} – ${i.descripcion}${i.medida?' '+i.medida:''}</option>`).join('')}
       </select>
     </div>
     <div>
@@ -1301,6 +1317,29 @@ function addProductRow() {
     <button class="btn btn-danger btn-sm" onclick="removeProductRow(${id})" style="margin-top:16px">✕</button>
   `;
   document.getElementById('product-rows').appendChild(row);
+}
+function filterProductSelect(id) {
+  const q = (document.getElementById(`prow-search-${id}`)?.value||'').toLowerCase().trim();
+  const sel = document.getElementById(`prow-codigo-${id}`);
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  const filtered = q
+    ? DB.inventario.filter(i=>(i.codigo+' '+i.descripcion+' '+(i.medida||'')).toLowerCase().includes(q))
+    : DB.inventario;
+  filtered.forEach(i=>{
+    const o = document.createElement('option');
+    o.value = `${i.codigo}|${i.sucursal}`;
+    o.textContent = `${i.codigo} – ${i.descripcion}${i.medida?' '+i.medida:''}`;
+    sel.appendChild(o);
+  });
+  // Auto-select if only one result
+  if (filtered.length === 1) {
+    sel.value = `${filtered[0].codigo}|${filtered[0].sucursal}`;
+    onProductSelect(id, sel);
+  } else if (prev) {
+    sel.value = prev;
+  }
 }
 function onProductSelect(id, sel) {
   const [codigo, suc] = sel.value.split('|');
@@ -1356,7 +1395,7 @@ function recalcTotals() {
   const precioTotal = subtotal; // precio a cobrar sin taxi ni comisión extra
   const comisionTarjeta = factor>1 ? (subtotal * (factor-1)) : 0;
   const costoTotal = subtotalCosto + cambio + comisionTarjeta + taxi;
-  const utilidad = precioTotal - subtotalCosto - cambio;
+  const utilidad = precioTotal - subtotalCosto - cambio - comisionTarjeta - taxi;
   const comisionVendedor = utilidad > 0 ? (utilidad * (DB.config.comisionPct||0)/100) : 0;
   setText('res-subtotal', fmt(subtotal));
   setText('res-cambio', '-'+fmt(cambio));
@@ -1384,7 +1423,7 @@ function saveSale() {
   const cambioDesc = document.getElementById('pv-cambio-desc')?.value||'';
   const taxi = document.getElementById('pv-taxi-check')?.checked ? (parseFloat(document.getElementById('pv-taxi-costo')?.value)||0) : 0;
   const comisionTarjeta = factor>1 ? (subtotal*(factor-1)) : 0;
-  const utilidad = subtotal - subtotalCosto - cambio;
+  const utilidad = subtotal - subtotalCosto - cambio - comisionTarjeta - taxi;
   const comisionVendedor = utilidad>0 ? (utilidad*(DB.config.comisionPct||0)/100) : 0;
   const venta = {
     id: Date.now(),
@@ -1466,20 +1505,49 @@ function renderHistorial() {
   const fecha = document.getElementById('historial-fecha')?.value||'';
   const suc = document.getElementById('historial-suc')?.value||'';
   let ventas = DB.ventas.filter(v=>(!fecha||v.fecha===fecha)&&(!suc||v.sucursal===suc));
+  let gastosDia = DB.gastos.filter(g=>(!fecha||g.fecha===fecha)&&(!suc||g.sucursal===suc));
   const tbody = document.getElementById('historial-tbody');
   document.getElementById('historial-count').textContent = ventas.length;
-  if (!ventas.length) { tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:16px">Sin ventas</td></tr>'; document.getElementById('historial-total').textContent='$0.00'; return; }
+  if (!ventas.length) {
+    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:16px">Sin ventas</td></tr>';
+    document.getElementById('historial-total').textContent='$0.00';
+    document.getElementById('historial-gastos-total').textContent='$0.00';
+    document.getElementById('historial-utilidad-total').textContent='$0.00';
+    document.getElementById('historial-gastos-section').style.display='none';
+    return;
+  }
   tbody.innerHTML = [...ventas].reverse().map(v=>`<tr style="cursor:pointer" onclick="showVentaDetail(${v.id})">
     <td>${v.vale||'-'}</td><td>${v.vendedor||'-'}</td>
     <td><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></td>
     <td>${v.factura==='si'?`<span class="badge-pill badge-blue">Sí</span>`:'–'}</td>
     <td class="td-right">${fmt(v.subtotal)}</td>
     <td class="td-right">${fmt(v.comisionTarjeta||0)}</td>
+    <td class="td-right">${fmt(v.taxi||0)}</td>
+    <td class="td-right"><span style="color:var(--green)">${fmt(v.utilidad||0)}</span></td>
     <td class="td-right"><strong>${fmt(v.precioTotal||0)}</strong></td>
     <td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteVenta(${v.id})">✕</button></td>
   </tr>`).join('');
   const total = ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
+  const utilidadTotal = ventas.reduce((a,v)=>a+(v.utilidad||0),0);
+  const gastosTotal = gastosDia.reduce((a,g)=>a+(g.monto||0),0);
+  const utilidadNeta = utilidadTotal - gastosTotal;
   document.getElementById('historial-total').textContent = fmt(total);
+  document.getElementById('historial-gastos-total').textContent = fmt(gastosTotal);
+  document.getElementById('historial-utilidad-total').textContent = fmt(utilidadNeta);
+  document.getElementById('historial-utilidad-total').style.color = utilidadNeta >= 0 ? 'var(--green)' : 'var(--red)';
+  // Gastos section
+  const seccion = document.getElementById('historial-gastos-section');
+  const gastosTbody = document.getElementById('historial-gastos-tbody');
+  if (gastosDia.length) {
+    seccion.style.display = '';
+    gastosTbody.innerHTML = gastosDia.map(g=>`<tr>
+      <td>${g.concepto}</td><td>${getSucNombre(g.sucursal)}</td>
+      <td class="td-right" style="color:var(--red)">${fmt(g.monto)}</td>
+      <td>${g.notas||'-'}</td>
+    </tr>`).join('');
+  } else {
+    seccion.style.display = 'none';
+  }
 }
 function deleteVenta(id) {
   if (!confirm('¿Eliminar esta venta?')) return;
