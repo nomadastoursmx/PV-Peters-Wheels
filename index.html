@@ -160,6 +160,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
 
 /* PRODUCT ROWS */
 .product-row { display: grid; grid-template-columns: 2.5fr 2fr 1fr 1fr 1fr 40px; gap: 8px; align-items: start; margin-bottom: 8px; }
+.product-row-venta-dia { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; padding: 8px; background: var(--surface2); border-radius: 8px; }
 .sale-total-box { background: var(--surface2); border: 1px solid var(--accent); border-radius: var(--radius); padding: 16px; }
 .total-line { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .total-line:last-child { border-bottom: none; font-family: 'Bebas Neue', sans-serif; font-size: 22px; }
@@ -191,6 +192,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
   .main { margin-left: 56px; }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
   .product-row { grid-template-columns: 1fr 1fr 1fr; }
+  .product-row-venta-dia { grid-template-columns: 1fr; }
 }
 
 /* SWITCH */
@@ -227,6 +229,7 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
     <div class="nav-section">
       <div class="nav-label">Operaciones</div>
       <div class="nav-item" onclick="showSection('inventario-global')"><span class="icon">📦</span><span>Inventario Global</span></div>
+      <div class="nav-item" onclick="showSection('inventario-rines')"><span class="icon">⚙️</span><span>Inventario Rines</span></div>
       <div class="nav-item" onclick="showSection('inventario-sucursal')"><span class="icon">🏪</span><span>Inv. Sucursal</span></div>
       <div class="nav-item" onclick="showSection('punto-venta')"><span class="icon">💰</span><span>Punto de Venta</span></div>
     </div>
@@ -309,6 +312,12 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
         <div class="card">
           <div class="card-title">📥 Carga de Inventario por CSV</div>
           <div class="alert alert-warning">Formato: <strong>id, codigo, descripcion, medida, costo, precio, [Sucursal 1], [Sucursal 2]...</strong> — Las columnas de sucursal deben llamarse igual que en Configuración. El valor de cada columna de sucursal es la cantidad (pz) en esa tienda. Descarga la plantilla para ver el formato con tus sucursales actuales.</div>
+          <div class="form-row" style="margin-bottom:16px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer">
+              <input type="checkbox" id="inv-global-replace" style="width:auto;accent-color:var(--accent)">
+              <strong>Eliminar inventario existente antes de cargar</strong>
+            </label>
+          </div>
           <div class="upload-area" id="csvDropArea" onclick="document.getElementById('csvFileInput').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleCSVDrop(event)">
             <div class="icon">📂</div>
             <p>Arrastra tu archivo CSV aquí o <strong>haz clic para seleccionar</strong></p>
@@ -316,8 +325,8 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
           </div>
           <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="loadCSVFile(this)">
           <div class="btn-group" style="margin-top:16px">
-            <button class="btn btn-secondary" onclick="downloadTemplate()">📄 Descargar Plantilla CSV</button>
-            <button class="btn btn-primary" onclick="processCSV()">✅ Procesar e Importar</button>
+            <button class="btn btn-secondary" onclick="downloadTemplate('llantas')">📄 Descargar Plantilla CSV</button>
+            <button class="btn btn-primary" onclick="processCSV('llantas')">✅ Procesar e Importar</button>
           </div>
           <div id="csv-preview" style="margin-top:16px"></div>
         </div>
@@ -328,11 +337,65 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
           <div class="form-row" style="margin-bottom:12px">
             <input type="text" id="inv-global-search" placeholder="🔍 Buscar por código, descripción, sucursal..." oninput="renderGlobalInventory()" style="flex:1">
             <select id="inv-global-filter-suc" onchange="renderGlobalInventory()"><option value="">Todas las sucursales</option></select>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer;white-space:nowrap;padding:0 4px">
+              <input type="checkbox" id="inv-global-solo-disponibles" onchange="renderGlobalInventory()" style="width:auto;accent-color:var(--accent)">
+              Solo con existencias
+            </label>
           </div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>ID</th><th>Sucursal</th><th>Código</th><th>Descripción / Medida</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio Venta</th><th class="td-right">Utilidad</th></tr></thead>
               <tbody id="inv-global-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ INVENTARIO RINES ═══════════════════════════════ -->
+    <div class="section" id="section-inventario-rines">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(this,'inv-rines-carga')">📥 Cargar Rines</div>
+        <div class="tab" onclick="switchTab(this,'inv-rines-ver')">📋 Ver Rines</div>
+      </div>
+      <div id="inv-rines-carga">
+        <div class="card">
+          <div class="card-title">📥 Carga de Inventario de Rines por CSV</div>
+          <div class="alert alert-warning">Formato: <strong>id, codigo, medida_rin, ancho, barrenacion, offset, centro, material, marca, costo, precio, [Sucursal 1], [Sucursal 2]...</strong> — Las columnas de sucursal deben llamarse igual que en Configuración. El valor de cada columna de sucursal es la cantidad (pz) en esa tienda.</div>
+          <div class="form-row" style="margin-bottom:16px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer">
+              <input type="checkbox" id="inv-rines-replace" style="width:auto;accent-color:var(--accent)">
+              <strong>Eliminar inventario existente antes de cargar</strong>
+            </label>
+          </div>
+          <div class="upload-area" id="csvDropAreaRines" onclick="document.getElementById('csvFileInputRines').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleCSVDropRines(event)">
+            <div class="icon">📂</div>
+            <p>Arrastra tu archivo CSV aquí o <strong>haz clic para seleccionar</strong></p>
+            <p style="margin-top:8px;font-size:11px">Formatos aceptados: .csv</p>
+          </div>
+          <input type="file" id="csvFileInputRines" accept=".csv" style="display:none" onchange="loadCSVFileRines(this)">
+          <div class="btn-group" style="margin-top:16px">
+            <button class="btn btn-secondary" onclick="downloadTemplate('rines')">📄 Descargar Plantilla CSV</button>
+            <button class="btn btn-primary" onclick="processCSV('rines')">✅ Procesar e Importar</button>
+          </div>
+          <div id="csv-preview-rines" style="margin-top:16px"></div>
+        </div>
+      </div>
+      <div id="inv-rines-ver" style="display:none">
+        <div class="card">
+          <div class="card-title">📋 Inventario de Rines <span class="badge" id="inv-rines-count">0 productos</span></div>
+          <div class="form-row" style="margin-bottom:12px">
+            <input type="text" id="inv-rines-search" placeholder="🔍 Buscar por código, marca, sucursal..." oninput="renderRinesInventory()" style="flex:1">
+            <select id="inv-rines-filter-suc" onchange="renderRinesInventory()"><option value="">Todas las sucursales</option></select>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer;white-space:nowrap;padding:0 4px">
+              <input type="checkbox" id="inv-rines-solo-disponibles" onchange="renderRinesInventory()" style="width:auto;accent-color:var(--accent)">
+              Solo con existencias
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>ID</th><th>Sucursal</th><th>Código</th><th>Descripción / Medida</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio Venta</th><th class="td-right">Utilidad</th></tr></thead>
+              <tbody id="inv-rines-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -347,8 +410,10 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
         <button class="btn btn-secondary btn-sm" onclick="showAddMovModal('entrada')">➕ Recibir mercancía</button>
         <button class="btn btn-secondary btn-sm" onclick="showAddMovModal('salida')">➖ Dar salida</button>
       </div>
+      
+      <!-- Inventario de Llantas -->
       <div class="card">
-        <div class="card-title">🏪 Inventario de Sucursal <span class="badge" id="inv-suc-count">0 productos</span></div>
+        <div class="card-title">🏪 Inventario de Llantas <span class="badge" id="inv-suc-count">0 productos</span></div>
         <div class="form-row" style="margin-bottom:12px">
           <input type="text" id="inv-suc-search" placeholder="🔍 Buscar..." oninput="renderSucursalInventory()" style="flex:1">
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer;white-space:nowrap;padding:0 4px">
@@ -363,11 +428,31 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
           </table>
         </div>
       </div>
+      
+      <!-- Inventario de Rines -->
+      <div class="card">
+        <div class="card-title">⚙️ Inventario de Rines <span class="badge" id="inv-suc-rines-count">0 productos</span></div>
+        <div class="form-row" style="margin-bottom:12px">
+          <input type="text" id="inv-suc-rines-search" placeholder="🔍 Buscar rines..." oninput="renderSucursalRines()" style="flex:1">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer;white-space:nowrap;padding:0 4px">
+            <input type="checkbox" id="inv-suc-rines-solo-disponibles" onchange="renderSucursalRines()" style="width:auto;accent-color:var(--accent)">
+            Solo con existencias
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Código</th><th>Descripción / Medida</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th><th class="td-right">Utilidad</th><th>Estado</th></tr></thead>
+            <tbody id="inv-suc-rines-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Movimientos -->
       <div class="card">
         <div class="card-title">📋 Movimientos Recientes</div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Fecha</th><th>Tipo</th><th>Código</th><th>Descripción</th><th class="td-right">Cantidad</th><th>Motivo</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Código</th><th>Descripción</th><th class="td-right">Cantidad</th><th>Motivo</th></tr></thead>
             <tbody id="mov-tbody"></tbody>
           </table>
         </div>
@@ -647,6 +732,7 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
         <div class="tab active" onclick="switchTab(this,'cfg-general')">⚙️ General</div>
         <div class="tab" onclick="switchTab(this,'cfg-sucursales')">🏪 Sucursales</div>
         <div class="tab" onclick="switchTab(this,'cfg-vendedores')">👤 Vendedores</div>
+        <div class="tab" onclick="switchTab(this,'cfg-proveedores')">🏭 Proveedores</div>
         <div class="tab" onclick="switchTab(this,'cfg-metodos')">💳 Métodos de Pago</div>
         <div class="tab" onclick="switchTab(this,'cfg-datos')">💾 Datos</div>
       </div>
@@ -722,6 +808,27 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
         </div>
       </div>
 
+      <div id="cfg-proveedores" style="display:none">
+        <div class="card">
+          <div class="card-title">🏭 Proveedores</div>
+          <div class="form-row">
+            <div class="form-group w2">
+              <label>Nombre del Proveedor</label>
+              <input type="text" id="cfg-prov-nombre" placeholder="Nombre del proveedor">
+            </div>
+            <div class="form-group" style="justify-content:flex-end;padding-top:20px">
+              <button class="btn btn-primary" onclick="addProveedor()">➕ Agregar</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nombre</th><th></th></tr></thead>
+              <tbody id="cfg-prov-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <div id="cfg-metodos" style="display:none">
         <div class="card">
           <div class="card-title">💳 Métodos de Pago y Comisiones</div>
@@ -771,6 +878,13 @@ input:checked + .slider:before { transform: translateX(18px); background: #000; 
   <div class="modal">
     <div class="modal-title" id="modalMovTitle">Movimiento de Inventario</div>
     <div class="form-row">
+      <div class="form-group">
+        <label>Tipo de Producto</label>
+        <select id="mov-product-type" onchange="filterMovProducts()">
+          <option value="llantas">Llantas</option>
+          <option value="rines">Rines</option>
+        </select>
+      </div>
       <div class="form-group w2">
         <label>Buscar Producto (código o descripción)</label>
         <input type="text" id="mov-search" placeholder="Ej: LLN-195..." oninput="filterMovProducts()">
@@ -820,6 +934,7 @@ let DB = {
     { id: 's3', nombre: 'Sucursal 3' },
   ],
   vendedores: ['Juan Pérez','María López'],
+  proveedores: ['Proveedor A', 'Proveedor B', 'Proveedor C'],
   metodosPago: [
     { nombre: 'EFECTIVO', factor: null },
     { nombre: 'DISPOSITIVO IZETTLE', factor: 1.04 },
@@ -846,14 +961,17 @@ let DB = {
     { nombre: 'DISPOSITIVO AZTECA', factor: 1.04 },
   ],
   inventario: [], // {sucursal, codigo, descripcion, medida, pz, costo, precio}
+  rines: [],      // {sucursal, codigo, medida_rin, ancho, barrenacion, offset, centro, material, marca, pz, costo, precio}
   ventas: [],     // sale objects
   gastos: [],     // expense objects
   movimientos: [],// inventory movements
 };
 
 let csvBuffer = [];
+let csvRinesBuffer = [];
 let movType = 'entrada';
 let movSelectedProduct = null;
+let movSelectedProductType = 'llantas';
 let pvProductRows = [];
 let pvRowId = 0;
 let dashCharts = {};
@@ -890,7 +1008,7 @@ function updateDateBadge() {
 
 // ═══════════ NAVIGATION ═══════════
 const sectionTitles = {
-  'dashboard':'DASHBOARD','inventario-global':'INVENTARIO GLOBAL','inventario-sucursal':'INV. SUCURSAL',
+  'dashboard':'DASHBOARD','inventario-global':'INVENTARIO GLOBAL','inventario-rines':'INVENTARIO RINES','inventario-sucursal':'INV. SUCURSAL',
   'punto-venta':'PUNTO DE VENTA','reportes':'REPORTES','configuracion':'CONFIGURACIÓN'
 };
 function showSection(id) {
@@ -904,6 +1022,7 @@ function showSection(id) {
   document.getElementById('topbarTitle').textContent = sectionTitles[id]||id.toUpperCase();
   if (id==='dashboard') renderDashboard();
   if (id==='inventario-global') renderGlobalInventory();
+  if (id==='inventario-rines') renderRinesInventory();
   if (id==='inventario-sucursal') { loadSucursalInventory(); }
   if (id==='punto-venta') { refreshPVSelects(); if (!pvProductRows.length) addProductRow(); }
   if (id==='reportes') renderReportes();
@@ -944,12 +1063,25 @@ function refreshSelectsGlobal() {
     gf.innerHTML = '<option value="">Todas las sucursales</option>';
     DB.sucursales.forEach(s => { const o=document.createElement('option');o.value=s.id;o.textContent=s.nombre;gf.appendChild(o); });
   }
+  // rines filter
+  const rf = document.getElementById('inv-rines-filter-suc');
+  if (rf) {
+    rf.innerHTML = '<option value="">Todas las sucursales</option>';
+    DB.sucursales.forEach(s => { const o=document.createElement('option');o.value=s.id;o.textContent=s.nombre;rf.appendChild(o); });
+  }
   // Vendedores
   ['pv-vendedor'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.innerHTML = '<option value="">-- Seleccionar --</option>';
     DB.vendedores.forEach(v => { const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o); });
+  });
+  // Proveedores
+  ['pv-proveedor'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '<option value="">-- Seleccionar --</option>';
+    DB.proveedores.forEach(p => { const o=document.createElement('option');o.value=p;o.textContent=p;el.appendChild(o); });
   });
   // Métodos de pago
   const mpEl = document.getElementById('pv-metodo');
@@ -996,7 +1128,7 @@ function renderDashboard() {
   document.getElementById('dash-ventas-mes').textContent = fmt(totalMes);
   document.getElementById('dash-ventas-mes-n').textContent = ventasMes.length+' operaciones';
   document.getElementById('dash-gastos-mes').textContent = fmt(totalGastos);
-  document.getElementById('dash-productos').textContent = DB.inventario.length;
+  document.getElementById('dash-productos').textContent = DB.inventario.length + DB.rines.length;
   document.getElementById('dash-sucursal-nombre').textContent = DB.sucursales[0]?.nombre||'';
 
   // Last 5 sales
@@ -1032,23 +1164,44 @@ function getSucursalHeaders() {
   return base;
 }
 
-function downloadTemplate() {
+function downloadTemplate(type) {
   const sucHeaders = getSucursalHeaders();
-  const headerRow = ['id','codigo','descripcion','medida','costo','precio',...sucHeaders].join(',');
-  const ex1 = ['001','LLN-195-65-15','Llanta','195/65R15','800','1200',...sucHeaders.map((_,i)=>i===0?'4':'0')].join(',');
-  const ex2 = ['002','RIN-15-5','Rin aluminio','15x5H','500','900',...sucHeaders.map((_,i)=>i===0?'2':'0')].join(',');
+  let headerRow, ex1, ex2, filename;
+  
+  if (type === 'rines') {
+    headerRow = ['id','codigo','medida_rin','ancho','barrenacion','offset','centro','material','marca','costo','precio',...sucHeaders].join(',');
+    ex1 = ['001','RN-15-6J','15','6J','4x100','+38','73.1','Aluminio','Enkei','1200','1800',...sucHeaders.map((_,i)=>i===0?'4':'0')].join(',');
+    ex2 = ['002','RN-17-7J','17','7J','5x114.3','+45','67.1','Acero','Racing','800','1500',...sucHeaders.map((_,i)=>i===0?'2':'0')].join(',');
+    filename = 'plantilla_rines_peters_wheels.csv';
+  } else {
+    headerRow = ['id','codigo','descripcion','medida','costo','precio',...sucHeaders].join(',');
+    ex1 = ['001','LLN-195-65-15','Llanta','195/65R15','800','1200',...sucHeaders.map((_,i)=>i===0?'4':'0')].join(',');
+    ex2 = ['002','RIN-15-5','Rin aluminio','15x5H','500','900',...sucHeaders.map((_,i)=>i===0?'2':'0')].join(',');
+    filename = 'plantilla_inventario_peters_wheels.csv';
+  }
   const csv = headerRow+'\n'+ex1+'\n'+ex2+'\n';
-  downloadFile('plantilla_inventario_peters_wheels.csv', csv, 'text/csv');
+  downloadFile(filename, csv, 'text/csv');
 }
 
 let csvRawData = '';
+let csvRinesRawData = '';
+
 function handleCSVDrop(e) {
   e.preventDefault();
   document.getElementById('csvDropArea').classList.remove('drag');
   const file = e.dataTransfer.files[0];
   if (file) readCSVFile(file);
 }
+
+function handleCSVDropRines(e) {
+  e.preventDefault();
+  document.getElementById('csvDropAreaRines').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) readCSVFileRines(file);
+}
+
 function loadCSVFile(input) { if (input.files[0]) readCSVFile(input.files[0]); }
+function loadCSVFileRines(input) { if (input.files[0]) readCSVFileRines(input.files[0]); }
 
 function parseCSVLine(line) {
   // Handles quoted fields with commas inside
@@ -1147,36 +1300,163 @@ function readCSVFile(file) {
   reader.readAsText(file, 'UTF-8');
 }
 
+function readCSVFileRines(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    csvRinesRawData = e.target.result;
+    const lines = csvRinesRawData.trim().split(/\r?\n/);
+    if (lines.length < 2) { document.getElementById('csv-preview-rines').innerHTML='<div class="alert alert-error">El archivo está vacío o sin datos.</div>'; return; }
+
+    const headers = parseCSVLine(lines[0]).map(h=>h.toLowerCase().trim());
+    const idxId = headers.indexOf('id');
+    const idxCodigo = headers.indexOf('codigo');
+    const idxMedidaRin = headers.indexOf('medida_rin');
+    const idxAncho = headers.indexOf('ancho');
+    const idxBarrenacion = headers.indexOf('barrenacion');
+    const idxOffset = headers.indexOf('offset');
+    const idxCentro = headers.indexOf('centro');
+    const idxMaterial = headers.indexOf('material');
+    const idxMarca = headers.indexOf('marca');
+    const idxCosto = headers.indexOf('costo');
+    const idxPrecio = headers.indexOf('precio');
+
+    // Get sucursal columns
+    const baseCols = new Set(['id','codigo','medida_rin','ancho','barrenacion','offset','centro','material','marca','costo','precio','pz','sucursal']);
+    const origHeaders = parseCSVLine(lines[0]).map(h=>h.trim());
+    const sucColIndices = [];
+    origHeaders.forEach((h,i) => {
+      if (i > Math.max(idxCosto, idxPrecio) && !baseCols.has(h.toLowerCase())) {
+        sucColIndices.push({ index:i, nombre:h });
+      }
+    });
+
+    csvRinesBuffer = [];
+    let skipped = 0;
+
+    for (let li=1; li<lines.length; li++) {
+      const line = lines[li].trim();
+      if (!line) continue;
+      const cols = parseCSVLine(line);
+      const id = idxId>=0 ? cols[idxId]?.trim() : '';
+      const codigo = idxCodigo>=0 ? cols[idxCodigo]?.trim() : '';
+      const medida_rin = idxMedidaRin>=0 ? cols[idxMedidaRin]?.trim() : '';
+      const ancho = idxAncho>=0 ? cols[idxAncho]?.trim() : '';
+      const barrenacion = idxBarrenacion>=0 ? cols[idxBarrenacion]?.trim() : '';
+      const offset = idxOffset>=0 ? cols[idxOffset]?.trim() : '';
+      const centro = idxCentro>=0 ? cols[idxCentro]?.trim() : '';
+      const material = idxMaterial>=0 ? cols[idxMaterial]?.trim() : '';
+      const marca = idxMarca>=0 ? cols[idxMarca]?.trim() : '';
+      const costo = parseFloat(idxCosto>=0 ? cols[idxCosto] : 0)||0;
+      const precio = parseFloat(idxPrecio>=0 ? cols[idxPrecio] : 0)||0;
+      if (!codigo) { skipped++; continue; }
+
+      if (sucColIndices.length > 0) {
+        sucColIndices.forEach(sc => {
+          const pz = parseFloat(cols[sc.index])||0;
+          const sucMatch = DB.sucursales.find(s=>s.nombre.toLowerCase()===sc.nombre.toLowerCase());
+          const sucId = sucMatch ? sucMatch.id : sc.nombre;
+          if (!sucMatch) {
+            const exists = DB.sucursales.find(s=>s.id===sc.nombre||s.nombre===sc.nombre);
+            if (!exists) DB.sucursales.push({ id: 'suc_'+sc.nombre.replace(/\s+/g,'_').toLowerCase(), nombre: sc.nombre });
+          }
+          csvRinesBuffer.push({ 
+            id, sucursal: sucMatch?sucMatch.id:'suc_'+sc.nombre.replace(/\s+/g,'_').toLowerCase(), 
+            codigo, medida_rin, ancho, barrenacion, offset, centro, material, marca, pz, costo, precio 
+          });
+        });
+      }
+    }
+
+    // Show preview
+    const preview = csvRinesBuffer.slice(0,5);
+    const sucNames = [...new Set(csvRinesBuffer.map(r=>r.sucursal))];
+    document.getElementById('csv-preview-rines').innerHTML = `
+      <div class="alert alert-success" style="margin-bottom:12px">
+        ✅ <strong>${csvRinesBuffer.length} registros</strong> de rines detectados para <strong>${sucNames.length} sucursales</strong>${skipped?' ('+skipped+' filas omitidas)':''}.
+        Sucursales: ${sucNames.map(s=>getSucNombreOrId(s)).join(', ')}
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>ID</th><th>Sucursal</th><th>Código</th><th>Marca</th><th>Medida</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th></tr></thead>
+        <tbody>${preview.map(r=>`<tr><td>${r.id||'-'}</td><td>${getSucNombreOrId(r.sucursal)}</td><td>${r.codigo}</td><td>${r.marca}</td><td>${r.medida_rin}" ${r.ancho}J</td><td class="td-right">${r.pz}</td><td class="td-right">${fmt(r.costo)}</td><td class="td-right">${fmt(r.precio)}</td></tr>`).join('')}
+        ${csvRinesBuffer.length>5?`<tr><td colspan="8" style="text-align:center;color:var(--text3)">... y ${csvRinesBuffer.length-5} más</td></tr>`:''}</tbody></table>
+      </div>`;
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
 function getSucNombreOrId(id) {
   return DB.sucursales.find(s=>s.id===id)?.nombre || id;
 }
 
-function processCSV() {
-  if (!csvBuffer.length) { alert('Primero carga un archivo CSV'); return; }
-  let added=0, updated=0;
-  csvBuffer.forEach(item => {
-    if (!item.codigo || !item.sucursal) return;
-    const idx = DB.inventario.findIndex(i=>i.sucursal===item.sucursal && i.codigo===item.codigo);
-    if (idx>=0) { DB.inventario[idx] = {...DB.inventario[idx], ...item}; updated++; }
-    else { DB.inventario.push(item); added++; }
-  });
-  saveToStorage();
-  refreshSelectsGlobal();
-  csvBuffer = [];
-  document.getElementById('csv-preview').innerHTML = `<div class="alert alert-success">✅ Importación completa: <strong>${added} nuevos</strong> productos agregados, <strong>${updated} actualizados</strong>.</div>`;
-  renderGlobalInventory();
+function processCSV(type) {
+  if (type === 'rines') {
+    if (!csvRinesBuffer.length) { alert('Primero carga un archivo CSV de rines'); return; }
+    
+    // Check if we should replace existing inventory
+    const replace = document.getElementById('inv-rines-replace')?.checked;
+    if (replace) {
+      DB.rines = [];
+    }
+    
+    let added=0, updated=0, duplicates=0;
+    csvRinesBuffer.forEach(item => {
+      if (!item.codigo || !item.sucursal) return;
+      const idx = DB.rines.findIndex(i=>i.sucursal===item.sucursal && i.codigo===item.codigo);
+      if (idx>=0) { 
+        DB.rines[idx] = {...DB.rines[idx], ...item}; 
+        updated++; 
+      } else { 
+        DB.rines.push(item); 
+        added++; 
+      }
+    });
+    saveToStorage();
+    refreshSelectsGlobal();
+    csvRinesBuffer = [];
+    document.getElementById('csv-preview-rines').innerHTML = `<div class="alert alert-success">✅ Importación completa: <strong>${added} nuevos</strong> rines agregados, <strong>${updated} actualizados</strong>, <strong>${duplicates} duplicados omitidos</strong>.</div>`;
+    renderRinesInventory();
+  } else {
+    if (!csvBuffer.length) { alert('Primero carga un archivo CSV'); return; }
+    
+    // Check if we should replace existing inventory
+    const replace = document.getElementById('inv-global-replace')?.checked;
+    if (replace) {
+      DB.inventario = [];
+    }
+    
+    let added=0, updated=0, duplicates=0;
+    csvBuffer.forEach(item => {
+      if (!item.codigo || !item.sucursal) return;
+      const idx = DB.inventario.findIndex(i=>i.sucursal===item.sucursal && i.codigo===item.codigo);
+      if (idx>=0) { 
+        DB.inventario[idx] = {...DB.inventario[idx], ...item}; 
+        updated++; 
+      } else { 
+        DB.inventario.push(item); 
+        added++; 
+      }
+    });
+    saveToStorage();
+    refreshSelectsGlobal();
+    csvBuffer = [];
+    document.getElementById('csv-preview').innerHTML = `<div class="alert alert-success">✅ Importación completa: <strong>${added} nuevos</strong> productos agregados, <strong>${updated} actualizados</strong>, <strong>${duplicates} duplicados omitidos</strong>.</div>`;
+    renderGlobalInventory();
+  }
 }
+
 function renderGlobalInventory() {
   const search = (document.getElementById('inv-global-search')?.value||'').toLowerCase();
   const suc = document.getElementById('inv-global-filter-suc')?.value||'';
+  const soloDisponibles = document.getElementById('inv-global-solo-disponibles')?.checked;
   let items = DB.inventario.filter(i=>{
     const matchSuc = !suc || i.sucursal===suc;
     const matchSearch = !search || (i.codigo+i.descripcion+i.medida+i.sucursal).toLowerCase().includes(search);
-    return matchSuc && matchSearch;
+    const matchDisponible = !soloDisponibles || i.pz > 0;
+    return matchSuc && matchSearch && matchDisponible;
   });
   document.getElementById('inv-global-count').textContent = items.length+' productos';
   const tbody = document.getElementById('inv-global-tbody');
-  if (!items.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin datos</td></tr>'; return; }
+  if (!items.length) { tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Sin datos</td></tr>'; return; }
   tbody.innerHTML = items.map(i=>{
     const util = i.precio - i.costo;
     const pct = i.costo ? ((util/i.costo)*100).toFixed(1) : 0;
@@ -1185,6 +1465,37 @@ function renderGlobalInventory() {
       <td><span class="badge-pill badge-blue">${getSucNombreOrId(i.sucursal)}</span></td>
       <td style="font-family:monospace">${i.codigo}</td>
       <td>${i.descripcion} <span style="color:var(--text3)">${i.medida||''}</span></td>
+      <td class="td-right">${i.pz}</td>
+      <td class="td-right">${fmt(i.costo)}</td>
+      <td class="td-right">${fmt(i.precio)}</td>
+      <td class="td-right"><span class="badge-pill ${util>0?'badge-green':'badge-red'}">${fmt(util)} (${pct}%)</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════ RINES INVENTORY ═══════════
+function renderRinesInventory() {
+  const search = (document.getElementById('inv-rines-search')?.value||'').toLowerCase();
+  const suc = document.getElementById('inv-rines-filter-suc')?.value||'';
+  const soloDisponibles = document.getElementById('inv-rines-solo-disponibles')?.checked;
+  let items = DB.rines.filter(i=>{
+    const matchSuc = !suc || i.sucursal===suc;
+    const matchSearch = !search || (i.codigo+i.marca+i.medida_rin+i.ancho+i.sucursal).toLowerCase().includes(search);
+    const matchDisponible = !soloDisponibles || i.pz > 0;
+    return matchSuc && matchSearch && matchDisponible;
+  });
+  document.getElementById('inv-rines-count').textContent = items.length+' rines';
+  const tbody = document.getElementById('inv-rines-tbody');
+  if (!items.length) { tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Sin datos</td></tr>'; return; }
+  tbody.innerHTML = items.map(i=>{
+    const util = i.precio - i.costo;
+    const pct = i.costo ? ((util/i.costo)*100).toFixed(1) : 0;
+    const descripcion = `${i.marca} ${i.medida_rin}" ${i.ancho}J | Offset: ${i.offset} | CB: ${i.centro}`;
+    return `<tr>
+      <td style="font-family:monospace;font-size:11px;color:var(--text3)">${i.id||'-'}</td>
+      <td><span class="badge-pill badge-blue">${getSucNombreOrId(i.sucursal)}</span></td>
+      <td style="font-family:monospace">${i.codigo}</td>
+      <td>${descripcion} <span style="color:var(--text3)">${i.material}</span></td>
       <td class="td-right">${i.pz}</td>
       <td class="td-right">${fmt(i.costo)}</td>
       <td class="td-right">${fmt(i.precio)}</td>
@@ -1204,7 +1515,12 @@ function refreshSucursalSelect() {
   if (prevVal && DB.sucursales.find(s=>s.id===prevVal)) sel.value=prevVal;
   else if (DB.sucursales.length) sel.value=DB.sucursales[0].id;
 }
-function loadSucursalInventory() { refreshSucursalSelect(); renderSucursalInventory(); renderMovimientos(); }
+function loadSucursalInventory() { 
+  refreshSucursalSelect(); 
+  renderSucursalInventory(); 
+  renderSucursalRines();
+  renderMovimientos(); 
+}
 function renderSucursalInventory() {
   const sel = document.getElementById('inv-suc-selector');
   const suc = sel?.value || DB.sucursales[0]?.id || '';
@@ -1234,14 +1550,46 @@ function renderSucursalInventory() {
     </tr>`;
   }).join('');
 }
+
+function renderSucursalRines() {
+  const sel = document.getElementById('inv-suc-selector');
+  const suc = sel?.value || DB.sucursales[0]?.id || '';
+  const search = (document.getElementById('inv-suc-rines-search')?.value||'').toLowerCase();
+  const sucObj = DB.sucursales.find(s=>s.id===suc);
+  let items = DB.rines.filter(i=>{
+    return i.sucursal===suc || (sucObj && i.sucursal===sucObj.nombre) || (sucObj && i.sucursal==='suc_'+sucObj.nombre.replace(/\s+/g,'_').toLowerCase());
+  });
+  if (search) items = items.filter(i=>(i.codigo+i.marca+i.medida_rin+i.ancho).toLowerCase().includes(search));
+  const soloDisponibles = document.getElementById('inv-suc-rines-solo-disponibles')?.checked;
+  if (soloDisponibles) items = items.filter(i=>i.pz > 0);
+  document.getElementById('inv-suc-rines-count').textContent = items.length+' rines';
+  const tbody = document.getElementById('inv-suc-rines-tbody');
+  if (!items.length) { tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin rines para esta sucursal.<br><span style="font-size:11px">Carga el inventario desde "Inventario de Rines → Cargar Rines"</span></td></tr>`; return; }
+  tbody.innerHTML = items.map(i=>{
+    const util = i.precio - i.costo;
+    const status = i.pz <= 0 ? '<span class="badge-pill badge-red">Agotado</span>' : i.pz <= 2 ? '<span class="badge-pill badge-accent">Bajo</span>' : '<span class="badge-pill badge-green">OK</span>';
+    const descripcion = `${i.marca} ${i.medida_rin}" ${i.ancho}J | Offset: ${i.offset}`;
+    return `<tr>
+      <td style="font-family:monospace">${i.codigo}</td>
+      <td>${descripcion} <span style="color:var(--text3)">${i.material}</span></td>
+      <td class="td-right"><strong>${i.pz}</strong></td>
+      <td class="td-right">${fmt(i.costo)}</td>
+      <td class="td-right">${fmt(i.precio)}</td>
+      <td class="td-right">${fmt(util)}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+
 function renderMovimientos() {
   const suc = document.getElementById('inv-suc-selector')?.value;
   const movs = [...DB.movimientos].filter(m=>m.sucursal===suc).reverse().slice(0,30);
   const tbody = document.getElementById('mov-tbody');
-  if (!movs.length) { tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Sin movimientos</td></tr>'; return; }
+  if (!movs.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:16px">Sin movimientos</td></tr>'; return; }
   tbody.innerHTML = movs.map(m=>`<tr>
     <td>${m.fecha}</td>
     <td><span class="badge-pill ${m.tipo==='entrada'?'badge-green':'badge-red'}">${m.tipo.toUpperCase()}</span></td>
+    <td>${m.productoType || 'Llanta'}</td>
     <td style="font-family:monospace">${m.codigo}</td>
     <td>${m.descripcion}</td>
     <td class="td-right">${m.tipo==='entrada'?'+':'-'}${m.cantidad}</td>
@@ -1251,7 +1599,9 @@ function renderMovimientos() {
 function showAddMovModal(type) {
   movType = type;
   movSelectedProduct = null;
+  movSelectedProductType = 'llantas';
   document.getElementById('modalMovTitle').textContent = type==='entrada' ? '➕ Recibir Mercancía' : '➖ Dar Salida';
+  document.getElementById('mov-product-type').value = 'llantas';
   document.getElementById('mov-search').value='';
   document.getElementById('mov-cantidad').value='';
   document.getElementById('mov-motivo').value='';
@@ -1261,29 +1611,75 @@ function showAddMovModal(type) {
 }
 function filterMovProducts() {
   const suc = document.getElementById('inv-suc-selector')?.value;
+  const productType = document.getElementById('mov-product-type')?.value || 'llantas';
+  movSelectedProductType = productType;
   const q = document.getElementById('mov-search').value.toLowerCase();
-  const items = DB.inventario.filter(i=>i.sucursal===suc && (!q||(i.codigo+i.descripcion).toLowerCase().includes(q)));
+  
+  let items;
+  if (productType === 'rines') {
+    items = DB.rines.filter(i=>i.sucursal===suc && (!q||(i.codigo+i.marca+i.medida_rin).toLowerCase().includes(q)));
+  } else {
+    items = DB.inventario.filter(i=>i.sucursal===suc && (!q||(i.codigo+i.descripcion).toLowerCase().includes(q)));
+  }
+  
   const list = document.getElementById('mov-products-list');
-  list.innerHTML = items.map(i=>`<div onclick="selectMovProduct('${i.codigo}','${suc}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-    <span>${i.codigo} – ${i.descripcion} ${i.medida}</span><span style="color:var(--text3)">Pz: ${i.pz}</span>
-  </div>`).join('') || '<div style="padding:12px;color:var(--text3);text-align:center">Sin resultados</div>';
+  list.innerHTML = items.map(i=>{
+    const displayText = productType === 'rines' 
+      ? `${i.codigo} – ${i.marca} ${i.medida_rin}" ${i.ancho}J`
+      : `${i.codigo} – ${i.descripcion} ${i.medida||''}`;
+    return `<div onclick="selectMovProduct('${i.codigo}','${suc}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+      <span>${displayText}</span><span style="color:var(--text3)">Pz: ${i.pz}</span>
+    </div>`;
+  }).join('') || '<div style="padding:12px;color:var(--text3);text-align:center">Sin resultados</div>';
 }
 function selectMovProduct(codigo, suc) {
-  movSelectedProduct = DB.inventario.find(i=>i.codigo===codigo && i.sucursal===suc);
-  if (movSelectedProduct) document.getElementById('mov-selected').innerHTML = `<strong>${movSelectedProduct.codigo}</strong> – ${movSelectedProduct.descripcion} ${movSelectedProduct.medida} | Stock actual: <strong>${movSelectedProduct.pz}</strong>`;
+  if (movSelectedProductType === 'rines') {
+    movSelectedProduct = DB.rines.find(i=>i.codigo===codigo && i.sucursal===suc);
+  } else {
+    movSelectedProduct = DB.inventario.find(i=>i.codigo===codigo && i.sucursal===suc);
+  }
+  
+  if (movSelectedProduct) {
+    const displayText = movSelectedProductType === 'rines'
+      ? `${movSelectedProduct.codigo} – ${movSelectedProduct.marca} ${movSelectedProduct.medida_rin}" ${movSelectedProduct.ancho}J`
+      : `${movSelectedProduct.codigo} – ${movSelectedProduct.descripcion} ${movSelectedProduct.medida||''}`;
+    document.getElementById('mov-selected').innerHTML = `<strong>${displayText}</strong> | Stock actual: <strong>${movSelectedProduct.pz}</strong>`;
+  }
 }
 function saveMovimiento() {
   if (!movSelectedProduct) { alert('Selecciona un producto'); return; }
   const cant = parseInt(document.getElementById('mov-cantidad').value)||0;
   const motivo = document.getElementById('mov-motivo').value;
   if (!cant) { alert('Ingresa la cantidad'); return; }
-  const idx = DB.inventario.findIndex(i=>i.codigo===movSelectedProduct.codigo && i.sucursal===movSelectedProduct.sucursal);
-  if (movType==='entrada') DB.inventario[idx].pz += cant;
-  else DB.inventario[idx].pz = Math.max(0, DB.inventario[idx].pz - cant);
-  DB.movimientos.push({ fecha:new Date().toISOString().slice(0,10), tipo:movType, sucursal:movSelectedProduct.sucursal, codigo:movSelectedProduct.codigo, descripcion:movSelectedProduct.descripcion, cantidad:cant, motivo });
+  
+  if (movSelectedProductType === 'rines') {
+    const idx = DB.rines.findIndex(i=>i.codigo===movSelectedProduct.codigo && i.sucursal===movSelectedProduct.sucursal);
+    if (movType==='entrada') DB.rines[idx].pz += cant;
+    else DB.rines[idx].pz = Math.max(0, DB.rines[idx].pz - cant);
+  } else {
+    const idx = DB.inventario.findIndex(i=>i.codigo===movSelectedProduct.codigo && i.sucursal===movSelectedProduct.sucursal);
+    if (movType==='entrada') DB.inventario[idx].pz += cant;
+    else DB.inventario[idx].pz = Math.max(0, DB.inventario[idx].pz - cant);
+  }
+  
+  const descripcion = movSelectedProductType === 'rines'
+    ? `${movSelectedProduct.marca} ${movSelectedProduct.medida_rin}" ${movSelectedProduct.ancho}J`
+    : `${movSelectedProduct.descripcion} ${movSelectedProduct.medida||''}`;
+    
+  DB.movimientos.push({ 
+    fecha:new Date().toISOString().slice(0,10), 
+    tipo:movType, 
+    sucursal:movSelectedProduct.sucursal, 
+    codigo:movSelectedProduct.codigo, 
+    descripcion,
+    cantidad:cant, 
+    motivo,
+    productoType: movSelectedProductType === 'rines' ? 'Rin' : 'Llanta'
+  });
   saveToStorage();
   closeModal('modalMov');
   renderSucursalInventory();
+  renderSucursalRines();
   renderMovimientos();
 }
 
@@ -1301,7 +1697,8 @@ function addProductRow() {
       <input type="text" id="prow-search-${id}" placeholder="Código o descripción..." oninput="filterProductSelect(${id})" style="width:100%;margin-bottom:4px">
       <select style="width:100%" onchange="onProductSelect(${id},this)" id="prow-codigo-${id}" size="1">
         <option value="">-- Seleccionar --</option>
-        ${DB.inventario.filter(i=>i.pz>0).map(i=>`<option value="${i.codigo}|${i.sucursal}">${i.codigo} – ${i.descripcion}${i.medida?' '+i.medida:''} (${i.pz} pz)</option>`).join('')}
+        ${DB.inventario.filter(i=>i.pz>0).map(i=>`<option value="llanta|${i.codigo}|${i.sucursal}">${i.codigo} – ${i.descripcion}${i.medida?' '+i.medida:''} (${i.pz} pz)</option>`).join('')}
+        ${DB.rines.filter(i=>i.pz>0).map(i=>`<option value="rin|${i.codigo}|${i.sucursal}">${i.codigo} – ${i.marca} ${i.medida_rin}" ${i.ancho}J (${i.pz} pz)</option>`).join('')}
       </select>
     </div>
     <div>
@@ -1321,43 +1718,111 @@ function addProductRow() {
       <input type="number" id="prow-precio-${id}" placeholder="0.00" oninput="recalcTotals()">
     </div>
     <button class="btn btn-danger btn-sm" onclick="removeProductRow(${id})" style="margin-top:16px">✕</button>
+    <div id="prow-venta-dia-${id}" class="product-row-venta-dia" style="display:none">
+      <div>
+        <label><label class="switch"><input type="checkbox" id="prow-venta-dia-check-${id}" onchange="toggleProductVentaDia(${id})"><span class="slider"></span></label> ¿Venta del día?</label>
+      </div>
+      <div id="prow-proveedor-group-${id}" style="display:none">
+        <label>Proveedor</label>
+        <select id="prow-proveedor-${id}"><option value="">-- Seleccionar --</option></select>
+      </div>
+    </div>
   `;
   document.getElementById('product-rows').appendChild(row);
+  
+  // Populate provider select
+  const provSelect = document.getElementById(`prow-proveedor-${id}`);
+  if (provSelect) {
+    DB.proveedores.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p;
+      o.textContent = p;
+      provSelect.appendChild(o);
+    });
+  }
 }
+
+function toggleProductVentaDia(id) {
+  const checked = document.getElementById(`prow-venta-dia-check-${id}`).checked;
+  document.getElementById(`prow-proveedor-group-${id}`).style.display = checked ? '' : 'none';
+}
+
 function filterProductSelect(id) {
   const q = (document.getElementById(`prow-search-${id}`)?.value||'').toLowerCase().trim();
   const sel = document.getElementById(`prow-codigo-${id}`);
   if (!sel) return;
   const prev = sel.value;
   sel.innerHTML = '<option value="">-- Seleccionar --</option>';
-  const filtered = q
+  
+  // Filter both llantas and rines
+  const llantasFiltradas = q
     ? DB.inventario.filter(i=>i.pz>0 && (i.codigo+' '+i.descripcion+' '+(i.medida||'')).toLowerCase().includes(q))
     : DB.inventario.filter(i=>i.pz>0);
-  filtered.forEach(i=>{
+    
+  const rinesFiltrados = q
+    ? DB.rines.filter(i=>i.pz>0 && (i.codigo+' '+i.marca+' '+i.medida_rin).toLowerCase().includes(q))
+    : DB.rines.filter(i=>i.pz>0);
+  
+  // Add llantas options
+  llantasFiltradas.forEach(i=>{
     const o = document.createElement('option');
-    o.value = `${i.codigo}|${i.sucursal}`;
+    o.value = `llanta|${i.codigo}|${i.sucursal}`;
     o.textContent = `${i.codigo} – ${i.descripcion}${i.medida?' '+i.medida:''} (${i.pz} pz)`;
     sel.appendChild(o);
   });
+  
+  // Add rines options
+  rinesFiltrados.forEach(i=>{
+    const o = document.createElement('option');
+    o.value = `rin|${i.codigo}|${i.sucursal}`;
+    o.textContent = `${i.codigo} – ${i.marca} ${i.medida_rin}" ${i.ancho}J (${i.pz} pz)`;
+    sel.appendChild(o);
+  });
+  
   // Auto-select if only one result
-  if (filtered.length === 1) {
-    sel.value = `${filtered[0].codigo}|${filtered[0].sucursal}`;
+  if (llantasFiltradas.length + rinesFiltrados.length === 1) {
+    const item = llantasFiltradas.length === 1 ? llantasFiltradas[0] : rinesFiltrados[0];
+    const type = llantasFiltradas.length === 1 ? 'llanta' : 'rin';
+    sel.value = `${type}|${item.codigo}|${item.sucursal}`;
     onProductSelect(id, sel);
   } else if (prev) {
     sel.value = prev;
   }
 }
+
 function onProductSelect(id, sel) {
-  const [codigo, suc] = sel.value.split('|');
-  const prod = DB.inventario.find(i=>i.codigo===codigo && i.sucursal===suc);
-  if (!prod) return;
-  document.getElementById(`prow-desc-${id}`).value = prod.descripcion + (prod.medida?' '+prod.medida:'');
-  document.getElementById(`prow-costo-${id}`).value = prod.costo;
-  document.getElementById(`prow-precio-${id}`).value = prod.precio;
+  const [type, codigo, suc] = sel.value.split('|');
+  let prod;
+  if (type === 'rin') {
+    prod = DB.rines.find(i=>i.codigo===codigo && i.sucursal===suc);
+    if (prod) {
+      document.getElementById(`prow-desc-${id}`).value = `${prod.marca} ${prod.medida_rin}" ${prod.ancho}J | Offset: ${prod.offset} | CB: ${prod.centro}`;
+      document.getElementById(`prow-costo-${id}`).value = prod.costo;
+      document.getElementById(`prow-precio-${id}`).value = prod.precio;
+    }
+  } else {
+    prod = DB.inventario.find(i=>i.codigo===codigo && i.sucursal===suc);
+    if (prod) {
+      document.getElementById(`prow-desc-${id}`).value = prod.descripcion + (prod.medida?' '+prod.medida:'');
+      document.getElementById(`prow-costo-${id}`).value = prod.costo;
+      document.getElementById(`prow-precio-${id}`).value = prod.precio;
+    }
+  }
+  
   const pzInput = document.getElementById(`prow-pz-${id}`);
-  pzInput.max = prod.pz;
-  pzInput.title = `Máx: ${prod.pz} pz disponibles`;
-  if (parseFloat(pzInput.value) > prod.pz) pzInput.value = prod.pz;
+  if (prod && pzInput) {
+    pzInput.max = prod.pz;
+    pzInput.title = `Máx: ${prod.pz} pz disponibles`;
+    if (parseFloat(pzInput.value) > prod.pz) pzInput.value = prod.pz;
+  }
+  
+  // Show venta dia options when product is selected
+  if (prod) {
+    document.getElementById(`prow-venta-dia-${id}`).style.display = '';
+  } else {
+    document.getElementById(`prow-venta-dia-${id}`).style.display = 'none';
+  }
+  
   recalcTotals();
 }
 function removeProductRow(id) {
@@ -1369,8 +1834,7 @@ function removeProductRow(id) {
 function getProductRows() {
   return pvProductRows.map(id=>{
     const codigoSuc = document.getElementById(`prow-codigo-${id}`)?.value||'';
-    const codigo = codigoSuc.split('|')[0];
-    const suc = codigoSuc.split('|')[1];
+    const [type, codigo, suc] = codigoSuc.split('|');
     const desc = document.getElementById(`prow-desc-${id}`)?.value||'';
     const pzInput = document.getElementById(`prow-pz-${id}`);
     const maxPz = parseFloat(pzInput?.max)||Infinity;
@@ -1378,7 +1842,16 @@ function getProductRows() {
     if (pz > maxPz) { pz = maxPz; if(pzInput) pzInput.value = maxPz; }
     const costo = parseFloat(document.getElementById(`prow-costo-${id}`)?.value)||0;
     const precio = parseFloat(document.getElementById(`prow-precio-${id}`)?.value)||0;
-    return { codigo, desc, pz, costo, precio, subtotalCosto:costo*pz, subtotal:precio*pz };
+    const ventaDia = document.getElementById(`prow-venta-dia-check-${id}`)?.checked || false;
+    const proveedor = ventaDia ? document.getElementById(`prow-proveedor-${id}`)?.value : '';
+    
+    return { 
+      type, codigo, desc, pz, costo, precio, 
+      subtotalCosto:costo*pz, 
+      subtotal:precio*pz,
+      ventaDia,
+      proveedor
+    };
   });
 }
 function onPaymentMethodChange() {
@@ -1458,14 +1931,19 @@ function saveSale() {
     facturaRFC: document.getElementById('pv-factura-rfc')?.value,
     comentario: document.getElementById('pv-comentario')?.value,
     precioTotal,
-    utilidad, comisionVendedor,
+    utilidad, comisionVendedor
   };
   DB.ventas.push(venta);
   // Descontar del inventario
   rows.forEach(r => {
     const suc = venta.sucursal;
-    const idx = DB.inventario.findIndex(i=>i.codigo===r.codigo && i.sucursal===suc);
-    if (idx>=0) DB.inventario[idx].pz = Math.max(0, DB.inventario[idx].pz - r.pz);
+    if (r.type === 'rin') {
+      const idx = DB.rines.findIndex(i=>i.codigo===r.codigo && i.sucursal===suc);
+      if (idx>=0) DB.rines[idx].pz = Math.max(0, DB.rines[idx].pz - r.pz);
+    } else {
+      const idx = DB.inventario.findIndex(i=>i.codigo===r.codigo && i.sucursal===suc);
+      if (idx>=0) DB.inventario[idx].pz = Math.max(0, DB.inventario[idx].pz - r.pz);
+    }
   });
   saveToStorage();
   showAlert('sale-alert','success','✅ Venta registrada correctamente');
@@ -1583,8 +2061,12 @@ function showVentaDetail(id) {
       <div><span class="stat-label">Método de Pago</span><div><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></div></div>
     </div>
     <div class="table-wrap" style="margin-bottom:12px">
-      <table><thead><tr><th>Código</th><th>Descripción</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th><th class="td-right">Subtotal</th></tr></thead>
-      <tbody>${(v.productos||[]).map(p=>`<tr><td>${p.codigo}</td><td>${p.desc}</td><td class="td-right">${p.pz}</td><td class="td-right">${fmt(p.costo)}</td><td class="td-right">${fmt(p.precio)}</td><td class="td-right">${fmt(p.subtotal)}</td></tr>`).join('')}</tbody></table>
+      <table><thead><tr><th>Tipo</th><th>Código</th><th>Descripción</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th><th class="td-right">Subtotal</th><th>Venta Día</th><th>Proveedor</th></tr></thead>
+      <tbody>${(v.productos||[]).map(p=>`<tr>
+        <td><span class="badge-pill ${p.type==='rin'?'badge-blue':'badge-green'}">${p.type==='rin'?'Rin':'Llanta'}</span></td>
+        <td>${p.codigo}</td><td>${p.desc}</td><td class="td-right">${p.pz}</td><td class="td-right">${fmt(p.costo)}</td><td class="td-right">${fmt(p.precio)}</td><td class="td-right">${fmt(p.subtotal)}</td>
+        <td>${p.ventaDia?'Sí':'No'}</td><td>${p.proveedor||'-'}</td>
+      </tr>`).join('')}</tbody></table>
     </div>
     ${v.cambioDesc?`<p style="font-size:13px;margin-bottom:8px">🔄 <strong>A cambio:</strong> ${v.cambioDesc} – ${fmt(v.cambio)}</p>`:''}
     ${v.usaTaxi?`<p style="font-size:13px;margin-bottom:8px">🚖 <strong>Taxi:</strong> ${fmt(v.taxi)}</p>`:''}
@@ -1636,7 +2118,7 @@ function renderReportes() {
   // Chart métodos de pago
   const metCount = {};
   ventas.forEach(v=>{ if(v.metodoPago) metCount[v.metodoPago]=(metCount[v.metodoPago]||0)+(v.precioTotal||0); });
-  renderChart('chartRepMetodos', repCharts, 'doughnut', Object.keys(metCount), [{ data:Object.values(metCount), backgroundColor:['#e8b84b','#4be87a','#4b8de8','#e84b4b','#be4be8','#4be8d8','#e8824b','#8ae84b','#e8e84b','#84b4e8'] }]);
+  renderChart('chartRepMetodos', repCharts, 'doughnut', Object.keys(metCount), [{ data:Object.values(metCount), backgroundColor:['#e8b84b','#4be87a','#4b8de8','#e84b4b','#be4be8','#4be8d8','#e8824b','#8ae84b'] }]);
 
   // Chart gastos
   renderChart('chartRepGastos', repCharts, 'bar', ['Ventas','Gastos Gen.','Com. Tarjeta','Com. Vendedores'],
@@ -1698,6 +2180,7 @@ function renderConfig() {
   document.getElementById('cfg-comision-pct').value = DB.config.comisionPct||5;
   renderCfgSucursales();
   renderCfgVendedores();
+  renderCfgProveedores();
   renderCfgMetodos();
 }
 function saveConfig() {
@@ -1718,7 +2201,7 @@ function renderCfgSucursales() {
   const tbody = document.getElementById('cfg-suc-tbody');
   tbody.innerHTML = DB.sucursales.map(s=>`<tr>
     <td style="font-family:monospace;font-size:11px">${s.id}</td><td>${s.nombre}</td>
-    <td>${DB.inventario.filter(i=>i.sucursal===s.id).length}</td>
+    <td>${DB.inventario.filter(i=>i.sucursal===s.id).length + DB.rines.filter(i=>i.sucursal===s.id).length}</td>
     <td><button class="btn btn-danger btn-sm" onclick="deleteSucursal('${s.id}')">✕</button></td>
   </tr>`).join('');
 }
@@ -1741,6 +2224,21 @@ function renderCfgVendedores() {
 function deleteVendedor(nombre) {
   DB.vendedores = DB.vendedores.filter(v=>v!==nombre);
   saveToStorage(); renderCfgVendedores(); refreshSelectsGlobal();
+}
+function addProveedor() {
+  const nombre = document.getElementById('cfg-prov-nombre').value.trim();
+  if (!nombre||DB.proveedores.includes(nombre)) return;
+  DB.proveedores.push(nombre);
+  document.getElementById('cfg-prov-nombre').value='';
+  saveToStorage(); renderCfgProveedores(); refreshSelectsGlobal();
+}
+function renderCfgProveedores() {
+  const tbody = document.getElementById('cfg-prov-tbody');
+  tbody.innerHTML = DB.proveedores.map(p=>`<tr><td>${p}</td><td><button class="btn btn-danger btn-sm" onclick="deleteProveedor('${p}')">✕</button></td></tr>`).join('');
+}
+function deleteProveedor(nombre) {
+  DB.proveedores = DB.proveedores.filter(p=>p!==nombre);
+  saveToStorage(); renderCfgProveedores(); refreshSelectsGlobal();
 }
 function addMetodoPago() {
   const nombre = document.getElementById('cfg-mp-nombre').value.trim().toUpperCase();
