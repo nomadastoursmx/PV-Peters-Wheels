@@ -960,11 +960,11 @@ let DB = {
     { nombre: 'SR PAGO', factor: 1.035 },
     { nombre: 'DISPOSITIVO AZTECA', factor: 1.04 },
   ],
-  inventario: [], // {sucursal, codigo, descripcion, medida, pz, costo, precio}
-  rines: [],      // {sucursal, codigo, medida_rin, ancho, barrenacion, offset, centro, material, marca, pz, costo, precio}
-  ventas: [],     // sale objects
-  gastos: [],     // expense objects
-  movimientos: [],// inventory movements
+  inventario: [],
+  rines: [],
+  ventas: [],
+  gastos: [],
+  movimientos: [],
 };
 
 let csvBuffer = [];
@@ -980,27 +980,33 @@ let dashCharts = {};
 function init() {
   loadFromStorage();
   setTodayDates();
-  renderAll();
   updateDateBadge();
   refreshSelectsGlobal();
   updateLogoDisplay();
+  // FIX: render dashboard and other views AFTER selects are ready
+  renderDashboard();
+  renderGastos();
+  renderHistorial();
 }
 
 function loadFromStorage() {
   const saved = localStorage.getItem('peters_wheels_db');
   if (saved) {
-    try { DB = JSON.parse(saved); } catch(e) {}
+    try { DB = JSON.parse(saved); } catch(e) { console.error('Error cargando datos:', e); }
   }
 }
 function saveToStorage() { localStorage.setItem('peters_wheels_db', JSON.stringify(DB)); }
+
 function setTodayDates() {
   const today = new Date().toISOString().slice(0,10);
   const ym = today.slice(0,7);
-  if (document.getElementById('pv-fecha')) document.getElementById('pv-fecha').value = today;
-  if (document.getElementById('gasto-fecha')) document.getElementById('gasto-fecha').value = today;
-  if (document.getElementById('historial-fecha')) document.getElementById('historial-fecha').value = today;
-  if (document.getElementById('rep-mes')) document.getElementById('rep-mes').value = ym;
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  setVal('pv-fecha', today);
+  setVal('gasto-fecha', today);
+  setVal('historial-fecha', today);
+  setVal('rep-mes', ym);
 }
+
 function updateDateBadge() {
   const now = new Date();
   document.getElementById('dateBadge').textContent = now.toLocaleDateString('es-MX',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
@@ -1008,9 +1014,10 @@ function updateDateBadge() {
 
 // ═══════════ NAVIGATION ═══════════
 const sectionTitles = {
-  'dashboard':'DASHBOARD','inventario-global':'INVENTARIO GLOBAL','inventario-rines':'INVENTARIO RINES','inventario-sucursal':'INV. SUCURSAL',
-  'punto-venta':'PUNTO DE VENTA','reportes':'REPORTES','configuracion':'CONFIGURACIÓN'
+  'dashboard':'DASHBOARD','inventario-global':'INVENTARIO GLOBAL','inventario-rines':'INVENTARIO RINES',
+  'inventario-sucursal':'INV. SUCURSAL','punto-venta':'PUNTO DE VENTA','reportes':'REPORTES','configuracion':'CONFIGURACIÓN'
 };
+
 function showSection(id) {
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1023,20 +1030,30 @@ function showSection(id) {
   if (id==='dashboard') renderDashboard();
   if (id==='inventario-global') renderGlobalInventory();
   if (id==='inventario-rines') renderRinesInventory();
-  if (id==='inventario-sucursal') { loadSucursalInventory(); }
-  if (id==='punto-venta') { refreshPVSelects(); if (!pvProductRows.length) addProductRow(); }
+  if (id==='inventario-sucursal') loadSucursalInventory();
+  if (id==='punto-venta') {
+    refreshPVSelects();
+    // FIX: only add a row if there are truly none
+    if (!pvProductRows.length) addProductRow();
+  }
   if (id==='reportes') renderReportes();
   if (id==='configuracion') renderConfig();
 }
+
+// FIX: rewritten switchTab to correctly find sibling content divs
 function switchTab(el, targetId) {
-  const parent = el.closest('.card, .section');
-  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  // Update active tab styling
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  const siblings = el.closest('.tabs').nextElementSibling;
-  // find all tab content siblings
-  let node = el.closest('.tabs').nextElementSibling;
+
+  // Find the parent section container to scope the search
+  const section = el.closest('.section') || el.closest('.card') || el.parentElement.parentElement;
+
+  // Collect all content nodes that are siblings of the .tabs element
+  const tabsEl = el.closest('.tabs');
+  let node = tabsEl.nextElementSibling;
   while (node) {
-    if (!node.classList.contains('tabs')) {
+    if (node.id) {
       node.style.display = node.id === targetId ? '' : 'none';
     }
     node = node.nextElementSibling;
@@ -1045,67 +1062,80 @@ function switchTab(el, targetId) {
 
 // ═══════════ GLOBAL SELECTS REFRESH ═══════════
 function refreshSelectsGlobal() {
-  // Sucursal selects
-  ['inv-suc-selector','historial-suc','rep-sucursal','gasto-sucursal'].forEach(id => {
+  // Sucursal selects that have an "All" option first
+  ['historial-suc','rep-sucursal'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const val = el.value;
-    const hasAll = el.options[0]&&el.options[0].value==='';
-    el.innerHTML = (hasAll ? '<option value="">Todas</option>' : '');
-    DB.sucursales.forEach(s => {
-      const o = document.createElement('option'); o.value=s.id; o.textContent=s.nombre; el.appendChild(o);
-    });
-    el.value = val;
+    el.innerHTML = '<option value="">Todas</option>';
+    DB.sucursales.forEach(s => { const o=document.createElement('option');o.value=s.id;o.textContent=s.nombre;el.appendChild(o); });
+    if (val) el.value = val;
   });
-  // global filter
+
+  // Sucursal selects without "All" option
+  ['inv-suc-selector','gasto-sucursal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const val = el.value;
+    el.innerHTML = '';
+    DB.sucursales.forEach(s => { const o=document.createElement('option');o.value=s.id;o.textContent=s.nombre;el.appendChild(o); });
+    if (val && DB.sucursales.find(s=>s.id===val)) el.value = val;
+    else if (DB.sucursales.length) el.value = DB.sucursales[0].id;
+  });
+
+  // Global inventory filter
   const gf = document.getElementById('inv-global-filter-suc');
   if (gf) {
+    const gv = gf.value;
     gf.innerHTML = '<option value="">Todas las sucursales</option>';
     DB.sucursales.forEach(s => { const o=document.createElement('option');o.value=s.id;o.textContent=s.nombre;gf.appendChild(o); });
+    if (gv) gf.value = gv;
   }
-  // rines filter
+
+  // Rines filter
   const rf = document.getElementById('inv-rines-filter-suc');
   if (rf) {
+    const rv = rf.value;
     rf.innerHTML = '<option value="">Todas las sucursales</option>';
     DB.sucursales.forEach(s => { const o=document.createElement('option');o.value=s.id;o.textContent=s.nombre;rf.appendChild(o); });
+    if (rv) rf.value = rv;
   }
+
   // Vendedores
-  ['pv-vendedor'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = '<option value="">-- Seleccionar --</option>';
-    DB.vendedores.forEach(v => { const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o); });
-  });
-  // Proveedores
-  ['pv-proveedor'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = '<option value="">-- Seleccionar --</option>';
-    DB.proveedores.forEach(p => { const o=document.createElement('option');o.value=p;o.textContent=p;el.appendChild(o); });
-  });
+  const pvVend = document.getElementById('pv-vendedor');
+  if (pvVend) {
+    const vv = pvVend.value;
+    pvVend.innerHTML = '<option value="">-- Seleccionar --</option>';
+    DB.vendedores.forEach(v => { const o=document.createElement('option');o.value=v;o.textContent=v;pvVend.appendChild(o); });
+    if (vv) pvVend.value = vv;
+  }
+
   // Métodos de pago
   const mpEl = document.getElementById('pv-metodo');
   if (mpEl) {
+    const mv = mpEl.value;
     mpEl.innerHTML = '<option value="">-- Seleccionar --</option>';
     DB.metodosPago.forEach(m => { const o=document.createElement('option');o.value=m.nombre;o.textContent=m.nombre+(m.factor?` (×${m.factor})`:'');mpEl.appendChild(o); });
+    if (mv) mpEl.value = mv;
   }
-  // Sucursal badge
+
+  // Sucursal badge in topbar
   const activeSuc = DB.sucursales[0];
   if (activeSuc) document.getElementById('sucursalBadge').textContent = activeSuc.nombre.toUpperCase();
 }
+
 function refreshPVSelects() { refreshSelectsGlobal(); }
 
 // ═══════════ LOGO ═══════════
 function updateLogoDisplay() {
   if (!DB.config.logoId) return;
   const url = `https://drive.google.com/thumbnail?id=${DB.config.logoId}&sz=w200`;
-  ['sidebarLogo','logo-preview'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (id==='sidebarLogo') { el.innerHTML = `<img src="${url}" alt="Logo" onerror="this.parentElement.innerHTML='🔧'">`; }
-    else { el.innerHTML = `<img src="${url}" alt="Logo" style="width:100%;height:100%;object-fit:contain" onerror="this.innerHTML='🔧'">`; }
-  });
+  const sidebarLogo = document.getElementById('sidebarLogo');
+  if (sidebarLogo) sidebarLogo.innerHTML = `<img src="${url}" alt="Logo" onerror="this.parentElement.innerHTML='🔧'">`;
+  const logoPreview = document.getElementById('logo-preview');
+  if (logoPreview) logoPreview.innerHTML = `<img src="${url}" alt="Logo" style="width:100%;height:100%;object-fit:contain" onerror="this.innerHTML='🔧'">`;
 }
+
 function previewLogo() {
   const id = document.getElementById('cfg-logo-id').value.trim();
   DB.config.logoId = id;
@@ -1123,6 +1153,7 @@ function renderDashboard() {
   const totalHoy = ventasHoy.reduce((a,v)=>a+(v.precioTotal||0),0);
   const totalMes = ventasMes.reduce((a,v)=>a+(v.precioTotal||0),0);
   const totalGastos = gastosMes.reduce((a,g)=>a+(g.monto||0),0) + ventasMes.reduce((a,v)=>a+(v.comisionTarjeta||0),0);
+
   document.getElementById('dash-ventas-hoy').textContent = fmt(totalHoy);
   document.getElementById('dash-ventas-hoy-n').textContent = ventasHoy.length+' operaciones';
   document.getElementById('dash-ventas-mes').textContent = fmt(totalMes);
@@ -1131,14 +1162,22 @@ function renderDashboard() {
   document.getElementById('dash-productos').textContent = DB.inventario.length + DB.rines.length;
   document.getElementById('dash-sucursal-nombre').textContent = DB.sucursales[0]?.nombre||'';
 
-  // Last 5 sales
+  // Last 8 sales
   const tbody = document.getElementById('dash-tabla-ventas');
   const last = [...DB.ventas].reverse().slice(0,8);
-  if (!last.length) { tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Sin ventas registradas</td></tr>'; }
-  else tbody.innerHTML = last.map(v=>`<tr><td>${v.vale||'-'}</td><td>${v.fecha||'-'}</td><td>${v.vendedor||'-'}</td><td><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></td><td>${getSucNombre(v.sucursal)}</td><td class="td-right">${fmt(v.precioTotal||0)}</td></tr>`).join('');
+  if (!last.length) {
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Sin ventas registradas</td></tr>';
+  } else {
+    tbody.innerHTML = last.map(v=>`<tr>
+      <td>${v.vale||'-'}</td><td>${v.fecha||'-'}</td><td>${v.vendedor||'-'}</td>
+      <td><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></td>
+      <td>${getSucNombre(v.sucursal)}</td>
+      <td class="td-right">${fmt(v.precioTotal||0)}</td>
+    </tr>`).join('');
+  }
 
-  // Charts
-  const labels7 = []; const data7 = [];
+  // Chart: last 7 days
+  const labels7 = [], data7 = [];
   for(let i=6;i>=0;i--) {
     const d = new Date(); d.setDate(d.getDate()-i);
     const ds = d.toISOString().slice(0,10);
@@ -1147,18 +1186,14 @@ function renderDashboard() {
   }
   renderChart('chartDashVentas', dashCharts, 'bar', labels7, [{ label:'Ventas', data:data7, backgroundColor:'rgba(232,184,75,0.7)', borderColor:'#e8b84b', borderWidth:1 }]);
 
-  // Métodos pie
+  // Chart: payment methods pie
   const metCount = {};
   ventasMes.forEach(v=>{ if(v.metodoPago) metCount[v.metodoPago]=(metCount[v.metodoPago]||0)+(v.precioTotal||0); });
   renderChart('chartDashMetodos', dashCharts, 'doughnut', Object.keys(metCount), [{ data:Object.values(metCount), backgroundColor:['#e8b84b','#4be87a','#4b8de8','#e84b4b','#be4be8','#4be8d8','#e8824b','#8ae84b'] }]);
 }
 
 // ═══════════ GLOBAL INVENTORY ═══════════
-// CSV FORMAT: id, codigo, descripcion, medida, costo, precio, Sucursal1_pz, Sucursal2_pz, ... (up to 10)
-// Each sucursal column header must match exactly a sucursal nombre in DB.sucursales
-
 function getSucursalHeaders() {
-  // Returns up to 10 sucursal names for the template
   const base = DB.sucursales.slice(0,10).map(s=>s.nombre);
   while (base.length < 10) base.push('Sucursal '+(base.length+1));
   return base;
@@ -1167,7 +1202,6 @@ function getSucursalHeaders() {
 function downloadTemplate(type) {
   const sucHeaders = getSucursalHeaders();
   let headerRow, ex1, ex2, filename;
-  
   if (type === 'rines') {
     headerRow = ['id','codigo','medida_rin','ancho','barrenacion','offset','centro','material','marca','costo','precio',...sucHeaders].join(',');
     ex1 = ['001','RN-15-6J','15','6J','4x100','+38','73.1','Aluminio','Enkei','1200','1800',...sucHeaders.map((_,i)=>i===0?'4':'0')].join(',');
@@ -1179,12 +1213,8 @@ function downloadTemplate(type) {
     ex2 = ['002','RIN-15-5','Rin aluminio','15x5H','500','900',...sucHeaders.map((_,i)=>i===0?'2':'0')].join(',');
     filename = 'plantilla_inventario_peters_wheels.csv';
   }
-  const csv = headerRow+'\n'+ex1+'\n'+ex2+'\n';
-  downloadFile(filename, csv, 'text/csv');
+  downloadFile(filename, headerRow+'\n'+ex1+'\n'+ex2+'\n', 'text/csv');
 }
-
-let csvRawData = '';
-let csvRinesRawData = '';
 
 function handleCSVDrop(e) {
   e.preventDefault();
@@ -1192,19 +1222,16 @@ function handleCSVDrop(e) {
   const file = e.dataTransfer.files[0];
   if (file) readCSVFile(file);
 }
-
 function handleCSVDropRines(e) {
   e.preventDefault();
   document.getElementById('csvDropAreaRines').classList.remove('drag');
   const file = e.dataTransfer.files[0];
   if (file) readCSVFileRines(file);
 }
-
 function loadCSVFile(input) { if (input.files[0]) readCSVFile(input.files[0]); }
 function loadCSVFileRines(input) { if (input.files[0]) readCSVFileRines(input.files[0]); }
 
 function parseCSVLine(line) {
-  // Handles quoted fields with commas inside
   const result = [];
   let cur = '', inQ = false;
   for (let i=0; i<line.length; i++) {
@@ -1217,83 +1244,74 @@ function parseCSVLine(line) {
   return result;
 }
 
+// FIX: unified helper to resolve or auto-create a sucursal from a column header name
+function resolveSucursal(headerName) {
+  const match = DB.sucursales.find(s => s.nombre.toLowerCase() === headerName.toLowerCase());
+  if (match) return match.id;
+  // Auto-create if not found
+  const newId = 'suc_' + headerName.replace(/\s+/g,'_').toLowerCase();
+  const exists = DB.sucursales.find(s => s.id === newId);
+  if (!exists) DB.sucursales.push({ id: newId, nombre: headerName });
+  return newId;
+}
+
 function readCSVFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
-    csvRawData = e.target.result;
-    const lines = csvRawData.trim().split(/\r?\n/);
+    const lines = e.target.result.trim().split(/\r?\n/);
     if (lines.length < 2) { document.getElementById('csv-preview').innerHTML='<div class="alert alert-error">El archivo está vacío o sin datos.</div>'; return; }
 
-    const headers = parseCSVLine(lines[0]).map(h=>h.toLowerCase().trim());
-    // Detect sucursal columns: everything after 'precio' column
+    const origHeaders = parseCSVLine(lines[0]).map(h=>h.trim());
+    const headers = origHeaders.map(h=>h.toLowerCase());
     const idxId = headers.indexOf('id');
     const idxCodigo = headers.indexOf('codigo');
     const idxDesc = headers.findIndex(h=>h.includes('desc'));
     const idxMedida = headers.findIndex(h=>h.includes('medida'));
     const idxCosto = headers.indexOf('costo');
     const idxPrecio = headers.indexOf('precio');
-
-    // Sucursal columns: all headers after 'precio' (index > idxPrecio), or any not in base set
-    const baseCols = new Set(['id','codigo','descripcion','medida','costo','precio','pz','sucursal']);
-    // Get original headers for sucursal matching (preserve case)
-    const origHeaders = parseCSVLine(lines[0]).map(h=>h.trim());
-    const sucColIndices = []; // {index, nombre}
-    origHeaders.forEach((h,i) => {
-      if (i > Math.max(idxCosto,idxPrecio) && !baseCols.has(h.toLowerCase())) {
-        sucColIndices.push({ index:i, nombre:h });
-      }
-    });
+    const baseSet = new Set(['id','codigo','descripcion','medida','costo','precio','pz','sucursal']);
+    const maxBase = Math.max(idxCosto, idxPrecio);
+    const sucColIndices = origHeaders.map((h,i) => ({ index:i, nombre:h })).filter(({index,nombre}) => index > maxBase && !baseSet.has(nombre.toLowerCase()));
 
     csvBuffer = [];
     let skipped = 0;
-
     for (let li=1; li<lines.length; li++) {
       const line = lines[li].trim();
       if (!line) continue;
       const cols = parseCSVLine(line);
-      const id = idxId>=0 ? cols[idxId]?.trim() : '';
-      const codigo = idxCodigo>=0 ? cols[idxCodigo]?.trim() : '';
-      const descripcion = idxDesc>=0 ? cols[idxDesc]?.trim() : '';
-      const medida = idxMedida>=0 ? cols[idxMedida]?.trim() : '';
+      const codigo = (idxCodigo>=0 ? cols[idxCodigo] : '').trim();
+      if (!codigo) { skipped++; continue; }
+      const id = (idxId>=0 ? cols[idxId] : '').trim();
+      const descripcion = (idxDesc>=0 ? cols[idxDesc] : '').trim();
+      const medida = (idxMedida>=0 ? cols[idxMedida] : '').trim();
       const costo = parseFloat(idxCosto>=0 ? cols[idxCosto] : 0)||0;
       const precio = parseFloat(idxPrecio>=0 ? cols[idxPrecio] : 0)||0;
-      if (!codigo) { skipped++; continue; }
 
       if (sucColIndices.length > 0) {
-        // Multi-sucursal format: one row per product, columns per sucursal
         sucColIndices.forEach(sc => {
           const pz = parseFloat(cols[sc.index])||0;
-          // Find matching sucursal in DB by name (case-insensitive)
-          const sucMatch = DB.sucursales.find(s=>s.nombre.toLowerCase()===sc.nombre.toLowerCase());
-          const sucId = sucMatch ? sucMatch.id : sc.nombre; // fallback to name as id
-          // Auto-create sucursal if not found
-          if (!sucMatch) {
-            const exists = DB.sucursales.find(s=>s.id===sc.nombre||s.nombre===sc.nombre);
-            if (!exists) DB.sucursales.push({ id: 'suc_'+sc.nombre.replace(/\s+/g,'_').toLowerCase(), nombre: sc.nombre });
-          }
-          csvBuffer.push({ id, sucursal: sucMatch?sucMatch.id:'suc_'+sc.nombre.replace(/\s+/g,'_').toLowerCase(), codigo, descripcion, medida, pz, costo, precio });
+          const sucId = resolveSucursal(sc.nombre);
+          csvBuffer.push({ id, sucursal:sucId, codigo, descripcion, medida, pz, costo, precio });
         });
       } else {
-        // Legacy single-row format with sucursal column
         const idxSuc = headers.indexOf('sucursal');
         const idxPz = headers.indexOf('pz');
-        const suc = idxSuc>=0 ? cols[idxSuc]?.trim() : '';
+        const suc = (idxSuc>=0 ? cols[idxSuc] : '').trim();
         const pz = parseFloat(idxPz>=0 ? cols[idxPz] : 0)||0;
         csvBuffer.push({ id, sucursal:suc, codigo, descripcion, medida, pz, costo, precio });
       }
     }
 
-    // Show preview table
-    const preview = csvBuffer.slice(0,5);
     const sucNames = [...new Set(csvBuffer.map(r=>r.sucursal))];
+    const preview = csvBuffer.slice(0,5);
     document.getElementById('csv-preview').innerHTML = `
       <div class="alert alert-success" style="margin-bottom:12px">
         ✅ <strong>${csvBuffer.length} registros</strong> detectados para <strong>${sucNames.length} sucursales</strong>${skipped?' ('+skipped+' filas omitidas)':''}.
-        Sucursales: ${sucNames.map(s=>getSucNombreOrId(s)).join(', ')}
+        Sucursales: ${sucNames.map(s=>getSucNombreById(s)).join(', ')}
       </div>
       <div class="table-wrap">
         <table><thead><tr><th>ID</th><th>Sucursal</th><th>Código</th><th>Descripción</th><th>Medida</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th></tr></thead>
-        <tbody>${preview.map(r=>`<tr><td>${r.id||'-'}</td><td>${getSucNombreOrId(r.sucursal)}</td><td>${r.codigo}</td><td>${r.descripcion}</td><td>${r.medida}</td><td class="td-right">${r.pz}</td><td class="td-right">${fmt(r.costo)}</td><td class="td-right">${fmt(r.precio)}</td></tr>`).join('')}
+        <tbody>${preview.map(r=>`<tr><td>${r.id||'-'}</td><td>${getSucNombreById(r.sucursal)}</td><td>${r.codigo}</td><td>${r.descripcion}</td><td>${r.medida}</td><td class="td-right">${r.pz}</td><td class="td-right">${fmt(r.costo)}</td><td class="td-right">${fmt(r.precio)}</td></tr>`).join('')}
         ${csvBuffer.length>5?`<tr><td colspan="8" style="text-align:center;color:var(--text3)">... y ${csvBuffer.length-5} más</td></tr>`:''}</tbody></table>
       </div>`;
   };
@@ -1303,11 +1321,11 @@ function readCSVFile(file) {
 function readCSVFileRines(file) {
   const reader = new FileReader();
   reader.onload = e => {
-    csvRinesRawData = e.target.result;
-    const lines = csvRinesRawData.trim().split(/\r?\n/);
+    const lines = e.target.result.trim().split(/\r?\n/);
     if (lines.length < 2) { document.getElementById('csv-preview-rines').innerHTML='<div class="alert alert-error">El archivo está vacío o sin datos.</div>'; return; }
 
-    const headers = parseCSVLine(lines[0]).map(h=>h.toLowerCase().trim());
+    const origHeaders = parseCSVLine(lines[0]).map(h=>h.trim());
+    const headers = origHeaders.map(h=>h.toLowerCase());
     const idxId = headers.indexOf('id');
     const idxCodigo = headers.indexOf('codigo');
     const idxMedidaRin = headers.indexOf('medida_rin');
@@ -1319,127 +1337,78 @@ function readCSVFileRines(file) {
     const idxMarca = headers.indexOf('marca');
     const idxCosto = headers.indexOf('costo');
     const idxPrecio = headers.indexOf('precio');
-
-    // Get sucursal columns
-    const baseCols = new Set(['id','codigo','medida_rin','ancho','barrenacion','offset','centro','material','marca','costo','precio','pz','sucursal']);
-    const origHeaders = parseCSVLine(lines[0]).map(h=>h.trim());
-    const sucColIndices = [];
-    origHeaders.forEach((h,i) => {
-      if (i > Math.max(idxCosto, idxPrecio) && !baseCols.has(h.toLowerCase())) {
-        sucColIndices.push({ index:i, nombre:h });
-      }
-    });
+    const baseSet = new Set(['id','codigo','medida_rin','ancho','barrenacion','offset','centro','material','marca','costo','precio','pz','sucursal']);
+    const maxBase = Math.max(idxCosto, idxPrecio);
+    const sucColIndices = origHeaders.map((h,i)=>({index:i,nombre:h})).filter(({index,nombre})=>index>maxBase&&!baseSet.has(nombre.toLowerCase()));
 
     csvRinesBuffer = [];
     let skipped = 0;
-
     for (let li=1; li<lines.length; li++) {
       const line = lines[li].trim();
       if (!line) continue;
       const cols = parseCSVLine(line);
-      const id = idxId>=0 ? cols[idxId]?.trim() : '';
-      const codigo = idxCodigo>=0 ? cols[idxCodigo]?.trim() : '';
-      const medida_rin = idxMedidaRin>=0 ? cols[idxMedidaRin]?.trim() : '';
-      const ancho = idxAncho>=0 ? cols[idxAncho]?.trim() : '';
-      const barrenacion = idxBarrenacion>=0 ? cols[idxBarrenacion]?.trim() : '';
-      const offset = idxOffset>=0 ? cols[idxOffset]?.trim() : '';
-      const centro = idxCentro>=0 ? cols[idxCentro]?.trim() : '';
-      const material = idxMaterial>=0 ? cols[idxMaterial]?.trim() : '';
-      const marca = idxMarca>=0 ? cols[idxMarca]?.trim() : '';
+      const codigo = (idxCodigo>=0 ? cols[idxCodigo] : '').trim();
+      if (!codigo) { skipped++; continue; }
+      const id = (idxId>=0 ? cols[idxId] : '').trim();
+      const medida_rin = (idxMedidaRin>=0 ? cols[idxMedidaRin] : '').trim();
+      const ancho = (idxAncho>=0 ? cols[idxAncho] : '').trim();
+      const barrenacion = (idxBarrenacion>=0 ? cols[idxBarrenacion] : '').trim();
+      const offset = (idxOffset>=0 ? cols[idxOffset] : '').trim();
+      const centro = (idxCentro>=0 ? cols[idxCentro] : '').trim();
+      const material = (idxMaterial>=0 ? cols[idxMaterial] : '').trim();
+      const marca = (idxMarca>=0 ? cols[idxMarca] : '').trim();
       const costo = parseFloat(idxCosto>=0 ? cols[idxCosto] : 0)||0;
       const precio = parseFloat(idxPrecio>=0 ? cols[idxPrecio] : 0)||0;
-      if (!codigo) { skipped++; continue; }
 
-      if (sucColIndices.length > 0) {
-        sucColIndices.forEach(sc => {
-          const pz = parseFloat(cols[sc.index])||0;
-          const sucMatch = DB.sucursales.find(s=>s.nombre.toLowerCase()===sc.nombre.toLowerCase());
-          const sucId = sucMatch ? sucMatch.id : sc.nombre;
-          if (!sucMatch) {
-            const exists = DB.sucursales.find(s=>s.id===sc.nombre||s.nombre===sc.nombre);
-            if (!exists) DB.sucursales.push({ id: 'suc_'+sc.nombre.replace(/\s+/g,'_').toLowerCase(), nombre: sc.nombre });
-          }
-          csvRinesBuffer.push({ 
-            id, sucursal: sucMatch?sucMatch.id:'suc_'+sc.nombre.replace(/\s+/g,'_').toLowerCase(), 
-            codigo, medida_rin, ancho, barrenacion, offset, centro, material, marca, pz, costo, precio 
-          });
-        });
-      }
+      sucColIndices.forEach(sc => {
+        const pz = parseFloat(cols[sc.index])||0;
+        const sucId = resolveSucursal(sc.nombre);
+        csvRinesBuffer.push({ id, sucursal:sucId, codigo, medida_rin, ancho, barrenacion, offset, centro, material, marca, pz, costo, precio });
+      });
     }
 
-    // Show preview
-    const preview = csvRinesBuffer.slice(0,5);
     const sucNames = [...new Set(csvRinesBuffer.map(r=>r.sucursal))];
+    const preview = csvRinesBuffer.slice(0,5);
     document.getElementById('csv-preview-rines').innerHTML = `
       <div class="alert alert-success" style="margin-bottom:12px">
         ✅ <strong>${csvRinesBuffer.length} registros</strong> de rines detectados para <strong>${sucNames.length} sucursales</strong>${skipped?' ('+skipped+' filas omitidas)':''}.
-        Sucursales: ${sucNames.map(s=>getSucNombreOrId(s)).join(', ')}
+        Sucursales: ${sucNames.map(s=>getSucNombreById(s)).join(', ')}
       </div>
       <div class="table-wrap">
         <table><thead><tr><th>ID</th><th>Sucursal</th><th>Código</th><th>Marca</th><th>Medida</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th></tr></thead>
-        <tbody>${preview.map(r=>`<tr><td>${r.id||'-'}</td><td>${getSucNombreOrId(r.sucursal)}</td><td>${r.codigo}</td><td>${r.marca}</td><td>${r.medida_rin}" ${r.ancho}J</td><td class="td-right">${r.pz}</td><td class="td-right">${fmt(r.costo)}</td><td class="td-right">${fmt(r.precio)}</td></tr>`).join('')}
+        <tbody>${preview.map(r=>`<tr><td>${r.id||'-'}</td><td>${getSucNombreById(r.sucursal)}</td><td>${r.codigo}</td><td>${r.marca}</td><td>${r.medida_rin}" ${r.ancho}J</td><td class="td-right">${r.pz}</td><td class="td-right">${fmt(r.costo)}</td><td class="td-right">${fmt(r.precio)}</td></tr>`).join('')}
         ${csvRinesBuffer.length>5?`<tr><td colspan="8" style="text-align:center;color:var(--text3)">... y ${csvRinesBuffer.length-5} más</td></tr>`:''}</tbody></table>
       </div>`;
   };
   reader.readAsText(file, 'UTF-8');
 }
 
-function getSucNombreOrId(id) {
-  return DB.sucursales.find(s=>s.id===id)?.nombre || id;
-}
-
 function processCSV(type) {
   if (type === 'rines') {
     if (!csvRinesBuffer.length) { alert('Primero carga un archivo CSV de rines'); return; }
-    
-    // Check if we should replace existing inventory
-    const replace = document.getElementById('inv-rines-replace')?.checked;
-    if (replace) {
-      DB.rines = [];
-    }
-    
-    let added=0, updated=0, duplicates=0;
+    if (document.getElementById('inv-rines-replace')?.checked) DB.rines = [];
+    let added=0, updated=0;
     csvRinesBuffer.forEach(item => {
       if (!item.codigo || !item.sucursal) return;
       const idx = DB.rines.findIndex(i=>i.sucursal===item.sucursal && i.codigo===item.codigo);
-      if (idx>=0) { 
-        DB.rines[idx] = {...DB.rines[idx], ...item}; 
-        updated++; 
-      } else { 
-        DB.rines.push(item); 
-        added++; 
-      }
+      if (idx>=0) { DB.rines[idx] = {...DB.rines[idx], ...item}; updated++; }
+      else { DB.rines.push(item); added++; }
     });
-    saveToStorage();
-    refreshSelectsGlobal();
-    csvRinesBuffer = [];
-    document.getElementById('csv-preview-rines').innerHTML = `<div class="alert alert-success">✅ Importación completa: <strong>${added} nuevos</strong> rines agregados, <strong>${updated} actualizados</strong>, <strong>${duplicates} duplicados omitidos</strong>.</div>`;
+    saveToStorage(); refreshSelectsGlobal(); csvRinesBuffer = [];
+    document.getElementById('csv-preview-rines').innerHTML = `<div class="alert alert-success">✅ Importación completa: <strong>${added} nuevos</strong> rines, <strong>${updated} actualizados</strong>.</div>`;
     renderRinesInventory();
   } else {
     if (!csvBuffer.length) { alert('Primero carga un archivo CSV'); return; }
-    
-    // Check if we should replace existing inventory
-    const replace = document.getElementById('inv-global-replace')?.checked;
-    if (replace) {
-      DB.inventario = [];
-    }
-    
-    let added=0, updated=0, duplicates=0;
+    if (document.getElementById('inv-global-replace')?.checked) DB.inventario = [];
+    let added=0, updated=0;
     csvBuffer.forEach(item => {
       if (!item.codigo || !item.sucursal) return;
       const idx = DB.inventario.findIndex(i=>i.sucursal===item.sucursal && i.codigo===item.codigo);
-      if (idx>=0) { 
-        DB.inventario[idx] = {...DB.inventario[idx], ...item}; 
-        updated++; 
-      } else { 
-        DB.inventario.push(item); 
-        added++; 
-      }
+      if (idx>=0) { DB.inventario[idx] = {...DB.inventario[idx], ...item}; updated++; }
+      else { DB.inventario.push(item); added++; }
     });
-    saveToStorage();
-    refreshSelectsGlobal();
-    csvBuffer = [];
-    document.getElementById('csv-preview').innerHTML = `<div class="alert alert-success">✅ Importación completa: <strong>${added} nuevos</strong> productos agregados, <strong>${updated} actualizados</strong>, <strong>${duplicates} duplicados omitidos</strong>.</div>`;
+    saveToStorage(); refreshSelectsGlobal(); csvBuffer = [];
+    document.getElementById('csv-preview').innerHTML = `<div class="alert alert-success">✅ Importación completa: <strong>${added} nuevos</strong> productos, <strong>${updated} actualizados</strong>.</div>`;
     renderGlobalInventory();
   }
 }
@@ -1448,21 +1417,20 @@ function renderGlobalInventory() {
   const search = (document.getElementById('inv-global-search')?.value||'').toLowerCase();
   const suc = document.getElementById('inv-global-filter-suc')?.value||'';
   const soloDisponibles = document.getElementById('inv-global-solo-disponibles')?.checked;
-  let items = DB.inventario.filter(i=>{
+  let items = DB.inventario.filter(i => {
     const matchSuc = !suc || i.sucursal===suc;
-    const matchSearch = !search || (i.codigo+i.descripcion+i.medida+i.sucursal).toLowerCase().includes(search);
-    const matchDisponible = !soloDisponibles || i.pz > 0;
-    return matchSuc && matchSearch && matchDisponible;
+    const matchSearch = !search || (i.codigo+i.descripcion+(i.medida||'')+i.sucursal).toLowerCase().includes(search);
+    return matchSuc && matchSearch && (!soloDisponibles || i.pz>0);
   });
   document.getElementById('inv-global-count').textContent = items.length+' productos';
   const tbody = document.getElementById('inv-global-tbody');
   if (!items.length) { tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Sin datos</td></tr>'; return; }
-  tbody.innerHTML = items.map(i=>{
+  tbody.innerHTML = items.map(i => {
     const util = i.precio - i.costo;
     const pct = i.costo ? ((util/i.costo)*100).toFixed(1) : 0;
     return `<tr>
       <td style="font-family:monospace;font-size:11px;color:var(--text3)">${i.id||'-'}</td>
-      <td><span class="badge-pill badge-blue">${getSucNombreOrId(i.sucursal)}</span></td>
+      <td><span class="badge-pill badge-blue">${getSucNombreById(i.sucursal)}</span></td>
       <td style="font-family:monospace">${i.codigo}</td>
       <td>${i.descripcion} <span style="color:var(--text3)">${i.medida||''}</span></td>
       <td class="td-right">${i.pz}</td>
@@ -1478,22 +1446,21 @@ function renderRinesInventory() {
   const search = (document.getElementById('inv-rines-search')?.value||'').toLowerCase();
   const suc = document.getElementById('inv-rines-filter-suc')?.value||'';
   const soloDisponibles = document.getElementById('inv-rines-solo-disponibles')?.checked;
-  let items = DB.rines.filter(i=>{
+  let items = DB.rines.filter(i => {
     const matchSuc = !suc || i.sucursal===suc;
-    const matchSearch = !search || (i.codigo+i.marca+i.medida_rin+i.ancho+i.sucursal).toLowerCase().includes(search);
-    const matchDisponible = !soloDisponibles || i.pz > 0;
-    return matchSuc && matchSearch && matchDisponible;
+    const matchSearch = !search || (i.codigo+(i.marca||'')+(i.medida_rin||'')+i.sucursal).toLowerCase().includes(search);
+    return matchSuc && matchSearch && (!soloDisponibles || i.pz>0);
   });
   document.getElementById('inv-rines-count').textContent = items.length+' rines';
   const tbody = document.getElementById('inv-rines-tbody');
   if (!items.length) { tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Sin datos</td></tr>'; return; }
-  tbody.innerHTML = items.map(i=>{
+  tbody.innerHTML = items.map(i => {
     const util = i.precio - i.costo;
     const pct = i.costo ? ((util/i.costo)*100).toFixed(1) : 0;
     const descripcion = `${i.marca} ${i.medida_rin}" ${i.ancho}J | Offset: ${i.offset} | CB: ${i.centro}`;
     return `<tr>
       <td style="font-family:monospace;font-size:11px;color:var(--text3)">${i.id||'-'}</td>
-      <td><span class="badge-pill badge-blue">${getSucNombreOrId(i.sucursal)}</span></td>
+      <td><span class="badge-pill badge-blue">${getSucNombreById(i.sucursal)}</span></td>
       <td style="font-family:monospace">${i.codigo}</td>
       <td>${descripcion} <span style="color:var(--text3)">${i.material}</span></td>
       <td class="td-right">${i.pz}</td>
@@ -1511,34 +1478,42 @@ function refreshSucursalSelect() {
   const prevVal = sel.value;
   sel.innerHTML = '';
   DB.sucursales.forEach(s => { const o=document.createElement('option');o.value=s.id;o.textContent=s.nombre;sel.appendChild(o); });
-  // Restore previous value if still valid, else default to first
-  if (prevVal && DB.sucursales.find(s=>s.id===prevVal)) sel.value=prevVal;
-  else if (DB.sucursales.length) sel.value=DB.sucursales[0].id;
+  if (prevVal && DB.sucursales.find(s=>s.id===prevVal)) sel.value = prevVal;
+  else if (DB.sucursales.length) sel.value = DB.sucursales[0].id;
 }
-function loadSucursalInventory() { 
-  refreshSucursalSelect(); 
-  renderSucursalInventory(); 
+
+function loadSucursalInventory() {
+  refreshSucursalSelect();
+  renderSucursalInventory();
   renderSucursalRines();
-  renderMovimientos(); 
+  renderMovimientos();
 }
+
+// FIX: unified sucursal matching — checks id, nombre, and auto-generated id
+function itemMatchesSucursal(item, sucId) {
+  if (item.sucursal === sucId) return true;
+  const sucObj = DB.sucursales.find(s => s.id === sucId);
+  if (!sucObj) return false;
+  const autoId = 'suc_' + sucObj.nombre.replace(/\s+/g,'_').toLowerCase();
+  return item.sucursal === sucObj.nombre || item.sucursal === autoId;
+}
+
 function renderSucursalInventory() {
-  const sel = document.getElementById('inv-suc-selector');
-  const suc = sel?.value || DB.sucursales[0]?.id || '';
+  const suc = document.getElementById('inv-suc-selector')?.value || DB.sucursales[0]?.id || '';
   const search = (document.getElementById('inv-suc-search')?.value||'').toLowerCase();
-  // Match by id OR by nombre (covers cases where CSV used name as id)
-  const sucObj = DB.sucursales.find(s=>s.id===suc);
-  let items = DB.inventario.filter(i=>{
-    return i.sucursal===suc || (sucObj && i.sucursal===sucObj.nombre) || (sucObj && i.sucursal==='suc_'+sucObj.nombre.replace(/\s+/g,'_').toLowerCase());
-  });
-  if (search) items = items.filter(i=>(i.codigo+i.descripcion+i.medida).toLowerCase().includes(search));
   const soloDisponibles = document.getElementById('inv-suc-solo-disponibles')?.checked;
-  if (soloDisponibles) items = items.filter(i=>i.pz > 0);
+  let items = DB.inventario.filter(i => itemMatchesSucursal(i, suc));
+  if (search) items = items.filter(i=>(i.codigo+i.descripcion+(i.medida||'')).toLowerCase().includes(search));
+  if (soloDisponibles) items = items.filter(i=>i.pz>0);
   document.getElementById('inv-suc-count').textContent = items.length+' productos';
   const tbody = document.getElementById('inv-suc-tbody');
-  if (!items.length) { tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin productos para esta sucursal.<br><span style="font-size:11px">Carga el inventario desde "Inventario Global → Cargar Inventario"</span></td></tr>`; return; }
-  tbody.innerHTML = items.map(i=>{
+  if (!items.length) {
+    tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin productos para esta sucursal.<br><span style="font-size:11px">Carga el inventario desde "Inventario Global → Cargar Inventario"</span></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = items.map(i => {
     const util = i.precio - i.costo;
-    const status = i.pz <= 0 ? '<span class="badge-pill badge-red">Agotado</span>' : i.pz <= 2 ? '<span class="badge-pill badge-accent">Bajo</span>' : '<span class="badge-pill badge-green">OK</span>';
+    const status = i.pz<=0 ? '<span class="badge-pill badge-red">Agotado</span>' : i.pz<=2 ? '<span class="badge-pill badge-accent">Bajo</span>' : '<span class="badge-pill badge-green">OK</span>';
     return `<tr>
       <td style="font-family:monospace">${i.codigo}</td>
       <td>${i.descripcion} <span style="color:var(--text3)">${i.medida||''}</span></td>
@@ -1552,22 +1527,21 @@ function renderSucursalInventory() {
 }
 
 function renderSucursalRines() {
-  const sel = document.getElementById('inv-suc-selector');
-  const suc = sel?.value || DB.sucursales[0]?.id || '';
+  const suc = document.getElementById('inv-suc-selector')?.value || DB.sucursales[0]?.id || '';
   const search = (document.getElementById('inv-suc-rines-search')?.value||'').toLowerCase();
-  const sucObj = DB.sucursales.find(s=>s.id===suc);
-  let items = DB.rines.filter(i=>{
-    return i.sucursal===suc || (sucObj && i.sucursal===sucObj.nombre) || (sucObj && i.sucursal==='suc_'+sucObj.nombre.replace(/\s+/g,'_').toLowerCase());
-  });
-  if (search) items = items.filter(i=>(i.codigo+i.marca+i.medida_rin+i.ancho).toLowerCase().includes(search));
   const soloDisponibles = document.getElementById('inv-suc-rines-solo-disponibles')?.checked;
-  if (soloDisponibles) items = items.filter(i=>i.pz > 0);
+  let items = DB.rines.filter(i => itemMatchesSucursal(i, suc));
+  if (search) items = items.filter(i=>(i.codigo+(i.marca||'')+(i.medida_rin||'')+i.ancho).toLowerCase().includes(search));
+  if (soloDisponibles) items = items.filter(i=>i.pz>0);
   document.getElementById('inv-suc-rines-count').textContent = items.length+' rines';
   const tbody = document.getElementById('inv-suc-rines-tbody');
-  if (!items.length) { tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin rines para esta sucursal.<br><span style="font-size:11px">Carga el inventario desde "Inventario de Rines → Cargar Rines"</span></td></tr>`; return; }
-  tbody.innerHTML = items.map(i=>{
+  if (!items.length) {
+    tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin rines para esta sucursal.<br><span style="font-size:11px">Carga el inventario desde "Inventario de Rines → Cargar Rines"</span></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = items.map(i => {
     const util = i.precio - i.costo;
-    const status = i.pz <= 0 ? '<span class="badge-pill badge-red">Agotado</span>' : i.pz <= 2 ? '<span class="badge-pill badge-accent">Bajo</span>' : '<span class="badge-pill badge-green">OK</span>';
+    const status = i.pz<=0 ? '<span class="badge-pill badge-red">Agotado</span>' : i.pz<=2 ? '<span class="badge-pill badge-accent">Bajo</span>' : '<span class="badge-pill badge-green">OK</span>';
     const descripcion = `${i.marca} ${i.medida_rin}" ${i.ancho}J | Offset: ${i.offset}`;
     return `<tr>
       <td style="font-family:monospace">${i.codigo}</td>
@@ -1589,13 +1563,14 @@ function renderMovimientos() {
   tbody.innerHTML = movs.map(m=>`<tr>
     <td>${m.fecha}</td>
     <td><span class="badge-pill ${m.tipo==='entrada'?'badge-green':'badge-red'}">${m.tipo.toUpperCase()}</span></td>
-    <td>${m.productoType || 'Llanta'}</td>
+    <td>${m.productoType||'Llanta'}</td>
     <td style="font-family:monospace">${m.codigo}</td>
     <td>${m.descripcion}</td>
     <td class="td-right">${m.tipo==='entrada'?'+':'-'}${m.cantidad}</td>
     <td>${m.motivo}</td>
   </tr>`).join('');
 }
+
 function showAddMovModal(type) {
   movType = type;
   movSelectedProduct = null;
@@ -1609,72 +1584,67 @@ function showAddMovModal(type) {
   filterMovProducts();
   document.getElementById('modalMov').classList.add('open');
 }
+
 function filterMovProducts() {
   const suc = document.getElementById('inv-suc-selector')?.value;
   const productType = document.getElementById('mov-product-type')?.value || 'llantas';
   movSelectedProductType = productType;
   const q = document.getElementById('mov-search').value.toLowerCase();
-  
   let items;
   if (productType === 'rines') {
-    items = DB.rines.filter(i=>i.sucursal===suc && (!q||(i.codigo+i.marca+i.medida_rin).toLowerCase().includes(q)));
+    items = DB.rines.filter(i => itemMatchesSucursal(i, suc) && (!q||(i.codigo+(i.marca||'')+(i.medida_rin||'')).toLowerCase().includes(q)));
   } else {
-    items = DB.inventario.filter(i=>i.sucursal===suc && (!q||(i.codigo+i.descripcion).toLowerCase().includes(q)));
+    items = DB.inventario.filter(i => itemMatchesSucursal(i, suc) && (!q||(i.codigo+i.descripcion).toLowerCase().includes(q)));
   }
-  
   const list = document.getElementById('mov-products-list');
-  list.innerHTML = items.map(i=>{
-    const displayText = productType === 'rines' 
+  list.innerHTML = items.map(i => {
+    const displayText = productType==='rines'
       ? `${i.codigo} – ${i.marca} ${i.medida_rin}" ${i.ancho}J`
       : `${i.codigo} – ${i.descripcion} ${i.medida||''}`;
-    return `<div onclick="selectMovProduct('${i.codigo}','${suc}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+    return `<div onclick="selectMovProduct('${i.codigo}','${i.sucursal}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
       <span>${displayText}</span><span style="color:var(--text3)">Pz: ${i.pz}</span>
     </div>`;
   }).join('') || '<div style="padding:12px;color:var(--text3);text-align:center">Sin resultados</div>';
 }
+
 function selectMovProduct(codigo, suc) {
   if (movSelectedProductType === 'rines') {
     movSelectedProduct = DB.rines.find(i=>i.codigo===codigo && i.sucursal===suc);
   } else {
     movSelectedProduct = DB.inventario.find(i=>i.codigo===codigo && i.sucursal===suc);
   }
-  
   if (movSelectedProduct) {
-    const displayText = movSelectedProductType === 'rines'
+    const displayText = movSelectedProductType==='rines'
       ? `${movSelectedProduct.codigo} – ${movSelectedProduct.marca} ${movSelectedProduct.medida_rin}" ${movSelectedProduct.ancho}J`
       : `${movSelectedProduct.codigo} – ${movSelectedProduct.descripcion} ${movSelectedProduct.medida||''}`;
     document.getElementById('mov-selected').innerHTML = `<strong>${displayText}</strong> | Stock actual: <strong>${movSelectedProduct.pz}</strong>`;
   }
 }
+
 function saveMovimiento() {
   if (!movSelectedProduct) { alert('Selecciona un producto'); return; }
   const cant = parseInt(document.getElementById('mov-cantidad').value)||0;
   const motivo = document.getElementById('mov-motivo').value;
   if (!cant) { alert('Ingresa la cantidad'); return; }
-  
   if (movSelectedProductType === 'rines') {
     const idx = DB.rines.findIndex(i=>i.codigo===movSelectedProduct.codigo && i.sucursal===movSelectedProduct.sucursal);
-    if (movType==='entrada') DB.rines[idx].pz += cant;
-    else DB.rines[idx].pz = Math.max(0, DB.rines[idx].pz - cant);
+    if (idx>=0) DB.rines[idx].pz = movType==='entrada' ? DB.rines[idx].pz+cant : Math.max(0, DB.rines[idx].pz-cant);
   } else {
     const idx = DB.inventario.findIndex(i=>i.codigo===movSelectedProduct.codigo && i.sucursal===movSelectedProduct.sucursal);
-    if (movType==='entrada') DB.inventario[idx].pz += cant;
-    else DB.inventario[idx].pz = Math.max(0, DB.inventario[idx].pz - cant);
+    if (idx>=0) DB.inventario[idx].pz = movType==='entrada' ? DB.inventario[idx].pz+cant : Math.max(0, DB.inventario[idx].pz-cant);
   }
-  
-  const descripcion = movSelectedProductType === 'rines'
+  const descripcion = movSelectedProductType==='rines'
     ? `${movSelectedProduct.marca} ${movSelectedProduct.medida_rin}" ${movSelectedProduct.ancho}J`
     : `${movSelectedProduct.descripcion} ${movSelectedProduct.medida||''}`;
-    
-  DB.movimientos.push({ 
-    fecha:new Date().toISOString().slice(0,10), 
-    tipo:movType, 
-    sucursal:movSelectedProduct.sucursal, 
-    codigo:movSelectedProduct.codigo, 
+  DB.movimientos.push({
+    fecha: new Date().toISOString().slice(0,10),
+    tipo: movType,
+    sucursal: movSelectedProduct.sucursal,
+    codigo: movSelectedProduct.codigo,
     descripcion,
-    cantidad:cant, 
+    cantidad: cant,
     motivo,
-    productoType: movSelectedProductType === 'rines' ? 'Rin' : 'Llanta'
+    productoType: movSelectedProductType==='rines' ? 'Rin' : 'Llanta'
   });
   saveToStorage();
   closeModal('modalMov');
@@ -1729,16 +1699,10 @@ function addProductRow() {
     </div>
   `;
   document.getElementById('product-rows').appendChild(row);
-  
   // Populate provider select
   const provSelect = document.getElementById(`prow-proveedor-${id}`);
   if (provSelect) {
-    DB.proveedores.forEach(p => {
-      const o = document.createElement('option');
-      o.value = p;
-      o.textContent = p;
-      provSelect.appendChild(o);
-    });
+    DB.proveedores.forEach(p => { const o=document.createElement('option');o.value=p;o.textContent=p;provSelect.appendChild(o); });
   }
 }
 
@@ -1753,45 +1717,22 @@ function filterProductSelect(id) {
   if (!sel) return;
   const prev = sel.value;
   sel.innerHTML = '<option value="">-- Seleccionar --</option>';
-  
-  // Filter both llantas and rines
-  const llantasFiltradas = q
-    ? DB.inventario.filter(i=>i.pz>0 && (i.codigo+' '+i.descripcion+' '+(i.medida||'')).toLowerCase().includes(q))
-    : DB.inventario.filter(i=>i.pz>0);
-    
-  const rinesFiltrados = q
-    ? DB.rines.filter(i=>i.pz>0 && (i.codigo+' '+i.marca+' '+i.medida_rin).toLowerCase().includes(q))
-    : DB.rines.filter(i=>i.pz>0);
-  
-  // Add llantas options
-  llantasFiltradas.forEach(i=>{
-    const o = document.createElement('option');
-    o.value = `llanta|${i.codigo}|${i.sucursal}`;
-    o.textContent = `${i.codigo} – ${i.descripcion}${i.medida?' '+i.medida:''} (${i.pz} pz)`;
-    sel.appendChild(o);
-  });
-  
-  // Add rines options
-  rinesFiltrados.forEach(i=>{
-    const o = document.createElement('option');
-    o.value = `rin|${i.codigo}|${i.sucursal}`;
-    o.textContent = `${i.codigo} – ${i.marca} ${i.medida_rin}" ${i.ancho}J (${i.pz} pz)`;
-    sel.appendChild(o);
-  });
-  
-  // Auto-select if only one result
-  if (llantasFiltradas.length + rinesFiltrados.length === 1) {
-    const item = llantasFiltradas.length === 1 ? llantasFiltradas[0] : rinesFiltrados[0];
-    const type = llantasFiltradas.length === 1 ? 'llanta' : 'rin';
+  const llantasFiltradas = DB.inventario.filter(i=>i.pz>0 && (!q||(i.codigo+' '+i.descripcion+' '+(i.medida||'')).toLowerCase().includes(q)));
+  const rinesFiltrados = DB.rines.filter(i=>i.pz>0 && (!q||(i.codigo+' '+(i.marca||'')+' '+(i.medida_rin||'')).toLowerCase().includes(q)));
+  llantasFiltradas.forEach(i=>{ const o=document.createElement('option');o.value=`llanta|${i.codigo}|${i.sucursal}`;o.textContent=`${i.codigo} – ${i.descripcion}${i.medida?' '+i.medida:''} (${i.pz} pz)`;sel.appendChild(o); });
+  rinesFiltrados.forEach(i=>{ const o=document.createElement('option');o.value=`rin|${i.codigo}|${i.sucursal}`;o.textContent=`${i.codigo} – ${i.marca} ${i.medida_rin}" ${i.ancho}J (${i.pz} pz)`;sel.appendChild(o); });
+  if (llantasFiltradas.length+rinesFiltrados.length===1) {
+    const item = llantasFiltradas.length===1 ? llantasFiltradas[0] : rinesFiltrados[0];
+    const type = llantasFiltradas.length===1 ? 'llanta' : 'rin';
     sel.value = `${type}|${item.codigo}|${item.sucursal}`;
     onProductSelect(id, sel);
-  } else if (prev) {
-    sel.value = prev;
-  }
+  } else if (prev) sel.value = prev;
 }
 
 function onProductSelect(id, sel) {
-  const [type, codigo, suc] = sel.value.split('|');
+  const parts = sel.value.split('|');
+  if (parts.length < 3) return;
+  const [type, codigo, suc] = parts;
   let prod;
   if (type === 'rin') {
     prod = DB.rines.find(i=>i.codigo===codigo && i.sucursal===suc);
@@ -1803,38 +1744,35 @@ function onProductSelect(id, sel) {
   } else {
     prod = DB.inventario.find(i=>i.codigo===codigo && i.sucursal===suc);
     if (prod) {
-      document.getElementById(`prow-desc-${id}`).value = prod.descripcion + (prod.medida?' '+prod.medida:'');
+      document.getElementById(`prow-desc-${id}`).value = prod.descripcion+(prod.medida?' '+prod.medida:'');
       document.getElementById(`prow-costo-${id}`).value = prod.costo;
       document.getElementById(`prow-precio-${id}`).value = prod.precio;
     }
   }
-  
   const pzInput = document.getElementById(`prow-pz-${id}`);
   if (prod && pzInput) {
     pzInput.max = prod.pz;
     pzInput.title = `Máx: ${prod.pz} pz disponibles`;
     if (parseFloat(pzInput.value) > prod.pz) pzInput.value = prod.pz;
   }
-  
-  // Show venta dia options when product is selected
-  if (prod) {
-    document.getElementById(`prow-venta-dia-${id}`).style.display = '';
-  } else {
-    document.getElementById(`prow-venta-dia-${id}`).style.display = 'none';
-  }
-  
+  document.getElementById(`prow-venta-dia-${id}`).style.display = prod ? '' : 'none';
   recalcTotals();
 }
+
 function removeProductRow(id) {
   pvProductRows = pvProductRows.filter(r=>r!==id);
   const el = document.getElementById('prow-'+id);
   if (el) el.remove();
   recalcTotals();
 }
+
 function getProductRows() {
-  return pvProductRows.map(id=>{
+  return pvProductRows.map(id => {
     const codigoSuc = document.getElementById(`prow-codigo-${id}`)?.value||'';
-    const [type, codigo, suc] = codigoSuc.split('|');
+    const parts = codigoSuc.split('|');
+    const type = parts[0]||'';
+    const codigo = parts[1]||'';
+    const suc = parts[2]||'';
     const desc = document.getElementById(`prow-desc-${id}`)?.value||'';
     const pzInput = document.getElementById(`prow-pz-${id}`);
     const maxPz = parseFloat(pzInput?.max)||Infinity;
@@ -1842,18 +1780,12 @@ function getProductRows() {
     if (pz > maxPz) { pz = maxPz; if(pzInput) pzInput.value = maxPz; }
     const costo = parseFloat(document.getElementById(`prow-costo-${id}`)?.value)||0;
     const precio = parseFloat(document.getElementById(`prow-precio-${id}`)?.value)||0;
-    const ventaDia = document.getElementById(`prow-venta-dia-check-${id}`)?.checked || false;
+    const ventaDia = document.getElementById(`prow-venta-dia-check-${id}`)?.checked||false;
     const proveedor = ventaDia ? document.getElementById(`prow-proveedor-${id}`)?.value : '';
-    
-    return { 
-      type, codigo, desc, pz, costo, precio, 
-      subtotalCosto:costo*pz, 
-      subtotal:precio*pz,
-      ventaDia,
-      proveedor
-    };
+    return { type, codigo, suc, desc, pz, costo, precio, subtotalCosto:costo*pz, subtotal:precio*pz, ventaDia, proveedor };
   });
 }
+
 function onPaymentMethodChange() {
   const metodo = document.getElementById('pv-metodo').value;
   const mp = DB.metodosPago.find(m=>m.nombre===metodo);
@@ -1862,29 +1794,30 @@ function onPaymentMethodChange() {
   else { info.style.display='none'; }
   recalcTotals();
 }
+
 function toggleTaxi() {
-  const checked = document.getElementById('pv-taxi-check').checked;
-  document.getElementById('pv-taxi-group').style.display = checked ? '' : 'none';
+  document.getElementById('pv-taxi-group').style.display = document.getElementById('pv-taxi-check').checked ? '' : 'none';
   recalcTotals();
 }
+
 function toggleFactura() {
-  const val = document.getElementById('pv-factura').value;
-  document.getElementById('pv-factura-fields').style.display = val==='si' ? '' : 'none';
+  document.getElementById('pv-factura-fields').style.display = document.getElementById('pv-factura').value==='si' ? '' : 'none';
 }
+
 function recalcTotals() {
   const rows = getProductRows();
-  const subtotal = rows.reduce((a,r)=>a+r.subtotal, 0);
-  const subtotalCosto = rows.reduce((a,r)=>a+r.subtotalCosto, 0);
+  const subtotal = rows.reduce((a,r)=>a+r.subtotal,0);
+  const subtotalCosto = rows.reduce((a,r)=>a+r.subtotalCosto,0);
   const cambio = parseFloat(document.getElementById('pv-cambio-valor')?.value)||0;
   const taxi = document.getElementById('pv-taxi-check')?.checked ? (parseFloat(document.getElementById('pv-taxi-costo')?.value)||0) : 0;
   const metodo = document.getElementById('pv-metodo')?.value;
   const mp = DB.metodosPago.find(m=>m.nombre===metodo);
   const factor = mp?.factor||1;
-  const comisionTarjeta = factor>1 ? (subtotal * (factor-1)) : 0;
-  const totalACobrar = Math.max(0, subtotal - cambio);
-  const costoTotal = subtotalCosto + cambio + comisionTarjeta + taxi;
-  const utilidad = totalACobrar - subtotalCosto - comisionTarjeta - taxi;
-  const comisionVendedor = utilidad > 0 ? (utilidad * (DB.config.comisionPct||0)/100) : 0;
+  const comisionTarjeta = factor>1 ? subtotal*(factor-1) : 0;
+  const totalACobrar = Math.max(0, subtotal-cambio);
+  const costoTotal = subtotalCosto+cambio+comisionTarjeta+taxi;
+  const utilidad = totalACobrar-subtotalCosto-comisionTarjeta-taxi;
+  const comisionVendedor = utilidad>0 ? utilidad*(DB.config.comisionPct||0)/100 : 0;
   setText('res-subtotal', fmt(subtotal));
   setText('res-cambio', '-'+fmt(cambio));
   setText('res-comision', fmt(comisionTarjeta));
@@ -1895,13 +1828,14 @@ function recalcTotals() {
   setText('res-comision-vendedor', fmt(comisionVendedor));
   setText('res-total', fmt(totalACobrar));
 }
+
 function saveSale() {
-  const vale = document.getElementById('pv-vale').value;
+  const vale = document.getElementById('pv-vale').value.trim();
   const vendedor = document.getElementById('pv-vendedor').value;
   const fecha = document.getElementById('pv-fecha').value;
   const rows = getProductRows().filter(r=>r.precio>0||r.desc);
   if (!rows.length) { showAlert('sale-alert','error','Agrega al menos un producto'); return; }
-  if (!vale.trim()) { showAlert('sale-alert','error','El número de vale es obligatorio'); return; }
+  if (!vale) { showAlert('sale-alert','error','El número de vale es obligatorio'); return; }
   if (!vendedor) { showAlert('sale-alert','error','Selecciona un vendedor'); return; }
   if (!fecha) { showAlert('sale-alert','error','Selecciona la fecha'); return; }
   const metodo = document.getElementById('pv-metodo').value;
@@ -1911,27 +1845,23 @@ function saveSale() {
   const subtotalCosto = rows.reduce((a,r)=>a+r.subtotalCosto,0);
   const cambio = parseFloat(document.getElementById('pv-cambio-valor')?.value)||0;
   const cambioDesc = document.getElementById('pv-cambio-desc')?.value||'';
-  const taxi = document.getElementById('pv-taxi-check')?.checked ? (parseFloat(document.getElementById('pv-taxi-costo')?.value)||0) : 0;
-  const comisionTarjeta = factor>1 ? (subtotal*(factor-1)) : 0;
-  const precioTotal = Math.max(0, subtotal - cambio);
-  const utilidad = precioTotal - subtotalCosto - comisionTarjeta - taxi;
-  const comisionVendedor = utilidad>0 ? (utilidad*(DB.config.comisionPct||0)/100) : 0;
+  const usaTaxi = document.getElementById('pv-taxi-check')?.checked;
+  const taxi = usaTaxi ? (parseFloat(document.getElementById('pv-taxi-costo')?.value)||0) : 0;
+  const comisionTarjeta = factor>1 ? subtotal*(factor-1) : 0;
+  const precioTotal = Math.max(0, subtotal-cambio);
+  const utilidad = precioTotal-subtotalCosto-comisionTarjeta-taxi;
+  const comisionVendedor = utilidad>0 ? utilidad*(DB.config.comisionPct||0)/100 : 0;
   const venta = {
-    id: Date.now(),
-    vale, vendedor, fecha,
+    id: Date.now(), vale, vendedor, fecha,
     sucursal: document.getElementById('inv-suc-selector')?.value || DB.sucursales[0]?.id,
     productos: rows,
-    subtotal, subtotalCosto,
-    cambio, cambioDesc,
-    taxi, usaTaxi: document.getElementById('pv-taxi-check')?.checked,
-    metodoPago: metodo,
-    comisionTarjeta,
+    subtotal, subtotalCosto, cambio, cambioDesc, taxi, usaTaxi,
+    metodoPago: metodo, comisionTarjeta,
     factura: document.getElementById('pv-factura')?.value,
     facturaNombre: document.getElementById('pv-factura-nombre')?.value,
     facturaRFC: document.getElementById('pv-factura-rfc')?.value,
     comentario: document.getElementById('pv-comentario')?.value,
-    precioTotal,
-    utilidad, comisionVendedor
+    precioTotal, utilidad, comisionVendedor
   };
   DB.ventas.push(venta);
   // Descontar del inventario
@@ -1939,10 +1869,10 @@ function saveSale() {
     const suc = venta.sucursal;
     if (r.type === 'rin') {
       const idx = DB.rines.findIndex(i=>i.codigo===r.codigo && i.sucursal===suc);
-      if (idx>=0) DB.rines[idx].pz = Math.max(0, DB.rines[idx].pz - r.pz);
-    } else {
+      if (idx>=0) DB.rines[idx].pz = Math.max(0, DB.rines[idx].pz-r.pz);
+    } else if (r.codigo) {
       const idx = DB.inventario.findIndex(i=>i.codigo===r.codigo && i.sucursal===suc);
-      if (idx>=0) DB.inventario[idx].pz = Math.max(0, DB.inventario[idx].pz - r.pz);
+      if (idx>=0) DB.inventario[idx].pz = Math.max(0, DB.inventario[idx].pz-r.pz);
     }
   });
   saveToStorage();
@@ -1950,6 +1880,7 @@ function saveSale() {
   clearSaleForm();
   renderHistorial();
 }
+
 function clearSaleForm() {
   document.getElementById('product-rows').innerHTML='';
   pvProductRows=[]; pvRowId=0;
@@ -1957,30 +1888,30 @@ function clearSaleForm() {
   ['pv-vale','pv-cambio-desc','pv-cambio-valor','pv-taxi-costo','pv-comentario','pv-factura-nombre','pv-factura-rfc'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
-  document.getElementById('pv-metodo').value='';
-  document.getElementById('pv-factura').value='no';
-  document.getElementById('pv-factura-fields').style.display='none';
-  document.getElementById('pv-taxi-check').checked=false;
-  document.getElementById('pv-taxi-group').style.display='none';
-  document.getElementById('pv-commission-info').style.display='none';
+  if(document.getElementById('pv-metodo')) document.getElementById('pv-metodo').value='';
+  if(document.getElementById('pv-factura')) document.getElementById('pv-factura').value='no';
+  if(document.getElementById('pv-factura-fields')) document.getElementById('pv-factura-fields').style.display='none';
+  if(document.getElementById('pv-taxi-check')) document.getElementById('pv-taxi-check').checked=false;
+  if(document.getElementById('pv-taxi-group')) document.getElementById('pv-taxi-group').style.display='none';
+  if(document.getElementById('pv-commission-info')) document.getElementById('pv-commission-info').style.display='none';
   recalcTotals();
 }
 
 // ═══════════ GASTOS ═══════════
 function saveGasto() {
-  const fecha=document.getElementById('gasto-fecha').value;
-  const concepto=document.getElementById('gasto-concepto').value;
-  const monto=parseFloat(document.getElementById('gasto-monto').value)||0;
-  const sucursal=document.getElementById('gasto-sucursal').value;
-  const notas=document.getElementById('gasto-notas').value;
+  const fecha = document.getElementById('gasto-fecha').value;
+  const concepto = document.getElementById('gasto-concepto').value.trim();
+  const monto = parseFloat(document.getElementById('gasto-monto').value)||0;
+  const sucursal = document.getElementById('gasto-sucursal').value;
+  const notas = document.getElementById('gasto-notas').value;
   if (!concepto||!monto) { alert('Completa concepto y monto'); return; }
   DB.gastos.push({ id:Date.now(), fecha, concepto, monto, sucursal, notas });
-  saveToStorage();
-  renderGastos();
+  saveToStorage(); renderGastos();
   document.getElementById('gasto-concepto').value='';
   document.getElementById('gasto-monto').value='';
   document.getElementById('gasto-notas').value='';
 }
+
 function renderGastos() {
   const tbody = document.getElementById('gastos-tbody');
   const items = [...DB.gastos].reverse();
@@ -1991,6 +1922,7 @@ function renderGastos() {
     <td><button class="btn btn-danger btn-sm" onclick="deleteGasto(${g.id})">✕</button></td>
   </tr>`).join('');
 }
+
 function deleteGasto(id) {
   DB.gastos = DB.gastos.filter(g=>g.id!==id);
   saveToStorage(); renderGastos();
@@ -2000,22 +1932,20 @@ function deleteGasto(id) {
 function renderHistorial() {
   const fecha = document.getElementById('historial-fecha')?.value||'';
   const suc = document.getElementById('historial-suc')?.value||'';
-  let ventas = DB.ventas.filter(v=>(!fecha||v.fecha===fecha)&&(!suc||v.sucursal===suc));
-  let gastosDia = DB.gastos.filter(g=>(!fecha||g.fecha===fecha)&&(!suc||g.sucursal===suc));
+  const ventas = DB.ventas.filter(v=>(!fecha||v.fecha===fecha)&&(!suc||v.sucursal===suc));
+  const gastosDia = DB.gastos.filter(g=>(!fecha||g.fecha===fecha)&&(!suc||g.sucursal===suc));
   const tbody = document.getElementById('historial-tbody');
   document.getElementById('historial-count').textContent = ventas.length;
   if (!ventas.length) {
     tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:16px">Sin ventas</td></tr>';
-    document.getElementById('historial-total').textContent='$0.00';
-    document.getElementById('historial-gastos-total').textContent='$0.00';
-    document.getElementById('historial-utilidad-total').textContent='$0.00';
+    setText('historial-total','$0.00'); setText('historial-gastos-total','$0.00'); setText('historial-utilidad-total','$0.00');
     document.getElementById('historial-gastos-section').style.display='none';
     return;
   }
   tbody.innerHTML = [...ventas].reverse().map(v=>`<tr style="cursor:pointer" onclick="showVentaDetail(${v.id})">
     <td>${v.vale||'-'}</td><td>${v.vendedor||'-'}</td>
     <td><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></td>
-    <td>${v.factura==='si'?`<span class="badge-pill badge-blue">Sí</span>`:'–'}</td>
+    <td>${v.factura==='si'?'<span class="badge-pill badge-blue">Sí</span>':'–'}</td>
     <td class="td-right">${fmt(v.subtotal)}</td>
     <td class="td-right">${fmt(v.comisionTarjeta||0)}</td>
     <td class="td-right">${fmt(v.taxi||0)}</td>
@@ -2026,30 +1956,33 @@ function renderHistorial() {
   const total = ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
   const utilidadTotal = ventas.reduce((a,v)=>a+(v.utilidad||0),0);
   const gastosTotal = gastosDia.reduce((a,g)=>a+(g.monto||0),0);
-  const utilidadNeta = utilidadTotal - gastosTotal;
-  document.getElementById('historial-total').textContent = fmt(total);
-  document.getElementById('historial-gastos-total').textContent = fmt(gastosTotal);
-  document.getElementById('historial-utilidad-total').textContent = fmt(utilidadNeta);
-  document.getElementById('historial-utilidad-total').style.color = utilidadNeta >= 0 ? 'var(--green)' : 'var(--red)';
+  const utilidadNeta = utilidadTotal-gastosTotal;
+  setText('historial-total', fmt(total));
+  setText('historial-gastos-total', fmt(gastosTotal));
+  setText('historial-utilidad-total', fmt(utilidadNeta));
+  const utEl = document.getElementById('historial-utilidad-total');
+  if (utEl) utEl.style.color = utilidadNeta>=0 ? 'var(--green)' : 'var(--red)';
   // Gastos section
   const seccion = document.getElementById('historial-gastos-section');
   const gastosTbody = document.getElementById('historial-gastos-tbody');
   if (gastosDia.length) {
-    seccion.style.display = '';
+    seccion.style.display='';
     gastosTbody.innerHTML = gastosDia.map(g=>`<tr>
       <td>${g.concepto}</td><td>${getSucNombre(g.sucursal)}</td>
       <td class="td-right" style="color:var(--red)">${fmt(g.monto)}</td>
       <td>${g.notas||'-'}</td>
     </tr>`).join('');
   } else {
-    seccion.style.display = 'none';
+    seccion.style.display='none';
   }
 }
+
 function deleteVenta(id) {
   if (!confirm('¿Eliminar esta venta?')) return;
   DB.ventas = DB.ventas.filter(v=>v.id!==id);
   saveToStorage(); renderHistorial();
 }
+
 function showVentaDetail(id) {
   const v = DB.ventas.find(v2=>v2.id===id);
   if (!v) return;
@@ -2064,7 +1997,9 @@ function showVentaDetail(id) {
       <table><thead><tr><th>Tipo</th><th>Código</th><th>Descripción</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th><th class="td-right">Subtotal</th><th>Venta Día</th><th>Proveedor</th></tr></thead>
       <tbody>${(v.productos||[]).map(p=>`<tr>
         <td><span class="badge-pill ${p.type==='rin'?'badge-blue':'badge-green'}">${p.type==='rin'?'Rin':'Llanta'}</span></td>
-        <td>${p.codigo}</td><td>${p.desc}</td><td class="td-right">${p.pz}</td><td class="td-right">${fmt(p.costo)}</td><td class="td-right">${fmt(p.precio)}</td><td class="td-right">${fmt(p.subtotal)}</td>
+        <td>${p.codigo||'-'}</td><td>${p.desc}</td><td class="td-right">${p.pz}</td>
+        <td class="td-right">${fmt(p.costo)}</td><td class="td-right">${fmt(p.precio)}</td>
+        <td class="td-right">${fmt(p.subtotal)}</td>
         <td>${p.ventaDia?'Sí':'No'}</td><td>${p.proveedor||'-'}</td>
       </tr>`).join('')}</tbody></table>
     </div>
@@ -2088,8 +2023,8 @@ let repCharts = {};
 function renderReportes() {
   const mes = document.getElementById('rep-mes')?.value||new Date().toISOString().slice(0,7);
   const suc = document.getElementById('rep-sucursal')?.value||'';
-  let ventas = DB.ventas.filter(v=>v.fecha&&v.fecha.startsWith(mes)&&(!suc||v.sucursal===suc));
-  let gastos = DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(mes)&&(!suc||g.sucursal===suc));
+  const ventas = DB.ventas.filter(v=>v.fecha&&v.fecha.startsWith(mes)&&(!suc||v.sucursal===suc));
+  const gastos = DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(mes)&&(!suc||g.sucursal===suc));
 
   const totalVentas = ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
   const totalGastos = gastos.reduce((a,g)=>a+(g.monto||0),0);
@@ -2097,12 +2032,13 @@ function renderReportes() {
   const totalComVend = ventas.reduce((a,v)=>a+(v.comisionVendedor||0),0);
   const totalUtilidad = ventas.reduce((a,v)=>a+(v.utilidad||0),0);
 
-  // Stats
   const ventasPorDia = {};
   ventas.forEach(v=>{ ventasPorDia[v.fecha]=(ventasPorDia[v.fecha]||0)+(v.precioTotal||0); });
   const dias = Object.keys(ventasPorDia).sort();
-  const mejorDia = dias.sort((a,b)=>ventasPorDia[b]-ventasPorDia[a])[0];
-  const peorDia = dias.sort((a,b)=>ventasPorDia[a]-ventasPorDia[b])[0];
+
+  // FIX: calculate mejorDia and peorDia independently, not on a mutated array
+  const mejorDia = dias.length ? dias.reduce((a,b)=>ventasPorDia[a]>=ventasPorDia[b]?a:b, dias[0]) : null;
+  const peorDia = dias.length ? dias.reduce((a,b)=>ventasPorDia[a]<=ventasPorDia[b]?a:b, dias[0]) : null;
 
   document.getElementById('rep-stats').innerHTML = `
     <div class="stat-card"><div class="stat-label">Total Ventas</div><div class="stat-value accent">${fmt(totalVentas)}</div><div class="stat-sub">${ventas.length} ventas</div></div>
@@ -2111,35 +2047,35 @@ function renderReportes() {
     <div class="stat-card"><div class="stat-label">Utilidad Estimada</div><div class="stat-value blue">${fmt(totalUtilidad)}</div><div class="stat-sub">Com. vendedores: ${fmt(totalComVend)}</div></div>
   `;
 
-  // Chart ventas por día
-  const sortedDias = Object.keys(ventasPorDia).sort();
-  renderChart('chartRepVentas', repCharts, 'bar', sortedDias, [{ label:'Ventas', data:sortedDias.map(d=>ventasPorDia[d]), backgroundColor:'rgba(232,184,75,0.7)', borderColor:'#e8b84b', borderWidth:1 }]);
+  renderChart('chartRepVentas', repCharts, 'bar', dias, [{ label:'Ventas', data:dias.map(d=>ventasPorDia[d]), backgroundColor:'rgba(232,184,75,0.7)', borderColor:'#e8b84b', borderWidth:1 }]);
 
-  // Chart métodos de pago
   const metCount = {};
   ventas.forEach(v=>{ if(v.metodoPago) metCount[v.metodoPago]=(metCount[v.metodoPago]||0)+(v.precioTotal||0); });
   renderChart('chartRepMetodos', repCharts, 'doughnut', Object.keys(metCount), [{ data:Object.values(metCount), backgroundColor:['#e8b84b','#4be87a','#4b8de8','#e84b4b','#be4be8','#4be8d8','#e8824b','#8ae84b'] }]);
 
-  // Chart gastos
-  renderChart('chartRepGastos', repCharts, 'bar', ['Ventas','Gastos Gen.','Com. Tarjeta','Com. Vendedores'],
-    [{ label:'Monto', data:[totalVentas,totalGastos,totalComTarj,totalComVend], backgroundColor:['rgba(75,232,122,.7)','rgba(232,75,75,.7)','rgba(232,75,75,.5)','rgba(232,184,75,.7)'] }]);
+  renderChart('chartRepGastos', repCharts, 'bar',
+    ['Ventas','Gastos Gen.','Com. Tarjeta','Com. Vendedores'],
+    [{ label:'Monto', data:[totalVentas,totalGastos,totalComTarj,totalComVend], backgroundColor:['rgba(75,232,122,.7)','rgba(232,75,75,.7)','rgba(232,75,75,.5)','rgba(232,184,75,.7)'] }]
+  );
 
-  // Tabla cambios
   const cambios = ventas.filter(v=>v.cambioDesc||v.cambio>0);
   const cambioTbody = document.getElementById('rep-cambio-tbody');
-  cambioTbody.innerHTML = cambios.length ? cambios.map(v=>`<tr><td>${v.cambioDesc}</td><td class="td-right">${fmt(v.cambio)}</td><td>${v.fecha}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--text3);text-align:center;padding:12px">Sin productos a cambio</td></tr>';
+  cambioTbody.innerHTML = cambios.length
+    ? cambios.map(v=>`<tr><td>${v.cambioDesc}</td><td class="td-right">${fmt(v.cambio)}</td><td>${v.fecha}</td></tr>`).join('')
+    : '<tr><td colspan="3" style="color:var(--text3);text-align:center;padding:12px">Sin productos a cambio</td></tr>';
 
-  // Tabla ventas
   const reptbody = document.getElementById('rep-tabla-ventas');
-  reptbody.innerHTML = ventas.length ? [...ventas].reverse().map(v=>`<tr onclick="showVentaDetail(${v.id})" style="cursor:pointer">
-    <td>${v.vale||'-'}</td><td>${v.fecha}</td><td>${getSucNombre(v.sucursal)}</td><td>${v.vendedor||'-'}</td>
-    <td><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></td>
-    <td class="td-right">${fmt(v.subtotal)}</td>
-    <td class="td-right">${fmt(v.comisionTarjeta||0)}</td>
-    <td class="td-right">${fmt(v.comisionVendedor||0)}</td>
-    <td class="td-right">${fmt(v.taxi||0)}</td>
-    <td class="td-right"><strong>${fmt(v.precioTotal)}</strong></td>
-  </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:24px">Sin ventas en el período</td></tr>';
+  reptbody.innerHTML = ventas.length
+    ? [...ventas].reverse().map(v=>`<tr onclick="showVentaDetail(${v.id})" style="cursor:pointer">
+        <td>${v.vale||'-'}</td><td>${v.fecha}</td><td>${getSucNombre(v.sucursal)}</td><td>${v.vendedor||'-'}</td>
+        <td><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></td>
+        <td class="td-right">${fmt(v.subtotal)}</td>
+        <td class="td-right">${fmt(v.comisionTarjeta||0)}</td>
+        <td class="td-right">${fmt(v.comisionVendedor||0)}</td>
+        <td class="td-right">${fmt(v.taxi||0)}</td>
+        <td class="td-right"><strong>${fmt(v.precioTotal)}</strong></td>
+      </tr>`).join('')
+    : '<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:24px">Sin ventas en el período</td></tr>';
 }
 
 function downloadReportCSV() {
@@ -2149,6 +2085,7 @@ function downloadReportCSV() {
   ventas.forEach(v=>{ csv+=`${v.vale},${v.fecha},${getSucNombre(v.sucursal)},${v.vendedor},${v.metodoPago},${v.subtotal},${v.comisionTarjeta||0},${v.comisionVendedor||0},${v.taxi||0},${v.precioTotal}\n`; });
   downloadFile('reporte_ventas.csv', csv, 'text/csv');
 }
+
 function downloadReportPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
@@ -2165,6 +2102,7 @@ function downloadReportPDF() {
   });
   doc.save('reporte_peters_wheels.pdf');
 }
+
 function shareWhatsApp() {
   const mes = document.getElementById('rep-mes')?.value||'';
   const ventas = DB.ventas.filter(v=>!mes||v.fecha?.startsWith(mes));
@@ -2183,6 +2121,7 @@ function renderConfig() {
   renderCfgProveedores();
   renderCfgMetodos();
 }
+
 function saveConfig() {
   DB.config.nombre = document.getElementById('cfg-nombre').value;
   DB.config.logoId = document.getElementById('cfg-logo-id').value;
@@ -2190,6 +2129,7 @@ function saveConfig() {
   saveToStorage(); updateLogoDisplay(); refreshSelectsGlobal();
   alert('Configuración guardada');
 }
+
 function addSucursal() {
   const nombre = document.getElementById('cfg-suc-nombre').value.trim();
   if (!nombre) return;
@@ -2197,19 +2137,22 @@ function addSucursal() {
   document.getElementById('cfg-suc-nombre').value='';
   saveToStorage(); renderCfgSucursales(); refreshSelectsGlobal();
 }
+
 function renderCfgSucursales() {
   const tbody = document.getElementById('cfg-suc-tbody');
   tbody.innerHTML = DB.sucursales.map(s=>`<tr>
     <td style="font-family:monospace;font-size:11px">${s.id}</td><td>${s.nombre}</td>
-    <td>${DB.inventario.filter(i=>i.sucursal===s.id).length + DB.rines.filter(i=>i.sucursal===s.id).length}</td>
+    <td>${DB.inventario.filter(i=>i.sucursal===s.id).length+DB.rines.filter(i=>i.sucursal===s.id).length}</td>
     <td><button class="btn btn-danger btn-sm" onclick="deleteSucursal('${s.id}')">✕</button></td>
   </tr>`).join('');
 }
+
 function deleteSucursal(id) {
   if (!confirm('¿Eliminar sucursal?')) return;
   DB.sucursales = DB.sucursales.filter(s=>s.id!==id);
   saveToStorage(); renderCfgSucursales(); refreshSelectsGlobal();
 }
+
 function addVendedor() {
   const nombre = document.getElementById('cfg-vend-nombre').value.trim();
   if (!nombre||DB.vendedores.includes(nombre)) return;
@@ -2217,14 +2160,16 @@ function addVendedor() {
   document.getElementById('cfg-vend-nombre').value='';
   saveToStorage(); renderCfgVendedores(); refreshSelectsGlobal();
 }
+
 function renderCfgVendedores() {
-  const tbody = document.getElementById('cfg-vend-tbody');
-  tbody.innerHTML = DB.vendedores.map(v=>`<tr><td>${v}</td><td><button class="btn btn-danger btn-sm" onclick="deleteVendedor('${v}')">✕</button></td></tr>`).join('');
+  document.getElementById('cfg-vend-tbody').innerHTML = DB.vendedores.map(v=>`<tr><td>${v}</td><td><button class="btn btn-danger btn-sm" onclick="deleteVendedor('${v}')">✕</button></td></tr>`).join('');
 }
+
 function deleteVendedor(nombre) {
   DB.vendedores = DB.vendedores.filter(v=>v!==nombre);
   saveToStorage(); renderCfgVendedores(); refreshSelectsGlobal();
 }
+
 function addProveedor() {
   const nombre = document.getElementById('cfg-prov-nombre').value.trim();
   if (!nombre||DB.proveedores.includes(nombre)) return;
@@ -2232,14 +2177,16 @@ function addProveedor() {
   document.getElementById('cfg-prov-nombre').value='';
   saveToStorage(); renderCfgProveedores(); refreshSelectsGlobal();
 }
+
 function renderCfgProveedores() {
-  const tbody = document.getElementById('cfg-prov-tbody');
-  tbody.innerHTML = DB.proveedores.map(p=>`<tr><td>${p}</td><td><button class="btn btn-danger btn-sm" onclick="deleteProveedor('${p}')">✕</button></td></tr>`).join('');
+  document.getElementById('cfg-prov-tbody').innerHTML = DB.proveedores.map(p=>`<tr><td>${p}</td><td><button class="btn btn-danger btn-sm" onclick="deleteProveedor('${p}')">✕</button></td></tr>`).join('');
 }
+
 function deleteProveedor(nombre) {
   DB.proveedores = DB.proveedores.filter(p=>p!==nombre);
   saveToStorage(); renderCfgProveedores(); refreshSelectsGlobal();
 }
+
 function addMetodoPago() {
   const nombre = document.getElementById('cfg-mp-nombre').value.trim().toUpperCase();
   const factorStr = document.getElementById('cfg-mp-factor').value.trim();
@@ -2251,15 +2198,16 @@ function addMetodoPago() {
   document.getElementById('cfg-mp-factor').value='';
   saveToStorage(); renderCfgMetodos(); refreshSelectsGlobal();
 }
+
 function renderCfgMetodos() {
-  const tbody = document.getElementById('cfg-mp-tbody');
-  tbody.innerHTML = DB.metodosPago.map((m,i)=>`<tr>
+  document.getElementById('cfg-mp-tbody').innerHTML = DB.metodosPago.map((m,i)=>`<tr>
     <td>${m.nombre}</td>
     <td>${m.factor?`×${m.factor}`:'Sin comisión'}</td>
     <td>${m.factor?`${((m.factor-1)*100).toFixed(2)}%`:'0%'}</td>
     <td><button class="btn btn-danger btn-sm" onclick="deleteMetodo(${i})">✕</button></td>
   </tr>`).join('');
 }
+
 function deleteMetodo(idx) {
   DB.metodosPago.splice(idx,1);
   saveToStorage(); renderCfgMetodos(); refreshSelectsGlobal();
@@ -2267,17 +2215,24 @@ function deleteMetodo(idx) {
 
 // ═══════════ DATA BACKUP ═══════════
 function exportJSON() { downloadFile('peters_wheels_backup.json', JSON.stringify(DB, null, 2), 'application/json'); }
+
 function importJSONFile(input) {
   if (!input.files[0]) return;
   const reader = new FileReader();
   reader.onload = e => {
     try {
       DB = JSON.parse(e.target.result);
-      saveToStorage(); renderAll(); alert('✅ Datos cargados correctamente');
+      saveToStorage();
+      refreshSelectsGlobal();
+      renderGastos();
+      renderHistorial();
+      setTodayDates();
+      alert('✅ Datos cargados correctamente');
     } catch { alert('Error al leer el archivo JSON'); }
   };
   reader.readAsText(input.files[0]);
 }
+
 function clearAllData() {
   localStorage.removeItem('peters_wheels_db');
   location.reload();
@@ -2294,7 +2249,7 @@ function renderChart(canvasId, registry, type, labels, datasets) {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#8a9ab0', font: { family: 'Barlow', size: 11 } } } },
-      scales: type==='doughnut'||type==='pie' ? {} : {
+      scales: (type==='doughnut'||type==='pie') ? {} : {
         x: { ticks: { color: '#8a9ab0', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' } },
         y: { ticks: { color: '#8a9ab0', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.05)' } },
       }
@@ -2305,45 +2260,41 @@ function renderChart(canvasId, registry, type, labels, datasets) {
 // ═══════════ HELPERS ═══════════
 function fmt(n) { return '$'+(parseFloat(n)||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,','); }
 function setText(id, txt) { const el=document.getElementById(id); if(el) el.textContent=txt; }
-function getSucNombre(id) { return DB.sucursales.find(s=>s.id===id)?.nombre||id||'-'; }
-function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
-function showAlert(containerId, type, msg) {
-  const el=document.getElementById(containerId);
-  if (!el) return;
-  el.innerHTML=`<div class="alert alert-${type}">${msg}</div>`;
-  setTimeout(()=>el.innerHTML='',3500);
+
+// FIX: two separate helpers — one by id (for internal use), one by id with fallback (for display)
+function getSucNombreById(id) {
+  return DB.sucursales.find(s=>s.id===id)?.nombre || id || '-';
 }
+function getSucNombre(id) {
+  return DB.sucursales.find(s=>s.id===id)?.nombre || id || '-';
+}
+
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+function showAlert(containerId, type, msg) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+  setTimeout(()=>el.innerHTML='', 3500);
+}
+
 function downloadFile(name, content, mime) {
   const blob = new Blob([content], { type: mime });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = name;
   a.click();
-}
-
-function renderAll() {
-  refreshSelectsGlobal();
-  renderGastos();
-  renderHistorial();
-  setTodayDates();
-  // Refresh sucursal select options for historial
-  ['historial-suc','rep-sucursal'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el&&!el.querySelector('option[value=""]')) {
-      const o=document.createElement('option');o.value='';o.textContent='Todas';el.prepend(o);
-    }
-  });
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
 }
 
 // Close modals on overlay click
-document.querySelectorAll('.modal-overlay').forEach(overlay=>{
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => { if(e.target===overlay) overlay.classList.remove('open'); });
 });
 
 // ═══════════ START ═══════════
+// FIX: single init call only — no duplicate addProductRow() at the bottom
 init();
-// Init first product row for PV
-addProductRow();
 </script>
 </body>
 </html>
