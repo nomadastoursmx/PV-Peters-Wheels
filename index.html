@@ -1033,8 +1033,6 @@ function showSection(id) {
   if (id==='inventario-sucursal') loadSucursalInventory();
   if (id==='punto-venta') {
     refreshPVSelects();
-    // FIX: only add a row if there are truly none
-    if (!pvProductRows.length) addProductRow();
   }
   if (id==='reportes') renderReportes();
   if (id==='configuracion') renderConfig();
@@ -2293,8 +2291,10 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 });
 
 // ═══════════ START ═══════════
-// FIX: single init call only — no duplicate addProductRow() at the bottom
 init();
+// Inicializar fila de producto DESPUÉS de que el DOM esté listo
+// Se hace aquí y no dentro de init() para asegurar que el elemento #product-rows existe
+addProductRow();
 </script>
 </body>
 </html>
