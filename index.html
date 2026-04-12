@@ -123,6 +123,46 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
 </style>
 </head>
 <body>
+<!-- ══ LOGIN OVERLAY ══ -->
+<div id="login-overlay" style="position:fixed;inset:0;background:#0a0c0f;z-index:9999;display:flex;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;max-width:360px;width:95%;text-align:center;box-shadow:var(--shadow)">
+    <div style="font-size:48px;margin-bottom:12px">🔧</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--accent);margin-bottom:4px">PETERS WHEELS</div>
+    <div style="font-size:12px;color:var(--text2);letter-spacing:2px;text-transform:uppercase;margin-bottom:28px">Sistema de Gestión</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Ingresa tu PIN</div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px">
+      <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd0"></div>
+      <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd1"></div>
+      <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd2"></div>
+      <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd3"></div>
+    </div>
+    <!-- Pin pad built by JS to avoid template literal rendering in static HTML -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="pin-pad"></div>
+    <div id="login-error" style="font-size:12px;color:var(--red);min-height:18px"></div>
+    <div style="margin-top:16px;font-size:11px;color:var(--text3)">PIN por defecto: <strong style="color:var(--text2)">1234</strong> — Cámbialo en Configuración</div>
+  </div>
+</div>
+
+<!-- ══ MODAL CONFIRMACIÓN IMPORTACIÓN ══ -->
+<div class="modal-overlay" id="modalImportConfirm">
+  <div class="modal" style="max-width:440px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">📥</div>
+    <div class="modal-title" style="justify-content:center">¿Cómo deseas importar?</div>
+    <div id="modal-import-info" style="font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.6"></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-secondary" style="width:100%;justify-content:center;padding:14px" onclick="confirmImport('merge')">
+        <span style="font-size:18px">🔄</span>
+        <div style="text-align:left"><div style="font-weight:700;color:var(--text)">Actualizar / Agregar</div><div style="font-size:11px;color:var(--text2)">Actualiza registros existentes y agrega nuevos (sin borrar nada)</div></div>
+      </button>
+      <button class="btn btn-danger" style="width:100%;justify-content:center;padding:14px" onclick="confirmImport('replace')">
+        <span style="font-size:18px">🗑️</span>
+        <div style="text-align:left"><div style="font-weight:700">Reemplazar todo</div><div style="font-size:11px">Elimina el inventario actual y carga solo el nuevo CSV</div></div>
+      </button>
+      <button class="btn btn-secondary" style="width:100%;justify-content:center" onclick="closeModal('modalImportConfirm')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
 
 <!-- SIDEBAR -->
@@ -165,6 +205,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
     <div class="topbar-right">
       <div class="date-badge" id="dateBadge"></div>
       <div class="sucursal-badge" onclick="showSection('configuracion')" id="sucursalBadge">SUCURSAL 1</div>
+      <button onclick="logout()" style="background:rgba(232,75,75,.15);color:var(--red);border:1px solid rgba(232,75,75,.3);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Barlow',sans-serif;" title="Cerrar sesión">🔒 Salir</button>
     </div>
   </div>
 
@@ -201,12 +242,6 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
         <div class="card">
           <div class="card-title">📥 Carga de Inventario por CSV</div>
           <div class="alert alert-warning">Formato: <strong>id, codigo, descripcion, medida, estado, costo, precio, [Sucursal 1], [Sucursal 2]...</strong> — Las columnas de sucursal deben coincidir con los nombres configurados. Estado: Nuevo / Seminuevo / Usado.</div>
-          <div class="form-row" style="margin-bottom:8px">
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer">
-              <input type="checkbox" id="inv-global-replace" style="width:auto;accent-color:var(--accent)">
-              <strong>Eliminar inventario existente antes de cargar</strong>
-            </label>
-          </div>
           <div class="upload-area" id="csvDropArea" onclick="document.getElementById('csvFileInput').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleCSVDrop(event)">
             <div class="icon">📂</div>
             <p>Arrastra tu archivo CSV aquí o <strong>haz clic para seleccionar</strong></p>
@@ -257,12 +292,6 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
         <div class="card">
           <div class="card-title">📥 Carga de Inventario de Rines por CSV</div>
           <div class="alert alert-warning">Formato: <strong>id, codigo, estado, medida_rin, ancho, barrenacion, offset, centro, material, marca, costo, precio, [Sucursal 1], [Sucursal 2]...</strong> — Estado: Nuevo / Seminuevo / Usado. La descripción se genera automáticamente.</div>
-          <div class="form-row" style="margin-bottom:8px">
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer">
-              <input type="checkbox" id="inv-rines-replace" style="width:auto;accent-color:var(--accent)">
-              <strong>Eliminar inventario de rines existente antes de cargar</strong>
-            </label>
-          </div>
           <div class="upload-area" id="csvDropAreaRines" onclick="document.getElementById('csvFileInputRines').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleCSVDropRines(event)">
             <div class="icon">📂</div>
             <p>Arrastra tu archivo CSV aquí o <strong>haz clic para seleccionar</strong></p>
@@ -490,6 +519,15 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
       </div>
       <div class="card">
         <div class="card-title">📋 Detalle de Ventas del Período</div>
+        <div class="form-row" style="margin-bottom:12px;align-items:flex-end">
+          <div class="form-group" style="max-width:200px">
+            <label>📅 Filtrar por día específico</label>
+            <input type="date" id="rep-dia-especifico" oninput="renderReportes()">
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('rep-dia-especifico').value='';renderReportes()">✕ Quitar filtro</button>
+          <div style="flex:1"></div>
+          <button class="btn btn-green btn-sm" onclick="downloadDayCSV()">📥 Descargar CSV del día</button>
+        </div>
         <div class="table-wrap"><table><thead><tr><th>Vale</th><th>Fecha</th><th>Sucursal</th><th>Vendedor</th><th>Método</th><th class="td-right">Subtotal</th><th class="td-right">Com. Tarj.</th><th class="td-right">Com. Vend.</th><th class="td-right">Taxi</th><th class="td-right">Total</th></tr></thead><tbody id="rep-tabla-ventas"></tbody></table></div>
       </div>
     </div>
@@ -514,6 +552,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
           </div>
           <div class="form-row">
             <div class="form-group"><label>Comisión a vendedor por utilidad (%)</label><input type="number" id="cfg-comision-pct" placeholder="Ej: 5" min="0" max="100" step="0.5"></div>
+            <div class="form-group"><label>🔐 Cambiar PIN de acceso</label><input type="password" id="cfg-pin-nuevo" placeholder="4 dígitos" maxlength="4" style="letter-spacing:4px"></div>
           </div>
           <button class="btn btn-primary" onclick="saveConfig()">💾 Guardar Configuración</button>
         </div>
@@ -951,27 +990,38 @@ function readCSVFileRines(file) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// PROCESS CSV
+// IMPORT CONFIRMATION MODAL
 // ══════════════════════════════════════════════════════════════
+let pendingImportType = ''; // 'llantas' or 'rines'
+
 function processCSV(type) {
+  const buf = type==='rines' ? csvRinesBuffer : csvBuffer;
+  if(!buf.length){alert('Primero carga un archivo CSV');return;}
+  pendingImportType = type;
+  const existing = type==='rines' ? DB.rines.length : DB.inventario.length;
+  document.getElementById('modal-import-info').innerHTML=
+    `El CSV contiene <strong style="color:var(--accent)">${buf.length} registros</strong>.<br>
+     Actualmente hay <strong style="color:var(--text)">${existing} productos</strong> en el inventario de ${type==='rines'?'rines':'llantas'}.`;
+  document.getElementById('modalImportConfirm').classList.add('open');
+}
+
+function confirmImport(mode) {
+  closeModal('modalImportConfirm');
+  const type = pendingImportType;
   if(type==='rines') {
-    if(!csvRinesBuffer.length){alert('Primero carga un archivo CSV de rines');return;}
-    if(document.getElementById('inv-rines-replace')?.checked) DB.rines=[];
+    if(mode==='replace') DB.rines=[];
     let added=0,updated=0;
     csvRinesBuffer.forEach(item=>{
       if(!item.codigo||!item.sucursal) return;
-      // Validar campos obligatorios
-      if(!item.medida_rin||!item.ancho){return;}
       const idx=DB.rines.findIndex(i=>i.sucursal===item.sucursal&&i.codigo===item.codigo);
       if(idx>=0){DB.rines[idx]={...DB.rines[idx],...item};updated++;}
       else{DB.rines.push(item);added++;}
     });
-    saveToStorage(); refreshSelectsGlobal(); csvRinesBuffer=[];
-    document.getElementById('csv-preview-rines').innerHTML=`<div class="alert alert-success">✅ Importación completa: <strong>${added} nuevos</strong> rines, <strong>${updated} actualizados</strong>.</div>`;
+    saveToStorage();refreshSelectsGlobal();csvRinesBuffer=[];
+    document.getElementById('csv-preview-rines').innerHTML=`<div class="alert alert-success">✅ ${mode==='replace'?'Reemplazado':'Actualizado'}: <strong>${added} nuevos</strong> rines, <strong>${updated} actualizados</strong>.</div>`;
     renderRinesInventory();
   } else {
-    if(!csvBuffer.length){alert('Primero carga un archivo CSV');return;}
-    if(document.getElementById('inv-global-replace')?.checked) DB.inventario=[];
+    if(mode==='replace') DB.inventario=[];
     let added=0,updated=0;
     csvBuffer.forEach(item=>{
       if(!item.codigo||!item.sucursal) return;
@@ -979,8 +1029,8 @@ function processCSV(type) {
       if(idx>=0){DB.inventario[idx]={...DB.inventario[idx],...item};updated++;}
       else{DB.inventario.push(item);added++;}
     });
-    saveToStorage(); refreshSelectsGlobal(); csvBuffer=[];
-    document.getElementById('csv-preview').innerHTML=`<div class="alert alert-success">✅ Importación completa: <strong>${added} nuevos</strong>, <strong>${updated} actualizados</strong>.</div>`;
+    saveToStorage();refreshSelectsGlobal();csvBuffer=[];
+    document.getElementById('csv-preview').innerHTML=`<div class="alert alert-success">✅ ${mode==='replace'?'Reemplazado':'Actualizado'}: <strong>${added} nuevos</strong>, <strong>${updated} actualizados</strong>.</div>`;
     renderGlobalInventory();
   }
 }
@@ -1417,8 +1467,11 @@ let repCharts={};
 function renderReportes() {
   const mes=document.getElementById('rep-mes')?.value||new Date().toISOString().slice(0,7);
   const suc=document.getElementById('rep-sucursal')?.value||'';
+  const diaEsp=document.getElementById('rep-dia-especifico')?.value||'';
+  // For charts/stats: use full month. For table: apply day filter if set
   const ventas=DB.ventas.filter(v=>v.fecha&&v.fecha.startsWith(mes)&&(!suc||v.sucursal===suc));
   const gastos=DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(mes)&&(!suc||g.sucursal===suc));
+  const ventasTabla=diaEsp?ventas.filter(v=>v.fecha===diaEsp):ventas;
   const totalVentas=ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
   const totalGastos=gastos.reduce((a,g)=>a+(g.monto||0),0);
   const totalComTarj=ventas.reduce((a,v)=>a+(v.comisionTarjeta||0),0);
@@ -1439,32 +1492,130 @@ function renderReportes() {
   renderChart('chartRepMetodos',repCharts,'doughnut',Object.keys(metCount),[{data:Object.values(metCount),backgroundColor:['#e8b84b','#4be87a','#4b8de8','#e84b4b','#be4be8','#4be8d8','#e8824b','#8ae84b','#e8e84b','#84b4e8']}]);
   renderChart('chartRepGastos',repCharts,'bar',['Ventas','Gastos Gen.','Com. Tarjeta','Com. Vendedores'],[{label:'Monto',data:[totalVentas,totalGastos,totalComTarj,totalComVend],backgroundColor:['rgba(75,232,122,.7)','rgba(232,75,75,.7)','rgba(232,75,75,.5)','rgba(232,184,75,.7)']}]);
   const cambios=ventas.filter(v=>v.cambioDesc||v.cambio>0);
-  document.getElementById('rep-cambio-tbody').innerHTML=cambios.length?cambios.map(v=>`<tr><td>${v.cambioDesc}</td><td class="td-right">${fmt(v.cambio)}</td><td>${v.fecha}</td></tr>`).join(''):'<tr><td colspan="3" style="color:var(--text3);text-align:center;padding:12px">Sin productos a cambio</td></tr>';
-  document.getElementById('rep-tabla-ventas').innerHTML=ventas.length?[...ventas].reverse().map(v=>`<tr onclick="showVentaDetail(${v.id})" style="cursor:pointer"><td>${v.vale||'-'}</td><td>${v.fecha}</td><td>${getSucNombre(v.sucursal)}</td><td>${v.vendedor||'-'}</td><td><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></td><td class="td-right">${fmt(v.subtotal)}</td><td class="td-right">${fmt(v.comisionTarjeta||0)}</td><td class="td-right">${fmt(v.comisionVendedor||0)}</td><td class="td-right">${fmt(v.taxi||0)}</td><td class="td-right"><strong>${fmt(v.precioTotal)}</strong></td></tr>`).join(''):'<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:24px">Sin ventas</td></tr>';
+  document.getElementById('rep-cambio-tbody').innerHTML=cambios.length?cambios.map(v=>`<tr><td>${esc(v.cambioDesc)}</td><td class="td-right">${fmt(v.cambio)}</td><td>${v.fecha}</td></tr>`).join(''):'<tr><td colspan="3" style="color:var(--text3);text-align:center;padding:12px">Sin productos a cambio</td></tr>';
+  // Table: uses filtered (by day if set)
+  document.getElementById('rep-tabla-ventas').innerHTML=ventasTabla.length?[...ventasTabla].reverse().map(v=>`<tr onclick="showVentaDetail(${v.id})" style="cursor:pointer"><td>${esc(v.vale||'-')}</td><td>${v.fecha}</td><td>${esc(getSucNombre(v.sucursal))}</td><td>${esc(v.vendedor||'-')}</td><td><span class="badge-pill badge-accent">${esc(v.metodoPago||'-')}</span></td><td class="td-right">${fmt(v.subtotal)}</td><td class="td-right">${fmt(v.comisionTarjeta||0)}</td><td class="td-right">${fmt(v.comisionVendedor||0)}</td><td class="td-right">${fmt(v.taxi||0)}</td><td class="td-right"><strong>${fmt(v.precioTotal)}</strong></td></tr>`).join(''):`<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:24px">Sin ventas${diaEsp?' para '+diaEsp:''}</td></tr>`;
 }
 function downloadReportCSV(){
   const mes=document.getElementById('rep-mes')?.value||'';
-  const ventas=DB.ventas.filter(v=>!mes||v.fecha?.startsWith(mes));
-  let csv='Vale,Fecha,Sucursal,Vendedor,Método,Subtotal,Com.Tarjeta,Com.Vendedor,Taxi,Total\n';
-  ventas.forEach(v=>{csv+=`${v.vale},${v.fecha},${getSucNombre(v.sucursal)},${v.vendedor},${v.metodoPago},${v.subtotal},${v.comisionTarjeta||0},${v.comisionVendedor||0},${v.taxi||0},${v.precioTotal}\n`;});
-  downloadFile('reporte_ventas.csv',csv,'text/csv');
+  const diaEsp=document.getElementById('rep-dia-especifico')?.value||'';
+  const suc=document.getElementById('rep-sucursal')?.value||'';
+  let ventas=DB.ventas.filter(v=>(!mes||v.fecha?.startsWith(mes))&&(!suc||v.sucursal===suc));
+  if(diaEsp) ventas=ventas.filter(v=>v.fecha===diaEsp);
+  const label=diaEsp||mes||'todos';
+  let csv='Vale,Fecha,Sucursal,Vendedor,Método,Subtotal,Com.Tarjeta,Com.Vendedor,Taxi,Utilidad,Total\n';
+  ventas.forEach(v=>{csv+=`"${v.vale}","${v.fecha}","${getSucNombre(v.sucursal)}","${v.vendedor}","${v.metodoPago}",${v.subtotal},${v.comisionTarjeta||0},${v.comisionVendedor||0},${v.taxi||0},${v.utilidad||0},${v.precioTotal}\n`;});
+  downloadFile(`reporte_ventas_${label}.csv`,csv,'text/csv');
+}
+function downloadDayCSV(){
+  const diaEsp=document.getElementById('rep-dia-especifico')?.value||'';
+  const mes=document.getElementById('rep-mes')?.value||'';
+  const suc=document.getElementById('rep-sucursal')?.value||'';
+  if(!diaEsp&&!mes){alert('Selecciona un mes o día específico primero');return;}
+  let ventas=DB.ventas.filter(v=>(!suc||v.sucursal===suc));
+  if(diaEsp) ventas=ventas.filter(v=>v.fecha===diaEsp);
+  else ventas=ventas.filter(v=>v.fecha&&v.fecha.startsWith(mes));
+  if(!ventas.length){alert('No hay ventas para el período seleccionado');return;}
+  const label=diaEsp||mes;
+  let csv='Vale,Fecha,Sucursal,Vendedor,Método,Productos,Subtotal,Com.Tarjeta,Com.Vendedor,Taxi,Utilidad,Total,Comentario\n';
+  ventas.forEach(v=>{
+    const prods=(v.productos||[]).map(p=>`${p.codigo||''} x${p.pz}`).join(' | ');
+    csv+=`"${v.vale}","${v.fecha}","${getSucNombre(v.sucursal)}","${v.vendedor}","${v.metodoPago}","${prods}",${v.subtotal},${v.comisionTarjeta||0},${v.comisionVendedor||0},${v.taxi||0},${v.utilidad||0},${v.precioTotal},"${v.comentario||''}"\n`;
+  });
+  downloadFile(`ventas_${label}.csv`,csv,'text/csv');
 }
 function downloadReportPDF(){
   const{jsPDF}=window.jspdf;const doc=new jsPDF();
   doc.setFontSize(18);doc.text('Peters Wheels – Reporte de Ventas',14,20);
   const mes=document.getElementById('rep-mes')?.value||'';
-  doc.setFontSize(11);doc.text('Período: '+mes,14,30);
-  const ventas=DB.ventas.filter(v=>!mes||v.fecha?.startsWith(mes));
+  const diaEsp=document.getElementById('rep-dia-especifico')?.value||'';
+  doc.setFontSize(11);doc.text('Período: '+(diaEsp||mes),14,30);
+  const suc=document.getElementById('rep-sucursal')?.value||'';
+  let ventas=DB.ventas.filter(v=>(!mes||v.fecha?.startsWith(mes))&&(!suc||v.sucursal===suc));
+  if(diaEsp) ventas=ventas.filter(v=>v.fecha===diaEsp);
   let y=45;doc.setFontSize(9);
   ventas.forEach(v=>{if(y>270){doc.addPage();y=20;}doc.text(`${v.fecha} | Vale: ${v.vale} | ${v.vendedor} | ${v.metodoPago} | $${v.precioTotal}`,14,y);y+=7;});
   doc.save('reporte_peters_wheels.pdf');
 }
 function shareWhatsApp(){
   const mes=document.getElementById('rep-mes')?.value||'';
-  const ventas=DB.ventas.filter(v=>!mes||v.fecha?.startsWith(mes));
+  const diaEsp=document.getElementById('rep-dia-especifico')?.value||'';
+  const suc=document.getElementById('rep-sucursal')?.value||'';
+  let ventas=DB.ventas.filter(v=>(!mes||v.fecha?.startsWith(mes))&&(!suc||v.sucursal===suc));
+  if(diaEsp) ventas=ventas.filter(v=>v.fecha===diaEsp);
   const total=ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
-  window.open('https://wa.me/?text='+encodeURIComponent(`*Peters Wheels – Reporte ${mes}*\nTotal ventas: $${total.toFixed(2)}\nN° ventas: ${ventas.length}\nGenerado: ${new Date().toLocaleDateString('es-MX')}`));
+  window.open('https://wa.me/?text='+encodeURIComponent(`*Peters Wheels – Reporte ${diaEsp||mes}*\nTotal ventas: $${total.toFixed(2)}\nN° ventas: ${ventas.length}\nGenerado: ${new Date().toLocaleDateString('es-MX')}`));
 }
+
+// ══════════════════════════════════════════════════════════════
+// PIN SECURITY
+// ══════════════════════════════════════════════════════════════
+let pinInput='';
+const DEFAULT_PIN='1234';
+
+function getStoredPin(){return localStorage.getItem('pw_pin')||DEFAULT_PIN;}
+
+// Build the PIN pad buttons with JS (avoids broken template literals in static HTML)
+function buildPinPad(){
+  const pad=document.getElementById('pin-pad');
+  if(!pad) return;
+  pad.innerHTML='';
+  [1,2,3,4,5,6,7,8,9,'',0,'⌫'].forEach(k=>{
+    const btn=document.createElement('button');
+    btn.textContent= k==='' ? '' : String(k);
+    btn.style.cssText='background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:\'Bebas Neue\',sans-serif;font-size:22px;letter-spacing:1px;padding:14px 0;cursor:pointer;transition:all .15s;';
+    if(k==='') { btn.disabled=true; btn.style.opacity='0'; btn.style.cursor='default'; }
+    btn.addEventListener('mouseover',()=>{ if(k!==''){btn.style.borderColor='var(--accent)';btn.style.color='var(--accent)';} });
+    btn.addEventListener('mouseout',()=>{ btn.style.borderColor='var(--border)';btn.style.color='var(--text)'; });
+    btn.addEventListener('click',()=>pinKey(String(k)));
+    pad.appendChild(btn);
+  });
+}
+
+function pinKey(k){
+  if(k==='⌫'){pinInput=pinInput.slice(0,-1);}
+  else if(k===''||pinInput.length>=4){}
+  else{pinInput+=k;}
+  updatePinDots();
+  if(pinInput.length===4) setTimeout(checkPin,120);
+}
+function updatePinDots(){
+  for(let i=0;i<4;i++){
+    const dot=document.getElementById('pd'+i);
+    if(dot) dot.style.background=i<pinInput.length?'var(--accent)':'var(--border)';
+  }
+}
+function checkPin(){
+  if(pinInput===getStoredPin()){
+    document.getElementById('login-overlay').style.display='none';
+    init(); addProductRow();
+  } else {
+    const errEl=document.getElementById('login-error');
+    if(errEl) errEl.textContent='PIN incorrecto. Intenta de nuevo.';
+    // shake animation
+    const overlay=document.getElementById('login-overlay');
+    if(overlay){overlay.style.animation='none';setTimeout(()=>{overlay.style.animation='';},10);}
+    pinInput=''; updatePinDots();
+    setTimeout(()=>{const e=document.getElementById('login-error');if(e)e.textContent='';},2000);
+  }
+}
+function logout(){
+  if(!confirm('¿Cerrar sesión? Volverás a la pantalla de PIN.')) return;
+  // Reset app state visually
+  pinInput=''; updatePinDots();
+  const errEl=document.getElementById('login-error'); if(errEl) errEl.textContent='';
+  document.getElementById('login-overlay').style.display='flex';
+}
+// Keyboard support for PIN
+document.addEventListener('keydown',e=>{
+  const overlay=document.getElementById('login-overlay');
+  if(!overlay||overlay.style.display==='none') return;
+  if(e.key>='0'&&e.key<='9') pinKey(e.key);
+  else if(e.key==='Backspace') pinKey('⌫');
+  else if(e.key==='Enter'&&pinInput.length===4) checkPin();
+});
+// Build pad on load
+buildPinPad();
 
 // ══════════════════════════════════════════════════════════════
 // CONFIGURACIÓN
@@ -1479,7 +1630,21 @@ function saveConfig(){
   DB.config.nombre=document.getElementById('cfg-nombre').value;
   DB.config.logoId=document.getElementById('cfg-logo-id').value;
   DB.config.comisionPct=parseFloat(document.getElementById('cfg-comision-pct').value)||0;
-  saveToStorage();updateLogoDisplay();refreshSelectsGlobal();alert('Configuración guardada');
+  // PIN change
+  const newPin=document.getElementById('cfg-pin-nuevo')?.value||'';
+  if(newPin){
+    if(/^\d{4}$/.test(newPin)){
+      localStorage.setItem('pw_pin',newPin);
+      document.getElementById('cfg-pin-nuevo').value='';
+      alert('✅ Configuración guardada. PIN actualizado.');
+    } else {
+      alert('El PIN debe ser exactamente 4 dígitos numéricos.');
+      return;
+    }
+  } else {
+    alert('✅ Configuración guardada.');
+  }
+  saveToStorage();updateLogoDisplay();refreshSelectsGlobal();
 }
 function addSucursal(){
   const nombre=document.getElementById('cfg-suc-nombre').value.trim(); if(!nombre) return;
@@ -1561,9 +1726,11 @@ function fmt(n){return '$'+(parseFloat(n)||0).toFixed(2).replace(/\B(?=(\d{3})+(
 function setText(id,txt){const el=document.getElementById(id);if(el)el.textContent=txt;}
 function getSucNombre(id){return DB.sucursales.find(s=>s.id===id)?.nombre||id||'-';}
 function closeModal(id){document.getElementById(id)?.classList.remove('open');}
+// XSS escape — always use when inserting user data into innerHTML
+function esc(str){return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function showAlert(containerId,type,msg){
   const el=document.getElementById(containerId); if(!el) return;
-  el.innerHTML=`<div class="alert alert-${type}">${msg}</div>`;
+  el.innerHTML=`<div class="alert alert-${esc(type)}">${esc(msg)}</div>`;
   setTimeout(()=>el.innerHTML='',3500);
 }
 function downloadFile(name,content,mime){
@@ -1583,10 +1750,10 @@ document.querySelectorAll('.modal-overlay').forEach(overlay=>{
 });
 
 // ══════════════════════════════════════════════════════════════
-// START
+// START — PIN check first, then init
 // ══════════════════════════════════════════════════════════════
-init();
-addProductRow();
+// init() and addProductRow() are called by checkPin() after successful login
+// so the app never loads without authentication
 </script>
 </body>
 </html>
