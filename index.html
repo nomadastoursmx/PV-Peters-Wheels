@@ -1,4 +1,4 @@
-	<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -726,7 +726,11 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
       </div>
       <div class="card">
         <div class="card-title">📋 Ventas del Día</div>
-        <div class="table-wrap"><table><thead><tr><th>Folio</th><th>Hora</th><th>Vendedor</th><th>Métodos</th><th>Productos</th><th class="td-right">Total</th><th>Estado</th></tr></thead><tbody id="corte-ventas-tbody"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Folio</th><th>Hora</th><th>Vendedor</th><th>Métodos</th><th>Productos/Servicios</th><th class="td-right">Total</th><th>Estado</th></tr></thead><tbody id="corte-ventas-tbody"></tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📦 Apartados / Anticipos del Día</div>
+        <div class="table-wrap"><table><thead><tr><th>Folio</th><th>Hora</th><th>Cliente</th><th>Vendedor</th><th>Método</th><th class="td-right">Total Venta</th><th class="td-right">Anticipo</th><th class="td-right">Saldo</th><th>Estado</th></tr></thead><tbody id="corte-apartados-tbody"></tbody></table></div>
       </div>
     </div>
 
@@ -1682,44 +1686,131 @@ function setTodayDateForCorte(){
 function renderCorteCaja(){
   const fecha=document.getElementById('corte-fecha')?.value||new Date().toISOString().slice(0,10);
   const suc=document.getElementById('corte-suc')?.value||'';
+
+  // ── Ventas completas del día ──
   const ventas=DB.ventas.filter(v=>v.fecha===fecha&&(!suc||v.sucursal===suc)&&!v.cancelada);
+
+  // ── Anticipos/abonos del día (pagos registrados ese día en apartados) ──
+  // Un apartado puede tener múltiples pagos; filtramos los que ocurrieron en 'fecha'
+  const pagosDia=[]; // {folio,cliente,metodo,monto,tipo,hora,estado}
+  (DB.apartados||[]).forEach(a=>{
+    if(suc&&a.sucursal!==suc) return;
+    (a.pagos||[]).forEach(p=>{
+      if(p.fecha===fecha){
+        pagosDia.push({
+          folio:a.folio, cliente:a.cliente, vendedor:a.vendedor,
+          sucursal:a.sucursal, metodo:p.metodo, monto:p.monto,
+          nota:p.nota||'', hora:a.hora||'', estado:a.estado,
+          totalVenta:a.totalVenta, saldo:a.saldo, apartadoId:a.id,
+        });
+      }
+    });
+  });
+
   const gastos=DB.gastos.filter(g=>g.fecha===fecha&&(!suc||g.sucursal===suc));
+
+  // ── Totales ──
   const totalVentas=ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
+  const totalAnticipos=pagosDia.reduce((a,p)=>a+p.monto,0);
+  const totalEntradas=totalVentas+totalAnticipos;  // dinero real recibido
   const totalGastos=gastos.reduce((a,g)=>a+(g.monto||0),0);
   const totalUtilidad=ventas.reduce((a,v)=>a+(v.utilidad||0),0);
   const totalComVend=ventas.reduce((a,v)=>a+(v.comisionVendedor||0),0);
+
   document.getElementById('corte-stats').innerHTML=`
-    <div class="stat-card"><div class="stat-label">Total Ventas</div><div class="stat-value accent">${fmt(totalVentas)}</div><div class="stat-sub">${ventas.length} operaciones</div></div>
-    <div class="stat-card"><div class="stat-label">Gastos del Día</div><div class="stat-value red">${fmt(totalGastos)}</div><div class="stat-sub">${gastos.length} gastos</div></div>
-    <div class="stat-card"><div class="stat-label">Utilidad Bruta</div><div class="stat-value green">${fmt(totalUtilidad)}</div><div class="stat-sub">Com. vendedores: ${fmt(totalComVend)}</div></div>
-    <div class="stat-card"><div class="stat-label">Utilidad Neta</div><div class="stat-value blue">${fmt(totalUtilidad-totalGastos)}</div><div class="stat-sub">Después de gastos</div></div>
+    <div class="stat-card">
+      <div class="stat-label">Ventas Completas</div>
+      <div class="stat-value accent">${fmt(totalVentas)}</div>
+      <div class="stat-sub">${ventas.length} operaciones</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Anticipos / Abonos</div>
+      <div class="stat-value blue">${fmt(totalAnticipos)}</div>
+      <div class="stat-sub">${pagosDia.length} pago${pagosDia.length!==1?'s':''} de apartados</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Entradas</div>
+      <div class="stat-value green">${fmt(totalEntradas)}</div>
+      <div class="stat-sub">Ventas + anticipos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Gastos / Salidas</div>
+      <div class="stat-value red">${fmt(totalGastos)}</div>
+      <div class="stat-sub">Utilidad neta: ${fmt(totalUtilidad-totalGastos)}</div>
+    </div>
   `;
-  // Desglose por método
+
+  // ── Desglose por método (ventas + anticipos juntos) ──
   const metMap={};
+  // Ventas completas
   ventas.forEach(v=>{
     (v.metodosPago||[{metodo:v.metodoPago,monto:v.precioTotal}]).forEach(p=>{
       if(!p.metodo) return;
-      if(!metMap[p.metodo]) metMap[p.metodo]={n:0,total:0};
-      metMap[p.metodo].n++; metMap[p.metodo].total+=p.monto;
+      if(!metMap[p.metodo]) metMap[p.metodo]={ventas:0,anticipos:0,totalVentas:0,totalAnticipos:0};
+      metMap[p.metodo].ventas++;
+      metMap[p.metodo].totalVentas+=p.monto;
     });
   });
+  // Anticipos del día
+  pagosDia.forEach(p=>{
+    if(!p.metodo) return;
+    if(!metMap[p.metodo]) metMap[p.metodo]={ventas:0,anticipos:0,totalVentas:0,totalAnticipos:0};
+    metMap[p.metodo].anticipos++;
+    metMap[p.metodo].totalAnticipos+=p.monto;
+  });
+
   const mtbody=document.getElementById('corte-metodos-tbody');
   const metEntries=Object.entries(metMap);
-  mtbody.innerHTML=metEntries.length?metEntries.map(([m,v])=>`<tr><td>${esc(m)}</td><td class="td-right">${v.n}</td><td class="td-right"><strong>${fmt(v.total)}</strong></td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:12px">Sin ventas</td></tr>';
-  // Gastos
+  if(metEntries.length){
+    // Update header to show breakdown
+    mtbody.closest('table').querySelector('thead tr').innerHTML=
+      '<th>Método</th><th class="td-right">Ventas</th><th class="td-right">Anticipos</th><th class="td-right">Total</th>';
+    mtbody.innerHTML=metEntries.map(([m,v])=>`<tr>
+      <td>${esc(m)}</td>
+      <td class="td-right">${fmt(v.totalVentas)}</td>
+      <td class="td-right" style="color:var(--blue)">${v.totalAnticipos>0?fmt(v.totalAnticipos):'—'}</td>
+      <td class="td-right"><strong>${fmt(v.totalVentas+v.totalAnticipos)}</strong></td>
+    </tr>`).join('');
+  } else {
+    mtbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:12px">Sin movimientos</td></tr>';
+  }
+
+  // ── Gastos ──
   const gtbody=document.getElementById('corte-gastos-tbody');
-  gtbody.innerHTML=gastos.length?gastos.map(g=>`<tr><td>${esc(g.concepto)}</td><td>${esc(getSucNombre(g.sucursal))}</td><td class="td-right" style="color:var(--red)">${fmt(g.monto)}</td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:12px">Sin gastos</td></tr>';
-  // Ventas del día
+  gtbody.innerHTML=gastos.length
+    ?gastos.map(g=>`<tr><td>${esc(g.concepto)}</td><td>${esc(getSucNombre(g.sucursal))}</td><td class="td-right" style="color:var(--red)">${fmt(g.monto)}</td></tr>`).join('')
+    :'<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:12px">Sin gastos</td></tr>';
+
+  // ── Ventas del día ──
   const vtbody=document.getElementById('corte-ventas-tbody');
-  vtbody.innerHTML=ventas.length?[...ventas].reverse().map(v=>`<tr style="cursor:pointer" onclick="showVentaDetail(${v.id})">
-    <td style="font-family:monospace">${esc(v.vale||'-')}</td>
-    <td>${v.hora||'-'}</td>
-    <td>${esc(v.vendedor||'-')}</td>
-    <td><span class="badge-pill badge-accent">${esc(v.metodoPago||'-')}</span></td>
-    <td style="font-size:11px">${(v.productos||[]).map(p=>esc(p.desc)).join(', ')}</td>
-    <td class="td-right"><strong>${fmt(v.precioTotal)}</strong></td>
-    <td>${v.cancelada?'<span class="badge-pill badge-red">Cancelada</span>':'<span class="badge-pill badge-green">OK</span>'}</td>
-  </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:16px">Sin ventas para esta fecha</td></tr>';
+  vtbody.innerHTML=ventas.length
+    ?[...ventas].reverse().map(v=>`<tr style="cursor:pointer" onclick="showVentaDetail(${v.id})">
+        <td style="font-family:monospace">${esc(v.vale||'-')}</td>
+        <td>${v.hora||'-'}</td>
+        <td>${esc(v.vendedor||'-')}</td>
+        <td style="font-size:11px">${(v.metodosPago||[]).map(p=>`<span class="badge-pill badge-accent" style="font-size:10px;margin:1px">${esc(p.metodo)}</span>`).join('')||esc(v.metodoPago||'-')}</td>
+        <td style="font-size:11px">${[...(v.productos||[]).map(p=>esc(p.desc)),(v.servicios||[]).map(s=>esc(s.desc))].flat().join(', ')}</td>
+        <td class="td-right"><strong>${fmt(v.precioTotal)}</strong></td>
+        <td><span class="badge-pill badge-green">OK</span></td>
+      </tr>`).join('')
+    :'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:16px">Sin ventas para esta fecha</td></tr>';
+
+  // ── Apartados/anticipos del día ──
+  const atbody=document.getElementById('corte-apartados-tbody');
+  if(!atbody) return;
+  atbody.innerHTML=pagosDia.length
+    ?pagosDia.map(p=>`<tr>
+        <td style="font-family:monospace">${esc(p.folio)}</td>
+        <td>${p.hora||'-'}</td>
+        <td><strong>${esc(p.cliente)}</strong></td>
+        <td>${esc(p.vendedor||'-')}</td>
+        <td><span class="badge-pill badge-blue">${esc(p.metodo||'-')}</span></td>
+        <td class="td-right">${fmt(p.totalVenta)}</td>
+        <td class="td-right" style="color:var(--green)"><strong>${fmt(p.monto)}</strong></td>
+        <td class="td-right" style="color:${p.saldo>0?'var(--red)':'var(--green)'}">${fmt(p.saldo)}</td>
+        <td><span class="badge-pill ${p.estado==='liquidado'?'badge-green':p.estado==='cancelado'?'badge-red':'badge-accent'}">${(p.estado||'activo').toUpperCase()}</span></td>
+      </tr>`).join('')
+    :'<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:16px">Sin anticipos/apartados para esta fecha</td></tr>';
 }
 
 // ══════════════════════════════════════════════════════════════
