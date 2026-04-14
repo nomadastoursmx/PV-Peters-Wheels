@@ -3054,21 +3054,12 @@ document.querySelectorAll('.modal-overlay').forEach(overlay=>{
 // ══════════════════════════════════════════════════════════════
 // AUTO-REFRESH — refresca la sección activa automáticamente
 // ══════════════════════════════════════════════════════════════
-let _activeSection = 'dashboard';
 let _autoRefreshInterval = null;
 
-// Guardar qué sección está activa para saber qué refrescar
-const _origShowSection = showSection;
-function showSection(id) {
-  _activeSection = id;
-  _origShowSection(id);
-}
-
 function refreshActiveSection() {
-  // Recarga datos del localStorage por si otro dispositivo/pestaña actualizó
   loadFromStorage();
-  // Refresca la sección actualmente visible
-  const id = _activeSection;
+  const active = document.querySelector('.section.active');
+  const id = active ? active.id.replace('section-','') : 'dashboard';
   if(id==='dashboard') renderDashboard();
   else if(id==='inventario-global') renderGlobalInventory();
   else if(id==='inventario-rines') renderRinesInventory();
@@ -3077,18 +3068,15 @@ function refreshActiveSection() {
   else if(id==='reportes') renderReportes();
   else if(id==='corte-caja') renderCorteCaja();
   else if(id==='historial-mov') renderHistorialUnificado();
-  // Actualizar siempre el badge de fecha y stats del dashboard
   updateDateBadge();
 }
 
 function startAutoRefresh() {
   if(_autoRefreshInterval) clearInterval(_autoRefreshInterval);
-  // Refresca cada 60 segundos
   _autoRefreshInterval = setInterval(()=>{
     const overlay=document.getElementById('login-overlay');
-    if(overlay&&overlay.style.display!=='none') return; // no refrescar si está en login
+    if(overlay&&overlay.style.display!=='none') return;
     refreshActiveSection();
-    // Mostrar timestamp discreto
     const badge=document.getElementById('dateBadge');
     if(badge){
       const now=new Date();
@@ -3097,7 +3085,6 @@ function startAutoRefresh() {
   }, 60000);
 }
 
-// Refrescar cuando el usuario vuelve a la pestaña (visibilitychange)
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'){
     const overlay=document.getElementById('login-overlay');
@@ -3105,7 +3092,6 @@ document.addEventListener('visibilitychange',()=>{
   }
 });
 
-// Refrescar cuando la ventana recupera el foco
 window.addEventListener('focus',()=>{
   const overlay=document.getElementById('login-overlay');
   if(!overlay||overlay.style.display==='none') refreshActiveSection();
