@@ -2479,17 +2479,74 @@ function saveLiquidacion() {
   if(!monto||monto<=0){alert('Ingresa el monto a pagar');return;}
   if(!metodo){alert('Selecciona el método de pago');return;}
   if(monto>a.saldo+0.01){if(!confirm(`El monto ($${monto}) es mayor al saldo ($${a.saldo.toFixed(2)}). ¿Continuar?`))return;}
+
   const today=new Date().toISOString().slice(0,10);
+  const now=new Date();
   a.pagos=a.pagos||[];
   a.pagos.push({fecha:today,metodo,monto,nota:notas});
   a.anticipo+=monto;
   a.saldo=Math.max(0,a.saldo-monto);
-  if(a.saldo<=0) a.estado='liquidado';
-  addHistorial({tipo:'venta',folio:a.folio,descripcion:`Pago de apartado ${a.folio} — ${a.cliente}: ${fmt(monto)} via ${metodo}`,sucursal:a.sucursal,usuario:'Sistema',monto});
+
+  // ── Si queda saldo = 0, registrar como venta formal ──
+  if(a.saldo<=0){
+    a.estado='liquidado';
+
+    // Construir objeto venta a partir del apartado
+    // El inventario ya fue descontado al apartar, NO se descuenta de nuevo
+    const todosMetodos=[
+      ...(a.pagos||[]).map(p=>({metodo:p.metodo,monto:p.monto}))
+    ];
+    const subtotalProds=(a.productos||[]).reduce((s,r)=>s+(r.subtotal||0),0);
+    const subtotalSrv=(a.servicios||[]).reduce((s,r)=>s+(r.subtotal||0),0);
+    const subtotal=subtotalProds+subtotalSrv;
+    let comisionTarjeta=0;
+    todosMetodos.forEach(p=>{
+      const mp=DB.metodosPago.find(m=>m.nombre===p.metodo);
+      if(mp&&mp.factor) comisionTarjeta+=p.monto*(mp.factor-1);
+    });
+    const subtotalCosto=(a.productos||[]).reduce((s,r)=>s+(r.subtotalCosto||0),0)+(a.servicios||[]).reduce((s,r)=>s+(r.subtotalCosto||0),0);
+    const utilidad=a.totalVenta-subtotalCosto-comisionTarjeta;
+    const comisionVendedor=utilidad>0?(utilidad*(DB.config.comisionPct||0)/100):0;
+
+    const venta={
+      id:now.getTime(),
+      vale:a.folio,
+      vendedor:a.vendedor||'',
+      fecha:today,
+      hora:now.toTimeString().slice(0,5),
+      sucursal:a.sucursal,
+      productos:a.productos||[],
+      servicios:a.servicios||[],
+      subtotal, subtotalProds, subtotalSrv, subtotalCosto,
+      cambio:0, cambioDesc:'', cambioItems:[],
+      taxi:0, usaTaxi:false,
+      metodosPago:todosMetodos,
+      metodoPago:todosMetodos.map(p=>p.metodo).join(' + '),
+      comisionTarjeta,
+      factura:'no', facturaNombre:'', facturaRFC:'',
+      comentario:`Liquidación de apartado. Cliente: ${a.cliente}${a.tel?' | Tel: '+a.tel:''}${notas?' | '+notas:''}`,
+      precioTotal:a.totalVenta,
+      utilidad, comisionVendedor,
+      cancelada:false,
+      esLiquidacionApartado:true,
+      clienteApartado:a.cliente,
+    };
+    DB.ventas.push(venta);
+    addHistorial({tipo:'venta',folio:a.folio,descripcion:`Liquidación total de apartado ${a.folio} — ${a.cliente}. Registrado como venta.`,sucursal:a.sucursal,usuario:a.vendedor||'Sistema',monto:a.totalVenta,ventaId:venta.id});
+  } else {
+    // Abono parcial — solo historial
+    addHistorial({tipo:'venta',folio:a.folio,descripcion:`Abono de apartado ${a.folio} — ${a.cliente}: ${fmt(monto)} via ${metodo}. Saldo: ${fmt(a.saldo)}`,sucursal:a.sucursal,usuario:a.vendedor||'Sistema',monto});
+  }
+
   saveToStorage();
   closeModal('modalLiquidar');
   renderApartados();
-  alert(`✅ Pago registrado. Saldo restante: ${fmt(a.saldo)}`);
+  refreshActiveSection(); // refrescar vista activa
+
+  const msg=a.estado==='liquidado'
+    ?`✅ Apartado liquidado y registrado como venta. Folio: ${a.folio}`
+    :`✅ Abono registrado. Saldo restante: ${fmt(a.saldo)}`;
+  alert(msg);
 }
 
 function cancelarApartado(id) {
@@ -2826,6 +2883,7 @@ function checkPin(){
   if(pinInput===getStoredPin()){
     document.getElementById('login-overlay').style.display='none';
     init(); addProductRow();
+    startAutoRefresh(); // ← iniciar auto-refresh al entrar
   } else {
     const errEl=document.getElementById('login-error');
     if(errEl) errEl.textContent='PIN incorrecto. Intenta de nuevo.';
@@ -2838,7 +2896,7 @@ function checkPin(){
 }
 function logout(){
   if(!confirm('¿Cerrar sesión? Volverás a la pantalla de PIN.')) return;
-  // Reset app state visually
+  if(_autoRefreshInterval){ clearInterval(_autoRefreshInterval); _autoRefreshInterval=null; }
   pinInput=''; updatePinDots();
   const errEl=document.getElementById('login-error'); if(errEl) errEl.textContent='';
   document.getElementById('login-overlay').style.display='flex';
@@ -2991,6 +3049,66 @@ function renderAll(){
 }
 document.querySelectorAll('.modal-overlay').forEach(overlay=>{
   overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open');});
+});
+
+// ══════════════════════════════════════════════════════════════
+// AUTO-REFRESH — refresca la sección activa automáticamente
+// ══════════════════════════════════════════════════════════════
+let _activeSection = 'dashboard';
+let _autoRefreshInterval = null;
+
+// Guardar qué sección está activa para saber qué refrescar
+const _origShowSection = showSection;
+function showSection(id) {
+  _activeSection = id;
+  _origShowSection(id);
+}
+
+function refreshActiveSection() {
+  // Recarga datos del localStorage por si otro dispositivo/pestaña actualizó
+  loadFromStorage();
+  // Refresca la sección actualmente visible
+  const id = _activeSection;
+  if(id==='dashboard') renderDashboard();
+  else if(id==='inventario-global') renderGlobalInventory();
+  else if(id==='inventario-rines') renderRinesInventory();
+  else if(id==='inventario-sucursal') loadSucursalInventory();
+  else if(id==='punto-venta') { renderHistorial(); renderApartados(); }
+  else if(id==='reportes') renderReportes();
+  else if(id==='corte-caja') renderCorteCaja();
+  else if(id==='historial-mov') renderHistorialUnificado();
+  // Actualizar siempre el badge de fecha y stats del dashboard
+  updateDateBadge();
+}
+
+function startAutoRefresh() {
+  if(_autoRefreshInterval) clearInterval(_autoRefreshInterval);
+  // Refresca cada 60 segundos
+  _autoRefreshInterval = setInterval(()=>{
+    const overlay=document.getElementById('login-overlay');
+    if(overlay&&overlay.style.display!=='none') return; // no refrescar si está en login
+    refreshActiveSection();
+    // Mostrar timestamp discreto
+    const badge=document.getElementById('dateBadge');
+    if(badge){
+      const now=new Date();
+      badge.textContent=now.toLocaleDateString('es-MX',{weekday:'short',year:'numeric',month:'short',day:'numeric'})+' · '+now.toTimeString().slice(0,5);
+    }
+  }, 60000);
+}
+
+// Refrescar cuando el usuario vuelve a la pestaña (visibilitychange)
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'){
+    const overlay=document.getElementById('login-overlay');
+    if(!overlay||overlay.style.display==='none') refreshActiveSection();
+  }
+});
+
+// Refrescar cuando la ventana recupera el foco
+window.addEventListener('focus',()=>{
+  const overlay=document.getElementById('login-overlay');
+  if(!overlay||overlay.style.display==='none') refreshActiveSection();
 });
 
 // ══════════════════════════════════════════════════════════════
