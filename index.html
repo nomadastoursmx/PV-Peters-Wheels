@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+	<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -390,8 +390,10 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
     <div class="section" id="section-punto-venta">
       <div class="tabs">
         <div class="tab active" onclick="switchTab(this,'pv-venta')">🧾 Nueva Venta</div>
-        <div class="tab" onclick="switchTab(this,'pv-gastos')">💸 Gastos Generales</div>
-        <div class="tab" onclick="switchTab(this,'pv-historial')">📋 Historial del Día</div>
+        <div class="tab" onclick="switchTab(this,'pv-servicios-tab')">🔧 Servicios</div>
+        <div class="tab" onclick="switchTab(this,'pv-apartados-tab')">📦 Apartados</div>
+        <div class="tab" onclick="switchTab(this,'pv-gastos')">💸 Gastos</div>
+        <div class="tab" onclick="switchTab(this,'pv-historial')">📋 Historial</div>
       </div>
       <div id="pv-venta">
         <div class="grid-2">
@@ -411,6 +413,11 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
               <div class="card-title">🛒 Productos de la Venta</div>
               <div id="product-rows"></div>
               <button class="btn btn-secondary btn-sm" onclick="addProductRow()">➕ Agregar producto</button>
+            </div>
+            <div class="card">
+              <div class="card-title">🔧 Servicios</div>
+              <div id="service-rows"></div>
+              <button class="btn btn-secondary btn-sm" onclick="addServiceRow()">➕ Agregar servicio</button>
             </div>
             <div class="card">
               <div class="card-title">🔄 Mercancía Recibida a Cambio</div>
@@ -459,12 +466,45 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
                 <div class="total-line"><span class="lbl">TOTAL A COBRAR</span><span class="val" id="res-total">$0.00</span></div>
               </div>
               <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
-                <button class="btn btn-primary" style="width:100%" onclick="saveSale()">✅ Registrar Venta</button>
+                <button class="btn btn-primary" style="width:100%" onclick="saveSale()">✅ Registrar Venta Completa</button>
+                <button class="btn btn-secondary" style="width:100%;border-color:var(--accent);color:var(--accent)" onclick="showApartadoModal()">📦 Registrar como Apartado</button>
                 <button class="btn btn-green" style="width:100%" onclick="sendTicketWhatsApp()">💬 Enviar Ticket WhatsApp</button>
                 <button class="btn btn-secondary" style="width:100%" onclick="clearSaleForm()">🗑️ Limpiar</button>
               </div>
               <div id="sale-alert" style="margin-top:12px"></div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SERVICIOS (tab independiente - vista rápida) -->
+      <div id="pv-servicios-tab" style="display:none">
+        <div class="card">
+          <div class="card-title">🔧 Catálogo de Servicios</div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Los servicios se agregan directamente en la sección "Nueva Venta". Aquí puedes consultar el catálogo. Para editar el catálogo ve a <strong>Configuración → Servicios</strong>.</p>
+          <div class="table-wrap">
+            <table><thead><tr><th>Servicio</th><th>Descripción</th><th class="td-right">Costo</th><th class="td-right">Precio</th><th class="td-right">Utilidad</th></tr></thead>
+            <tbody id="pv-servicios-lista"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- APARTADOS -->
+      <div id="pv-apartados-tab" style="display:none">
+        <div class="card">
+          <div class="card-title">📦 Apartados Activos <span class="badge" id="apartados-count">0</span></div>
+          <div class="form-row" style="margin-bottom:12px">
+            <input type="text" id="apartados-search" placeholder="🔍 Buscar por folio o cliente..." oninput="renderApartados()" style="flex:1">
+            <select id="apartados-filter" onchange="renderApartados()" style="max-width:160px">
+              <option value="">Todos</option>
+              <option value="activo">Activos</option>
+              <option value="liquidado">Liquidados</option>
+              <option value="cancelado">Cancelados</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table><thead><tr><th>Folio</th><th>Fecha</th><th>Cliente</th><th>Vendedor</th><th>Descripción</th><th class="td-right">Total</th><th class="td-right">Anticipo</th><th class="td-right">Saldo</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="apartados-tbody"></tbody></table>
           </div>
         </div>
       </div>
@@ -563,6 +603,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
         <div class="tab" onclick="switchTab(this,'cfg-sucursales')">🏪 Sucursales</div>
         <div class="tab" onclick="switchTab(this,'cfg-vendedores')">👤 Vendedores</div>
         <div class="tab" onclick="switchTab(this,'cfg-proveedores')">🏭 Proveedores</div>
+        <div class="tab" onclick="switchTab(this,'cfg-servicios')">🔧 Servicios</div>
         <div class="tab" onclick="switchTab(this,'cfg-metodos')">💳 Métodos de Pago</div>
         <div class="tab" onclick="switchTab(this,'cfg-datos')">💾 Datos</div>
       </div>
@@ -619,6 +660,20 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
             <div class="form-group" style="justify-content:flex-end;padding-top:20px"><button class="btn btn-primary" onclick="addProveedor()">➕ Agregar</button></div>
           </div>
           <div class="table-wrap"><table><thead><tr><th>Nombre</th><th></th></tr></thead><tbody id="cfg-prov-tbody"></tbody></table></div>
+        </div>
+      </div>
+
+      <div id="cfg-servicios" style="display:none">
+        <div class="card">
+          <div class="card-title">🔧 Servicios</div>
+          <div class="form-row">
+            <div class="form-group w2"><label>Nombre del Servicio</label><input type="text" id="cfg-srv-nombre" placeholder="Ej: Montaje de llanta, Balanceo..."></div>
+            <div class="form-group"><label>Costo ($)</label><input type="number" id="cfg-srv-costo" placeholder="0.00" min="0"></div>
+            <div class="form-group"><label>Precio Venta ($)</label><input type="number" id="cfg-srv-precio" placeholder="0.00" min="0"></div>
+            <div class="form-group"><label>Descripción / Nota</label><input type="text" id="cfg-srv-desc" placeholder="Ej: Por pieza, 4 ruedas..."></div>
+            <div class="form-group" style="justify-content:flex-end;padding-top:20px"><button class="btn btn-primary" onclick="addServicio()">➕ Agregar</button></div>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>Servicio</th><th>Descripción</th><th class="td-right">Costo</th><th class="td-right">Precio</th><th class="td-right">Utilidad</th><th></th></tr></thead><tbody id="cfg-srv-tbody"></tbody></table></div>
         </div>
       </div>
 
@@ -762,6 +817,60 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
   </div>
 </div>
 
+<!-- MODAL APARTADO -->
+<div class="modal-overlay" id="modalApartado">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">📦 Registrar Apartado</div>
+    <div id="apartado-resumen" style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;color:var(--text2)"></div>
+    <div class="form-row">
+      <div class="form-group w2"><label>Nombre del Cliente *</label><input type="text" id="apt-cliente" placeholder="Nombre completo"></div>
+      <div class="form-group"><label>Teléfono</label><input type="text" id="apt-tel" placeholder="Opcional"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Anticipo ($) *</label>
+        <input type="number" id="apt-anticipo" placeholder="0.00" min="0" oninput="calcSaldoApartado()">
+      </div>
+      <div class="form-group">
+        <label>Saldo pendiente</label>
+        <div id="apt-saldo-display" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px;color:var(--accent);font-weight:700">$0.00</div>
+      </div>
+      <div class="form-group">
+        <label>Método de pago anticipo</label>
+        <select id="apt-metodo-anticipo"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group full"><label>Comentario</label><textarea id="apt-comentario" placeholder="Notas, fecha límite de entrega, etc..." style="min-height:50px"></textarea></div>
+    </div>
+    <div id="apt-error" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px"></div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveApartado()">📦 Confirmar Apartado</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalApartado')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LIQUIDAR APARTADO -->
+<div class="modal-overlay" id="modalLiquidar">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">💰 Liquidar Apartado</div>
+    <div id="liquidar-info" style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Monto a pagar ($)</label><input type="number" id="liq-monto" placeholder="0.00" oninput="calcSaldoLiquidar()"></div>
+      <div class="form-group"><label>Método de pago</label><select id="liq-metodo"></select></div>
+    </div>
+    <div id="liq-saldo-nuevo" style="font-size:13px;color:var(--text2);margin-bottom:12px"></div>
+    <div class="form-row">
+      <div class="form-group full"><label>Notas</label><input type="text" id="liq-notas" placeholder="Opcional"></div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveLiquidacion()">💰 Registrar Pago</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalLiquidar')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CANCELAR VENTA (con PIN) -->
 <div class="modal-overlay" id="modalCancelarVenta">
   <div class="modal" style="max-width:440px">
@@ -833,8 +942,14 @@ let DB = {
   ventas: [],
   gastos: [],
   movimientos: [],
-  historialUnificado: [], // {id,fecha,hora,tipo,folio,descripcion,sucursal,usuario,monto,ventaId}
-  folioConsecutivo: {},   // {sucursalId: lastNum}
+  historialUnificado: [],
+  folioConsecutivo: {},
+  servicios: [    // {id,nombre,costo,precio,descripcion}
+    { id:'sv1', nombre:'Montaje de llanta', costo:0, precio:80, descripcion:'Por pieza' },
+    { id:'sv2', nombre:'Balanceo', costo:0, precio:60, descripcion:'Por pieza' },
+    { id:'sv3', nombre:'Alineación', costo:0, precio:250, descripcion:'4 ruedas' },
+  ],
+  apartados: [],  // {id,folio,fecha,cliente,productos,servicios,totalVenta,anticipo,saldo,estado,vendedor,sucursal,pagos,comentario}
 };
 
 let csvBuffer = [];
@@ -863,6 +978,8 @@ function loadFromStorage() {
   if (!DB.rines) DB.rines = [];
   if (!DB.historialUnificado) DB.historialUnificado = [];
   if (!DB.folioConsecutivo) DB.folioConsecutivo = {};
+  if (!DB.servicios) DB.servicios = [];
+  if (!DB.apartados) DB.apartados = [];
 }
 function saveToStorage() { localStorage.setItem('peters_wheels_db', JSON.stringify(DB)); }
 function setTodayDates() {
@@ -897,7 +1014,13 @@ function showSection(id) {
   if (id==='inventario-global') renderGlobalInventory();
   if (id==='inventario-rines') renderRinesInventory();
   if (id==='inventario-sucursal') loadSucursalInventory();
-  if (id==='punto-venta') { refreshPVSelects(); if(!pvProductRows.length) addProductRow(); if(!paymentRows.length) addPaymentRow(); }
+  if (id==='punto-venta') {
+    refreshPVSelects();
+    if(!pvProductRows.length) addProductRow();
+    if(!paymentRows.length) addPaymentRow();
+    renderApartados();
+    renderCfgServicios();
+  }
   if (id==='reportes') renderReportes();
   if (id==='configuracion') renderConfig();
   if (id==='corte-caja') { setTodayDateForCorte(); renderCorteCaja(); }
@@ -1913,13 +2036,15 @@ function toggleFactura(){document.getElementById('pv-factura-fields').style.disp
 
 function recalcTotals() {
   const rows=getProductRows();
-  const subtotal=rows.reduce((a,r)=>a+r.subtotal,0);
-  const subtotalCosto=rows.reduce((a,r)=>a+r.subtotalCosto,0);
+  const srvRows=getServiceRows();
+  const subtotalProductos=rows.reduce((a,r)=>a+r.subtotal,0);
+  const subtotalServicios=srvRows.reduce((a,r)=>a+r.subtotal,0);
+  const subtotal=subtotalProductos+subtotalServicios;
+  const subtotalCosto=rows.reduce((a,r)=>a+r.subtotalCosto,0)+srvRows.reduce((a,r)=>a+r.subtotalCosto,0);
   const cambioRows_=getCambioRows();
   const cambioTotal=cambioRows_.reduce((a,r)=>a+(r.valor*r.cant),0);
   const taxi=document.getElementById('pv-taxi-check')?.checked?(parseFloat(document.getElementById('pv-taxi-costo')?.value)||0):0;
   const pays=getPaymentRows();
-  // commission is per payment method, weighted
   let comisionTarjeta=0;
   pays.forEach(p=>{
     const mp=DB.metodosPago.find(m=>m.nombre===p.metodo);
@@ -1930,12 +2055,14 @@ function recalcTotals() {
   const costoTotal=subtotalCosto+cambioTotal+comisionTarjeta+taxi;
   const utilidad=totalACobrar-subtotalCosto-comisionTarjeta-taxi;
   const comisionVendedor=utilidad>0?(utilidad*(DB.config.comisionPct||0)/100):0;
-  setText('res-subtotal',fmt(subtotal));setText('res-cambio','-'+fmt(cambioTotal));
+  // Subtotal label shows productos + servicios
+  const subtotalLabel=srvRows.length>0?`${fmt(subtotalProductos)} prod + ${fmt(subtotalServicios)} srv`:fmt(subtotalProductos+subtotalServicios);
+  setText('res-subtotal',subtotalLabel);
+  setText('res-cambio','-'+fmt(cambioTotal));
   setText('res-comision',fmt(comisionTarjeta));setText('res-taxi',fmt(taxi));
   setText('res-costo-total',fmt(costoTotal));setText('res-precio-cobrar',fmt(totalACobrar));
   setText('res-utilidad',fmt(utilidad));setText('res-comision-vendedor',fmt(comisionVendedor));
   setText('res-pagado',fmt(pagadoTotal));setText('res-total',fmt(totalACobrar));
-  // Validate payment sum
   const diff=Math.abs(pagadoTotal-totalACobrar);
   const pv=document.getElementById('payment-validation');
   if(pv){
@@ -1949,7 +2076,8 @@ function saveSale() {
   const vendedor=document.getElementById('pv-vendedor').value;
   const fecha=document.getElementById('pv-fecha').value;
   const rows=getProductRows().filter(r=>r.precio>0||r.desc);
-  if(!rows.length){showAlert('sale-alert','error','Agrega al menos un producto');return;}
+  const srvRows=getServiceRows();
+  if(!rows.length&&!srvRows.length){showAlert('sale-alert','error','Agrega al menos un producto o servicio');return;}
   if(!vendedor){showAlert('sale-alert','error','Selecciona un vendedor');return;}
   if(!fecha){showAlert('sale-alert','error','Selecciona la fecha');return;}
   const pays=getPaymentRows();
@@ -1960,8 +2088,10 @@ function saveSale() {
   const taxi=document.getElementById('pv-taxi-check')?.checked?(parseFloat(document.getElementById('pv-taxi-costo')?.value)||0):0;
   let comisionTarjeta=0;
   pays.forEach(p=>{const mp=DB.metodosPago.find(m=>m.nombre===p.metodo);if(mp&&mp.factor)comisionTarjeta+=p.monto*(mp.factor-1);});
-  const subtotal=rows.reduce((a,r)=>a+r.subtotal,0);
-  const subtotalCosto=rows.reduce((a,r)=>a+r.subtotalCosto,0);
+  const subtotalProds=rows.reduce((a,r)=>a+r.subtotal,0);
+  const subtotalSrv=srvRows.reduce((a,r)=>a+r.subtotal,0);
+  const subtotal=subtotalProds+subtotalSrv;
+  const subtotalCosto=rows.reduce((a,r)=>a+r.subtotalCosto,0)+srvRows.reduce((a,r)=>a+r.subtotalCosto,0);
   const precioTotal=Math.max(0,subtotal-cambioTotal);
   const utilidad=precioTotal-subtotalCosto-comisionTarjeta-taxi;
   const comisionVendedor=utilidad>0?(utilidad*(DB.config.comisionPct||0)/100):0;
@@ -1971,16 +2101,17 @@ function saveSale() {
     id:now.getTime(), vale, vendedor, fecha,
     hora:now.toTimeString().slice(0,5),
     sucursal:suc,
-    productos:rows,subtotal,subtotalCosto,
-    cambio:cambioTotal,cambioDesc,cambioItems:cambioRows_,
-    taxi,usaTaxi:document.getElementById('pv-taxi-check')?.checked,
+    productos:rows, servicios:srvRows,
+    subtotal, subtotalProds, subtotalSrv, subtotalCosto,
+    cambio:cambioTotal, cambioDesc, cambioItems:cambioRows_,
+    taxi, usaTaxi:document.getElementById('pv-taxi-check')?.checked,
     metodosPago:pays, metodoPago:pays.map(p=>p.metodo).join(' + '),
     comisionTarjeta,
     factura:document.getElementById('pv-factura')?.value,
     facturaNombre:document.getElementById('pv-factura-nombre')?.value,
     facturaRFC:document.getElementById('pv-factura-rfc')?.value,
     comentario:document.getElementById('pv-comentario')?.value,
-    precioTotal,utilidad,comisionVendedor,
+    precioTotal, utilidad, comisionVendedor,
     cancelada:false,
   };
   DB.ventas.push(venta);
@@ -2028,7 +2159,9 @@ function clearSaleForm() {
   document.getElementById('product-rows').innerHTML='';
   document.getElementById('payment-rows').innerHTML='';
   document.getElementById('cambio-rows').innerHTML='';
+  if(document.getElementById('service-rows')) document.getElementById('service-rows').innerHTML='';
   pvProductRows=[];pvRowId=0;paymentRows=[];paymentRowId=0;cambioRows=[];cambioRowId=0;
+  serviceRows=[];serviceRowId=0;
   addProductRow();addPaymentRow();
   ['pv-vale','pv-taxi-costo','pv-comentario','pv-factura-nombre','pv-factura-rfc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   if(document.getElementById('pv-factura')) document.getElementById('pv-factura').value='no';
@@ -2036,6 +2169,308 @@ function clearSaleForm() {
   if(document.getElementById('pv-taxi-check')) document.getElementById('pv-taxi-check').checked=false;
   if(document.getElementById('pv-taxi-group')) document.getElementById('pv-taxi-group').style.display='none';
   recalcTotals();
+}
+
+// ══════════════════════════════════════════════════════════════
+// SERVICIOS EN PUNTO DE VENTA
+// ══════════════════════════════════════════════════════════════
+let serviceRows = [];
+let serviceRowId = 0;
+
+function addServiceRow() {
+  serviceRowId++; const id=serviceRowId; serviceRows.push(id);
+  const row=document.createElement('div');
+  row.id='srow-'+id;
+  row.style.cssText='background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;';
+
+  // Build options from DB.servicios
+  const opts=DB.servicios.map(s=>`<option value="${s.id}" data-precio="${s.precio}" data-costo="${s.costo}" data-desc="${s.descripcion}">${s.nombre} — ${fmt(s.precio)}</option>`).join('');
+
+  row.innerHTML=`
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 40px;gap:8px;align-items:end">
+      <div>
+        <label style="font-size:10px;color:var(--text3)">SERVICIO</label>
+        <select id="srow-srv-${id}" style="width:100%" onchange="onServiceSelect(${id})">
+          <option value="">-- Seleccionar servicio --</option>
+          ${opts}
+          <option value="__custom__">✏️ Servicio personalizado...</option>
+        </select>
+      </div>
+      <div><label style="font-size:10px;color:var(--text3)">DESCRIPCIÓN</label><input type="text" id="srow-desc-${id}" placeholder="Detalle" style="width:100%"></div>
+      <div><label style="font-size:10px;color:var(--text3)">COSTO ($)</label><input type="number" id="srow-costo-${id}" placeholder="0.00" style="width:100%" oninput="recalcTotals()"></div>
+      <div><label style="font-size:10px;color:var(--text3)">PRECIO ($)</label><input type="number" id="srow-precio-${id}" placeholder="0.00" style="width:100%" oninput="recalcTotals()"></div>
+      <button class="btn btn-danger btn-sm" onclick="removeServiceRow(${id})">✕</button>
+    </div>
+  `;
+  document.getElementById('service-rows').appendChild(row);
+}
+
+function onServiceSelect(id) {
+  const sel=document.getElementById(`srow-srv-${id}`);
+  const val=sel.value;
+  if(val==='__custom__') {
+    document.getElementById(`srow-desc-${id}`).value='';
+    document.getElementById(`srow-costo-${id}`).value='';
+    document.getElementById(`srow-precio-${id}`).value='';
+    document.getElementById(`srow-desc-${id}`).focus();
+    return;
+  }
+  const srv=DB.servicios.find(s=>s.id===val);
+  if(!srv) return;
+  document.getElementById(`srow-desc-${id}`).value=srv.descripcion||srv.nombre;
+  document.getElementById(`srow-costo-${id}`).value=srv.costo;
+  document.getElementById(`srow-precio-${id}`).value=srv.precio;
+  recalcTotals();
+}
+
+function removeServiceRow(id) {
+  serviceRows=serviceRows.filter(r=>r!==id);
+  const el=document.getElementById('srow-'+id); if(el) el.remove(); recalcTotals();
+}
+
+function getServiceRows() {
+  return serviceRows.map(id=>{
+    const srvId=document.getElementById(`srow-srv-${id}`)?.value||'';
+    const desc=document.getElementById(`srow-desc-${id}`)?.value||'';
+    const costo=parseFloat(document.getElementById(`srow-costo-${id}`)?.value)||0;
+    const precio=parseFloat(document.getElementById(`srow-precio-${id}`)?.value)||0;
+    return {srvId, desc, costo, precio, subtotalCosto:costo, subtotal:precio};
+  }).filter(r=>r.precio>0||r.desc);
+}
+
+// ══════════════════════════════════════════════════════════════
+// APARTADOS
+// ══════════════════════════════════════════════════════════════
+let aptTotalVenta = 0;
+let aptLiquidarId = null;
+
+function showApartadoModal() {
+  const rows=getProductRows().filter(r=>r.precio>0||r.desc);
+  const srvRows=getServiceRows();
+  if(!rows.length&&!srvRows.length){showAlert('sale-alert','error','Agrega al menos un producto o servicio');return;}
+  const cambioRows_=getCambioRows();
+  const cambioTotal=cambioRows_.reduce((a,r)=>a+(r.valor*r.cant),0);
+  const subtotal=rows.reduce((a,r)=>a+r.subtotal,0)+srvRows.reduce((a,r)=>a+r.subtotal,0);
+  aptTotalVenta=Math.max(0,subtotal-cambioTotal);
+
+  // Build summary
+  const prodList=[...rows.map(r=>`${r.desc} x${r.pz} — ${fmt(r.subtotal)}`), ...srvRows.map(r=>`🔧 ${r.desc} — ${fmt(r.precio)}`)].join('<br>');
+  document.getElementById('apartado-resumen').innerHTML=`<strong>Productos/Servicios:</strong><br>${prodList}<br><br><strong>Total de la venta: ${fmt(aptTotalVenta)}</strong>`;
+  document.getElementById('apt-anticipo').value='';
+  document.getElementById('apt-cliente').value='';
+  document.getElementById('apt-tel').value='';
+  document.getElementById('apt-comentario').value='';
+  document.getElementById('apt-saldo-display').textContent=fmt(aptTotalVenta);
+  document.getElementById('apt-error').textContent='';
+
+  // Populate método select
+  const mpSel=document.getElementById('apt-metodo-anticipo');
+  mpSel.innerHTML='<option value="">-- Método --</option>';
+  DB.metodosPago.forEach(m=>{const o=document.createElement('option');o.value=m.nombre;o.textContent=m.nombre;mpSel.appendChild(o);});
+
+  document.getElementById('modalApartado').classList.add('open');
+}
+
+function calcSaldoApartado() {
+  const anticipo=parseFloat(document.getElementById('apt-anticipo')?.value)||0;
+  const saldo=Math.max(0,aptTotalVenta-anticipo);
+  document.getElementById('apt-saldo-display').textContent=fmt(saldo);
+}
+
+function saveApartado() {
+  const cliente=document.getElementById('apt-cliente').value.trim();
+  const anticipo=parseFloat(document.getElementById('apt-anticipo').value)||0;
+  const metodoAnticipo=document.getElementById('apt-metodo-anticipo').value;
+  const comentario=document.getElementById('apt-comentario').value;
+  const tel=document.getElementById('apt-tel').value;
+  const errEl=document.getElementById('apt-error');
+  if(!cliente){errEl.textContent='El nombre del cliente es obligatorio';return;}
+  if(!anticipo||anticipo<=0){errEl.textContent='Ingresa el monto del anticipo';return;}
+  if(!metodoAnticipo){errEl.textContent='Selecciona el método de pago del anticipo';return;}
+  if(anticipo>aptTotalVenta){errEl.textContent='El anticipo no puede ser mayor al total';return;}
+
+  const rows=getProductRows().filter(r=>r.precio>0||r.desc);
+  const srvRows=getServiceRows();
+  const cambioRows_=getCambioRows();
+  const folio=document.getElementById('pv-vale').value.trim()||generarFolio();
+  const vendedor=document.getElementById('pv-vendedor').value;
+  const fecha=document.getElementById('pv-fecha').value;
+  const suc=document.getElementById('inv-suc-selector')?.value||DB.sucursales[0]?.id;
+  const saldo=aptTotalVenta-anticipo;
+  const now=new Date();
+
+  const apartado={
+    id:now.getTime(), folio, fecha,
+    hora:now.toTimeString().slice(0,5),
+    cliente, tel, vendedor, sucursal:suc,
+    productos:rows, servicios:srvRows, cambioItems:cambioRows_,
+    totalVenta:aptTotalVenta, anticipo, saldo,
+    estado: saldo<=0 ? 'liquidado' : 'activo',
+    comentario,
+    pagos:[{fecha,metodo:metodoAnticipo,monto:anticipo,nota:'Anticipo inicial'}],
+  };
+  DB.apartados.push(apartado);
+  // Descontar inventario aunque sea apartado
+  rows.forEach(r=>{
+    if(!r.codigo) return;
+    if(r.tipo==='rin'){const idx=DB.rines.findIndex(i=>i.codigo===r.codigo&&i.sucursal===suc);if(idx>=0)DB.rines[idx].pz=Math.max(0,DB.rines[idx].pz-r.pz);}
+    else{const idx=DB.inventario.findIndex(i=>i.codigo===r.codigo&&i.sucursal===suc);if(idx>=0)DB.inventario[idx].pz=Math.max(0,DB.inventario[idx].pz-r.pz);}
+  });
+  addHistorial({tipo:'entrada',folio,descripcion:`Apartado ${folio} — Cliente: ${cliente} | Anticipo: ${fmt(anticipo)} | Saldo: ${fmt(saldo)}`,sucursal:suc,usuario:vendedor,monto:anticipo});
+  saveToStorage();
+  closeModal('modalApartado');
+  clearSaleForm();
+  renderApartados();
+  showAlert('sale-alert','success',`📦 Apartado ${folio} registrado. Anticipo: ${fmt(anticipo)}`);
+}
+
+function renderApartados() {
+  const search=(document.getElementById('apartados-search')?.value||'').toLowerCase();
+  const filtro=document.getElementById('apartados-filter')?.value||'';
+  let items=[...DB.apartados].filter(a=>{
+    const mSearch=!search||(a.folio+a.cliente).toLowerCase().includes(search);
+    const mFiltro=!filtro||a.estado===filtro;
+    return mSearch&&mFiltro;
+  }).sort((a,b)=>b.id-a.id);
+  document.getElementById('apartados-count').textContent=items.length;
+  const tbody=document.getElementById('apartados-tbody');
+  if(!tbody) return;
+  if(!items.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:24px">Sin apartados</td></tr>';return;}
+  const estadoMap={activo:'badge-accent',liquidado:'badge-green',cancelado:'badge-red'};
+  tbody.innerHTML=items.map(a=>`<tr>
+    <td style="font-family:monospace">${esc(a.folio)}</td>
+    <td>${a.fecha}</td>
+    <td><strong>${esc(a.cliente)}</strong>${a.tel?`<br><span style="font-size:11px;color:var(--text3)">${esc(a.tel)}</span>`:''}</td>
+    <td>${esc(a.vendedor||'-')}</td>
+    <td style="font-size:11px">${(a.productos||[]).map(p=>esc(p.desc)).concat((a.servicios||[]).map(s=>esc(s.desc))).join(', ')}</td>
+    <td class="td-right">${fmt(a.totalVenta)}</td>
+    <td class="td-right" style="color:var(--green)">${fmt(a.anticipo)}</td>
+    <td class="td-right" style="color:${a.saldo>0?'var(--red)':'var(--green)'}">${fmt(a.saldo)}</td>
+    <td><span class="badge-pill ${estadoMap[a.estado]||'badge-blue'}">${(a.estado||'activo').toUpperCase()}</span></td>
+    <td>
+      <div style="display:flex;gap:4px">
+        ${a.estado==='activo'?`<button class="btn btn-green btn-sm" onclick="showLiquidarModal(${a.id})">💰</button>`:''} 
+        ${a.estado==='activo'?`<button class="btn btn-secondary btn-sm" onclick="sendApartadoWhatsApp(${a.id})">💬</button>`:''}
+        ${a.estado==='activo'?`<button class="btn btn-danger btn-sm" onclick="cancelarApartado(${a.id})">✕</button>`:''}
+      </div>
+    </td>
+  </tr>`).join('');
+}
+
+function showLiquidarModal(id) {
+  aptLiquidarId=id;
+  const a=DB.apartados.find(x=>x.id===id); if(!a) return;
+  document.getElementById('liquidar-info').innerHTML=`
+    <strong>${esc(a.folio)}</strong> — ${esc(a.cliente)}<br>
+    Total: ${fmt(a.totalVenta)} | Anticipo pagado: ${fmt(a.anticipo)} | <strong style="color:var(--red)">Saldo: ${fmt(a.saldo)}</strong><br>
+    <small style="color:var(--text3)">Pagos anteriores: ${(a.pagos||[]).map(p=>`${p.fecha} ${p.metodo} ${fmt(p.monto)}`).join(' | ')}</small>`;
+  document.getElementById('liq-monto').value=a.saldo.toFixed(2);
+  document.getElementById('liq-notas').value='';
+  document.getElementById('liq-saldo-nuevo').textContent='';
+  const mpSel=document.getElementById('liq-metodo');
+  mpSel.innerHTML='<option value="">-- Método --</option>';
+  DB.metodosPago.forEach(m=>{const o=document.createElement('option');o.value=m.nombre;o.textContent=m.nombre;mpSel.appendChild(o);});
+  document.getElementById('modalLiquidar').classList.add('open');
+}
+
+function calcSaldoLiquidar() {
+  const a=DB.apartados.find(x=>x.id===aptLiquidarId); if(!a) return;
+  const monto=parseFloat(document.getElementById('liq-monto')?.value)||0;
+  const nuevo=Math.max(0,a.saldo-monto);
+  document.getElementById('liq-saldo-nuevo').innerHTML=`Saldo restante: <strong style="color:${nuevo>0?'var(--red)':'var(--green)'}">${fmt(nuevo)}</strong>`;
+}
+
+function saveLiquidacion() {
+  const a=DB.apartados.find(x=>x.id===aptLiquidarId); if(!a) return;
+  const monto=parseFloat(document.getElementById('liq-monto').value)||0;
+  const metodo=document.getElementById('liq-metodo').value;
+  const notas=document.getElementById('liq-notas').value;
+  if(!monto||monto<=0){alert('Ingresa el monto a pagar');return;}
+  if(!metodo){alert('Selecciona el método de pago');return;}
+  if(monto>a.saldo+0.01){if(!confirm(`El monto ($${monto}) es mayor al saldo ($${a.saldo.toFixed(2)}). ¿Continuar?`))return;}
+  const today=new Date().toISOString().slice(0,10);
+  a.pagos=a.pagos||[];
+  a.pagos.push({fecha:today,metodo,monto,nota:notas});
+  a.anticipo+=monto;
+  a.saldo=Math.max(0,a.saldo-monto);
+  if(a.saldo<=0) a.estado='liquidado';
+  addHistorial({tipo:'venta',folio:a.folio,descripcion:`Pago de apartado ${a.folio} — ${a.cliente}: ${fmt(monto)} via ${metodo}`,sucursal:a.sucursal,usuario:'Sistema',monto});
+  saveToStorage();
+  closeModal('modalLiquidar');
+  renderApartados();
+  alert(`✅ Pago registrado. Saldo restante: ${fmt(a.saldo)}`);
+}
+
+function cancelarApartado(id) {
+  if(!confirm('¿Cancelar este apartado? El inventario se restaurará.'))return;
+  const a=DB.apartados.find(x=>x.id===id); if(!a) return;
+  a.estado='cancelado';
+  // Restaurar inventario
+  (a.productos||[]).forEach(r=>{
+    if(!r.codigo)return;
+    if(r.tipo==='rin'){const idx=DB.rines.findIndex(i=>i.codigo===r.codigo&&i.sucursal===a.sucursal);if(idx>=0)DB.rines[idx].pz+=r.pz;}
+    else{const idx=DB.inventario.findIndex(i=>i.codigo===r.codigo&&i.sucursal===a.sucursal);if(idx>=0)DB.inventario[idx].pz+=r.pz;}
+  });
+  addHistorial({tipo:'cancelacion',folio:a.folio,descripcion:`Cancelación de apartado ${a.folio} — ${a.cliente}`,sucursal:a.sucursal,usuario:'Sistema',monto:0});
+  saveToStorage();renderApartados();
+}
+
+function sendApartadoWhatsApp(id) {
+  const a=DB.apartados.find(x=>x.id===id); if(!a) return;
+  const suc=getSucNombre(a.sucursal);
+  let msg=`🔧 *PETERS WHEELS — APARTADO*\n`;
+  msg+=`📋 Folio: *${a.folio}*\n`;
+  msg+=`📅 Fecha: ${a.fecha}\n`;
+  msg+=`🏪 Sucursal: ${suc}\n`;
+  msg+=`👤 Cliente: ${a.cliente}\n\n`;
+  msg+=`*── PRODUCTOS ──*\n`;
+  (a.productos||[]).forEach(p=>{msg+=`• ${p.desc} x${p.pz} = ${fmt(p.subtotal)}\n`;});
+  (a.servicios||[]).forEach(s=>{msg+=`🔧 ${s.desc} = ${fmt(s.precio)}\n`;});
+  msg+=`\n*Total: ${fmt(a.totalVenta)}*\n`;
+  msg+=`✅ Anticipo pagado: ${fmt(a.anticipo)}\n`;
+  msg+=`⚠️ Saldo pendiente: *${fmt(a.saldo)}*\n`;
+  if(a.comentario) msg+=`\n💬 ${a.comentario}`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg));
+}
+
+// ══════════════════════════════════════════════════════════════
+// SERVICIOS EN CONFIGURACIÓN
+// ══════════════════════════════════════════════════════════════
+function addServicio() {
+  const nombre=document.getElementById('cfg-srv-nombre').value.trim();
+  const costo=parseFloat(document.getElementById('cfg-srv-costo').value)||0;
+  const precio=parseFloat(document.getElementById('cfg-srv-precio').value)||0;
+  const descripcion=document.getElementById('cfg-srv-desc').value.trim();
+  if(!nombre){alert('El nombre del servicio es obligatorio');return;}
+  if(!precio){alert('El precio de venta es obligatorio');return;}
+  DB.servicios.push({id:'sv'+Date.now(),nombre,costo,precio,descripcion});
+  document.getElementById('cfg-srv-nombre').value='';
+  document.getElementById('cfg-srv-costo').value='';
+  document.getElementById('cfg-srv-precio').value='';
+  document.getElementById('cfg-srv-desc').value='';
+  saveToStorage();renderCfgServicios();
+}
+function renderCfgServicios() {
+  const tbody=document.getElementById('cfg-srv-tbody'); if(!tbody) return;
+  if(!DB.servicios.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Sin servicios configurados</td></tr>';return;}
+  tbody.innerHTML=DB.servicios.map(s=>{
+    const util=s.precio-s.costo;
+    return `<tr>
+      <td><strong>${esc(s.nombre)}</strong></td>
+      <td>${esc(s.descripcion||'-')}</td>
+      <td class="td-right">${fmt(s.costo)}</td>
+      <td class="td-right">${fmt(s.precio)}</td>
+      <td class="td-right"><span class="badge-pill ${util>0?'badge-green':'badge-red'}">${fmt(util)}</span></td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteServicio('${s.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+  // También actualizar la lista en PV tab
+  const pvLista=document.getElementById('pv-servicios-lista');
+  if(pvLista) pvLista.innerHTML=DB.servicios.map(s=>`<tr><td>${esc(s.nombre)}</td><td>${esc(s.descripcion||'-')}</td><td class="td-right">${fmt(s.costo)}</td><td class="td-right">${fmt(s.precio)}</td><td class="td-right">${fmt(s.precio-s.costo)}</td></tr>`).join('');
+}
+function deleteServicio(id) {
+  DB.servicios=DB.servicios.filter(s=>s.id!==id);
+  saveToStorage();renderCfgServicios();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2047,6 +2482,7 @@ function sendTicketWhatsApp() {
   const fecha=document.getElementById('pv-fecha').value||'-';
   const suc=DB.sucursales.find(s=>s.id===(document.getElementById('inv-suc-selector')?.value))?.nombre||'-';
   const rows=getProductRows().filter(r=>r.desc||r.precio>0);
+  const srvRows=getServiceRows();
   const pays=getPaymentRows();
   const cambios=getCambioRows();
   let msg=`🔧 *PETERS WHEELS*\n`;
@@ -2054,9 +2490,9 @@ function sendTicketWhatsApp() {
   msg+=`📅 Fecha: ${fecha}\n`;
   msg+=`🏪 Sucursal: ${suc}\n`;
   msg+=`👤 Vendedor: ${vendedor}\n\n`;
-  msg+=`*── PRODUCTOS ──*\n`;
-  rows.forEach(r=>{msg+=`• ${r.desc} x${r.pz} = ${fmt(r.subtotal)}\n`;});
-  msg+=`\n*Subtotal: ${fmt(rows.reduce((a,r)=>a+r.subtotal,0))}*\n`;
+  if(rows.length){msg+=`*── PRODUCTOS ──*\n`;rows.forEach(r=>{msg+=`• ${r.desc} x${r.pz} = ${fmt(r.subtotal)}\n`;});}
+  if(srvRows.length){msg+=`\n*── SERVICIOS ──*\n`;srvRows.forEach(s=>{msg+=`🔧 ${s.desc} = ${fmt(s.precio)}\n`;});}
+  msg+=`\n*Subtotal: ${fmt([...rows,...srvRows].reduce((a,r)=>a+r.subtotal,0))}*\n`;
   if(cambios.length){msg+=`\n🔄 *A CAMBIO:*\n`;cambios.forEach(c=>{msg+=`• ${c.desc} (${c.estado}) x${c.cant} = ${fmt(c.valor)}\n`;});}
   if(pays.length){msg+=`\n💳 *PAGO:*\n`;pays.forEach(p=>{msg+=`• ${p.metodo}: ${fmt(p.monto)}\n`;});}
   const total=parseFloat(document.getElementById('res-total')?.textContent?.replace(/[$,]/g,'')||0);
@@ -2146,8 +2582,11 @@ function showVentaDetail(id) {
       <div><span class="stat-label">Sucursal</span><div>${esc(getSucNombre(v.sucursal))}</div></div>
     </div>
     <div class="table-wrap" style="margin-bottom:12px">
-      <table><thead><tr><th>Código</th><th>Descripción</th><th>Pz</th><th>Costo</th><th>Precio</th><th>Subtotal</th><th>Venta Día</th><th>Proveedor</th></tr></thead>
-      <tbody>${(v.productos||[]).map(p=>`<tr><td>${esc(p.codigo||'-')}</td><td>${esc(p.desc)}</td><td>${p.pz}</td><td>${fmt(p.costo)}</td><td>${fmt(p.precio)}</td><td>${fmt(p.subtotal)}</td><td>${p.ventaDia?'✅':'–'}</td><td>${esc(p.proveedor||'-')}</td></tr>`).join('')}</tbody></table>
+      <table><thead><tr><th>Tipo</th><th>Código/Serv.</th><th>Descripción</th><th>Pz</th><th>Costo</th><th>Precio</th><th>Subtotal</th><th>Venta Día</th><th>Proveedor</th></tr></thead>
+      <tbody>
+        ${(v.productos||[]).map(p=>`<tr><td><span class="badge-pill badge-blue">Prod.</span></td><td>${esc(p.codigo||'-')}</td><td>${esc(p.desc)}</td><td>${p.pz}</td><td>${fmt(p.costo)}</td><td>${fmt(p.precio)}</td><td>${fmt(p.subtotal)}</td><td>${p.ventaDia?'✅':'–'}</td><td>${esc(p.proveedor||'-')}</td></tr>`).join('')}
+        ${(v.servicios||[]).map(s=>`<tr><td><span class="badge-pill badge-accent">Serv.</span></td><td>—</td><td>${esc(s.desc)}</td><td>1</td><td>${fmt(s.costo)}</td><td>${fmt(s.precio)}</td><td>${fmt(s.subtotal)}</td><td>–</td><td>–</td></tr>`).join('')}
+      </tbody></table>
     </div>
     <div class="table-wrap" style="margin-bottom:12px">
       <table><thead><tr><th colspan="2">💳 Métodos de Pago</th></tr><tr><th>Método</th><th class="td-right">Monto</th></tr></thead><tbody>${metodosHtml}</tbody></table>
@@ -2331,7 +2770,7 @@ function renderConfig() {
   document.getElementById('cfg-nombre').value=DB.config.nombre||'Peters Wheels';
   document.getElementById('cfg-logo-id').value=DB.config.logoId||'';
   document.getElementById('cfg-comision-pct').value=DB.config.comisionPct||5;
-  renderCfgSucursales();renderCfgVendedores();renderCfgProveedores();renderCfgMetodos();
+  renderCfgSucursales();renderCfgVendedores();renderCfgProveedores();renderCfgMetodos();renderCfgServicios();
 }
 function saveConfig(){
   DB.config.nombre=document.getElementById('cfg-nombre').value;
@@ -2416,6 +2855,8 @@ function importJSONFile(input){
       if(!DB.rines)DB.rines=[];
       if(!DB.historialUnificado)DB.historialUnificado=[];
       if(!DB.folioConsecutivo)DB.folioConsecutivo={};
+      if(!DB.servicios)DB.servicios=[];
+      if(!DB.apartados)DB.apartados=[];
       saveToStorage();renderAll();alert('✅ Datos cargados correctamente');
     }catch{alert('Error al leer el archivo JSON');}
   };
