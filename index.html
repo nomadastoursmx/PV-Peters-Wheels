@@ -125,21 +125,33 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
 <body>
 <!-- ══ LOGIN OVERLAY ══ -->
 <div id="login-overlay" style="position:fixed;inset:0;background:#0a0c0f;z-index:9999;display:flex;align-items:center;justify-content:center;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;max-width:360px;width:95%;text-align:center;box-shadow:var(--shadow)">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;max-width:380px;width:95%;text-align:center;box-shadow:var(--shadow)">
     <div style="font-size:48px;margin-bottom:12px">🔧</div>
     <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--accent);margin-bottom:4px">PETERS WHEELS</div>
-    <div style="font-size:12px;color:var(--text2);letter-spacing:2px;text-transform:uppercase;margin-bottom:28px">Sistema de Gestión</div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Ingresa tu PIN</div>
-    <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px">
-      <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd0"></div>
-      <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd1"></div>
-      <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd2"></div>
-      <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd3"></div>
+    <div style="font-size:12px;color:var(--text2);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px">Sistema de Gestión</div>
+
+    <!-- Step 1: select user -->
+    <div id="login-step-user">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Selecciona tu usuario</div>
+      <div id="login-user-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:260px;overflow-y:auto"></div>
     </div>
-    <!-- Pin pad built by JS to avoid template literal rendering in static HTML -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="pin-pad"></div>
-    <div id="login-error" style="font-size:12px;color:var(--red);min-height:18px"></div>
-    <div style="margin-top:16px;font-size:11px;color:var(--text3)">PIN por defecto: <strong style="color:var(--text2)">1234</strong> — Cámbialo en Configuración</div>
+
+    <!-- Step 2: enter PIN -->
+    <div id="login-step-pin" style="display:none">
+      <div id="login-user-display" style="font-size:15px;color:var(--text);font-weight:700;margin-bottom:4px"></div>
+      <div id="login-role-display" style="font-size:11px;color:var(--text3);margin-bottom:16px;text-transform:uppercase;letter-spacing:1px"></div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Ingresa tu PIN</div>
+      <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px">
+        <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd0"></div>
+        <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd1"></div>
+        <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd2"></div>
+        <div style="width:14px;height:14px;border-radius:50%;background:var(--border);transition:.2s" id="pd3"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="pin-pad"></div>
+      <button onclick="loginGoBack()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;margin-top:4px">← Cambiar usuario</button>
+    </div>
+
+    <div id="login-error" style="font-size:12px;color:var(--red);min-height:18px;margin-top:8px"></div>
   </div>
 </div>
 
@@ -192,12 +204,12 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
       <div class="nav-item" onclick="showSection('corte-caja')"><span class="icon">🏧</span><span>Corte de Caja</span></div>
       <div class="nav-item" onclick="showSection('historial-mov')"><span class="icon">📜</span><span>Historial</span></div>
     </div>
-    <div class="nav-section">
+    <div class="nav-section" id="nav-config-section">
       <div class="nav-label">Sistema</div>
       <div class="nav-item" onclick="showSection('configuracion')"><span class="icon">⚙️</span><span>Configuración</span></div>
     </div>
   </nav>
-  <div class="sidebar-footer">v3.0 · Peters Wheels</div>
+  <div class="sidebar-footer" id="sidebar-user-info">v3.0 · Peters Wheels</div>
 </aside>
 
 <!-- MAIN -->
@@ -206,6 +218,9 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
     <div class="topbar-title" id="topbarTitle">DASHBOARD</div>
     <div class="topbar-right">
       <div class="date-badge" id="dateBadge"></div>
+      <div id="topbar-user-badge" style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px">
+        <span id="topbar-user-icon">👤</span><span id="topbar-user-name">—</span>
+      </div>
       <div class="sucursal-badge" onclick="showSection('configuracion')" id="sucursalBadge">SUCURSAL 1</div>
       <button onclick="logout()" style="background:rgba(232,75,75,.15);color:var(--red);border:1px solid rgba(232,75,75,.3);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Barlow',sans-serif;" title="Cerrar sesión">🔒 Salir</button>
     </div>
@@ -237,8 +252,13 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
     <!-- ══════════════════════════════ INVENTARIO GLOBAL (LLANTAS) ══════════════════════════════ -->
     <div class="section" id="section-inventario-global">
       <div class="tabs">
-        <div class="tab active" onclick="switchTab(this,'inv-global-carga')">📥 Cargar Inventario</div>
+        <div class="tab active" onclick="switchTab(this,'inv-global-carga')">📥 Cargar CSV</div>
         <div class="tab" onclick="switchTab(this,'inv-global-ver')">📋 Ver Inventario</div>
+        <div id="inv-global-admin-btns" style="display:none;margin-left:auto;gap:6px;padding:6px 0;align-items:center">
+          <button class="btn btn-green btn-sm" onclick="openMovMasivo('entrada','llantas')">➕ Recibir</button>
+          <button class="btn btn-secondary btn-sm" onclick="openMovMasivo('salida','llantas')">➖ Dar salida</button>
+          <button class="btn btn-secondary btn-sm" onclick="openMovMasivo('traspaso','llantas')">↔️ Traspasar</button>
+        </div>
       </div>
       <div id="inv-global-carga">
         <div class="card">
@@ -273,6 +293,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
               <input type="checkbox" id="inv-global-solo-disponibles" onchange="renderGlobalInventory()" style="width:auto;accent-color:var(--accent)">
               Solo con existencias
             </label>
+            <button class="btn btn-secondary btn-sm" onclick="downloadInventarioCSV('llantas')" style="white-space:nowrap">📥 Descargar CSV</button>
           </div>
           <div class="table-wrap">
             <table>
@@ -287,8 +308,13 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
     <!-- ══════════════════════════════ INVENTARIO RINES ══════════════════════════════ -->
     <div class="section" id="section-inventario-rines">
       <div class="tabs">
-        <div class="tab active" onclick="switchTab(this,'inv-rines-carga')">📥 Cargar Rines</div>
+        <div class="tab active" onclick="switchTab(this,'inv-rines-carga')">📥 Cargar CSV</div>
         <div class="tab" onclick="switchTab(this,'inv-rines-ver')">📋 Ver Rines</div>
+        <div id="inv-rines-admin-btns" style="display:none;margin-left:auto;gap:6px;padding:6px 0;align-items:center">
+          <button class="btn btn-green btn-sm" onclick="openMovMasivo('entrada','rines')">➕ Recibir</button>
+          <button class="btn btn-secondary btn-sm" onclick="openMovMasivo('salida','rines')">➖ Dar salida</button>
+          <button class="btn btn-secondary btn-sm" onclick="openMovMasivo('traspaso','rines')">↔️ Traspasar</button>
+        </div>
       </div>
       <div id="inv-rines-carga">
         <div class="card">
@@ -323,6 +349,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
               <input type="checkbox" id="inv-rines-solo-disponibles" onchange="renderRinesInventory()" style="width:auto;accent-color:var(--accent)">
               Solo con existencias
             </label>
+            <button class="btn btn-secondary btn-sm" onclick="downloadInventarioCSV('rines')" style="white-space:nowrap">📥 Descargar CSV</button>
           </div>
           <div class="table-wrap">
             <table>
@@ -606,6 +633,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
         <div class="tab" onclick="switchTab(this,'cfg-servicios')">🔧 Servicios</div>
         <div class="tab" onclick="switchTab(this,'cfg-metodos')">💳 Métodos de Pago</div>
         <div class="tab" onclick="switchTab(this,'cfg-datos')">💾 Datos</div>
+        <div class="tab" id="cfg-usuarios-tab" onclick="switchTab(this,'cfg-usuarios')">👥 Usuarios</div>
       </div>
 
       <div id="cfg-general">
@@ -617,7 +645,6 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
           </div>
           <div class="form-row">
             <div class="form-group"><label>Comisión a vendedor por utilidad (%)</label><input type="number" id="cfg-comision-pct" placeholder="Ej: 5" min="0" max="100" step="0.5"></div>
-            <div class="form-group"><label>🔐 Cambiar PIN de acceso</label><input type="password" id="cfg-pin-nuevo" placeholder="4 dígitos" maxlength="4" style="letter-spacing:4px"></div>
           </div>
           <button class="btn btn-primary" onclick="saveConfig()">💾 Guardar Configuración</button>
         </div>
@@ -702,15 +729,34 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
           <button class="btn btn-danger" onclick="if(confirm('¿Eliminar TODOS los datos?'))clearAllData()">🗑️ Borrar todos los datos</button>
         </div>
       </div>
-    </div>
-
-    <!-- ══════════════════════════════ CORTE DE CAJA ══════════════════════════════ -->
+      <div id="cfg-usuarios" style="display:none">
+        <div class="card">
+          <div class="card-title">👥 Gestión de Usuarios</div>
+          <div class="form-row" style="align-items:flex-end">
+            <div class="form-group w2"><label>Nombre</label><input type="text" id="cfg-usr-nombre" placeholder="Nombre del usuario"></div>
+            <div class="form-group"><label>PIN (4 dígitos)</label><input type="password" id="cfg-usr-pin" placeholder="••••" maxlength="4" style="letter-spacing:4px"></div>
+            <div class="form-group"><label>Rol</label>
+              <select id="cfg-usr-rol">
+                <option value="usuario">Usuario</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+            <div class="form-group" style="padding-top:20px"><button class="btn btn-primary" onclick="addUsuario()">➕ Agregar</button></div>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Rol</th><th>PIN</th><th>Acciones</th></tr></thead><tbody id="cfg-usr-tbody"></tbody></table></div>
+          <div class="alert alert-warning" style="margin-top:12px;font-size:12px">⚠️ Solo los administradores pueden gestionar usuarios. Cada usuario inicia sesión con su PIN personal.</div>
+        </div>
+      </div>
+    </div><!-- /section-configuracion -->
     <div class="section" id="section-corte-caja">
       <div class="card">
         <div class="card-title">🏧 Filtros de Corte</div>
-        <div class="form-row">
+        <div class="form-row" style="align-items:flex-end">
           <div class="form-group"><label>Fecha</label><input type="date" id="corte-fecha" oninput="renderCorteCaja()"></div>
           <div class="form-group"><label>Sucursal</label><select id="corte-suc" onchange="renderCorteCaja()"><option value="">Todas</option></select></div>
+          <div class="form-group" style="padding-top:20px">
+            <button class="btn btn-secondary" onclick="downloadCorteCajaCSV()">📥 Descargar CSV</button>
+          </div>
         </div>
       </div>
       <div class="grid-4" id="corte-stats" style="margin-bottom:16px"></div>
@@ -875,6 +921,275 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
   </div>
 </div>
 
+<!-- ══ MODAL MOVIMIENTOS MASIVOS (admin) ══ -->
+<div class="modal-overlay" id="modalMovMasivo">
+  <div class="modal" style="max-width:860px">
+    <div class="modal-title" id="movMasivoTitle">📦 Movimiento de Inventario</div>
+
+    <!-- Cabecera: tipo de operación, tipo de producto, sucursal -->
+    <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+      <div class="form-row" style="margin-bottom:0">
+        <div class="form-group">
+          <label>Operación</label>
+          <div id="movMasivo-op-label" style="font-size:16px;font-weight:700;color:var(--accent);padding:9px 0">—</div>
+        </div>
+        <div class="form-group">
+          <label>Tipo de producto</label>
+          <div id="movMasivo-tipo-label" style="font-size:14px;font-weight:600;color:var(--text);padding:9px 0">—</div>
+        </div>
+        <div class="form-group">
+          <label id="movMasivo-suc-label">Sucursal *</label>
+          <select id="movMasivo-sucursal" style="width:100%"></select>
+        </div>
+        <!-- Solo traspaso: sucursal destino -->
+        <div class="form-group" id="movMasivo-destino-group" style="display:none">
+          <label>Sucursal Destino *</label>
+          <select id="movMasivo-destino" style="width:100%"></select>
+        </div>
+        <!-- Solo entrada: proveedor -->
+        <div class="form-group" id="movMasivo-proveedor-group" style="display:none">
+          <label>Proveedor *</label>
+          <select id="movMasivo-proveedor">
+            <option value="">-- Seleccionar --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Referencia / Nota general</label>
+          <input type="text" id="movMasivo-referencia" placeholder="Ej: Factura #123, traslado mensual...">
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla de productos a mover -->
+    <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-weight:700;font-size:14px">Productos a mover</span>
+      <button class="btn btn-secondary btn-sm" onclick="addMovMasivoRow()">➕ Agregar producto</button>
+    </div>
+    <div id="movMasivo-rows" style="margin-bottom:14px"></div>
+
+    <!-- Resumen -->
+    <div id="movMasivo-resumen" style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text2);margin-bottom:16px;display:none"></div>
+
+    <div id="movMasivo-error" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px"></div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveMovMasivo()">✅ Confirmar Movimiento</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalMovMasivo')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR PRODUCTO (LLANTA) -->
+<div class="modal-overlay" id="modalEditProduct">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title" id="editProductTitle">✏️ Producto</div>
+    <input type="hidden" id="edit-prod-idx">
+
+    <!-- Fila 1: Marca/Nombre + Descripción -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>Marca / Fabricante *</label>
+        <input type="text" id="edit-prod-marca" placeholder="Ej: Michelin, Goodyear, Llantera..." oninput="autoGenerarCodigoModal('llanta')">
+      </div>
+      <div class="form-group w2">
+        <label>Descripción / Modelo *</label>
+        <input type="text" id="edit-prod-desc" placeholder="Ej: Llanta Radial Energy Saver" oninput="autoGenerarCodigoModal('llanta')">
+      </div>
+    </div>
+
+    <!-- Fila 2: Medida + Estado + Tipo -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>Medida *</label>
+        <input type="text" id="edit-prod-medida" placeholder="Ej: 195/65R15" oninput="autoGenerarCodigoModal('llanta')">
+      </div>
+      <div class="form-group">
+        <label>Estado</label>
+        <select id="edit-prod-estado" onchange="autoGenerarCodigoModal('llanta')">
+          <option value="Nuevo">Nuevo</option>
+          <option value="Seminuevo">Seminuevo</option>
+          <option value="Usado">Usado</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tipo de llanta</label>
+        <select id="edit-prod-tipo">
+          <option value="">— Sin especificar —</option>
+          <option value="Radial">Radial</option>
+          <option value="Diagonal">Diagonal</option>
+          <option value="Run-Flat">Run-Flat</option>
+          <option value="Todo terreno">Todo terreno</option>
+          <option value="Invierno">Invierno</option>
+          <option value="Camión">Camión</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Fila 3: Proveedor (nuevo) / Sucursal (editar) -->
+    <div class="form-row">
+      <div class="form-group" id="edit-prod-proveedor-group">
+        <label id="edit-prod-prov-label">Proveedor *</label>
+        <select id="edit-prod-proveedor"></select>
+      </div>
+      <div class="form-group">
+        <label>Sucursal destino *</label>
+        <select id="edit-prod-sucursal"></select>
+      </div>
+    </div>
+
+    <!-- Fila 4: Código auto -->
+    <div class="form-row">
+      <div class="form-group full">
+        <label>Código *</label>
+        <div style="display:flex;gap:6px;align-items:stretch">
+          <input type="text" id="edit-prod-codigo" placeholder="Se genera automático o escríbelo manualmente" style="flex:1;font-family:monospace">
+          <button class="btn btn-secondary btn-sm" onclick="autoGenerarCodigoModalForce('llanta')" title="Generar código desde los datos" style="white-space:nowrap;flex-shrink:0">🔄 Auto-código</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">
+          Formato: <span style="font-family:monospace;color:var(--accent)">MARCA-MEDIDA-ESTADO</span> &nbsp;·&nbsp; Ej: <span style="font-family:monospace">MIC-19565R15-N</span> &nbsp;·&nbsp; Puedes editarlo manualmente.
+        </div>
+      </div>
+    </div>
+
+    <!-- Fila 5: Piezas + Costo + Precio -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>Piezas</label>
+        <input type="number" id="edit-prod-pz" min="0" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Costo unitario ($)</label>
+        <input type="number" id="edit-prod-costo" placeholder="0.00" min="0" step="0.01" oninput="_updateProductPreview()">
+      </div>
+      <div class="form-group">
+        <label>Precio de venta ($)</label>
+        <input type="number" id="edit-prod-precio" placeholder="0.00" min="0" step="0.01" oninput="_updateProductPreview()">
+      </div>
+    </div>
+
+    <div id="edit-prod-preview" style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text2);margin-bottom:14px;display:none"></div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveEditProduct()">💾 Guardar Producto</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalEditProduct')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR RIN -->
+<div class="modal-overlay" id="modalEditRin">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-title" id="editRinTitle">✏️ Rin</div>
+    <input type="hidden" id="edit-rin-idx">
+
+    <!-- Fila 1: Marca + Estado + Proveedor/Sucursal -->
+    <div class="form-row">
+      <div class="form-group w2">
+        <label>Marca *</label>
+        <input type="text" id="edit-rin-marca" placeholder="Ej: Enkei, Jogo, Sparco, Racing..." oninput="autoGenerarCodigoModal('rin')">
+      </div>
+      <div class="form-group">
+        <label>Estado</label>
+        <select id="edit-rin-estado" onchange="autoGenerarCodigoModal('rin')">
+          <option value="Nuevo">Nuevo</option>
+          <option value="Seminuevo">Seminuevo</option>
+          <option value="Usado">Usado</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Fila 2: Medida + Ancho + Barrenación + Offset -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>Medida (pulg) *</label>
+        <input type="text" id="edit-rin-medida" placeholder="15" oninput="autoGenerarCodigoModal('rin')">
+      </div>
+      <div class="form-group">
+        <label>Ancho</label>
+        <input type="text" id="edit-rin-ancho" placeholder="6J" oninput="autoGenerarCodigoModal('rin')">
+      </div>
+      <div class="form-group">
+        <label>Barrenación</label>
+        <input type="text" id="edit-rin-barr" placeholder="4x100" oninput="autoGenerarCodigoModal('rin')">
+      </div>
+      <div class="form-group">
+        <label>Offset (ET)</label>
+        <input type="text" id="edit-rin-offset" placeholder="+38" oninput="autoGenerarCodigoModal('rin')">
+      </div>
+    </div>
+
+    <!-- Fila 3: Centro + Material + Color -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>Centro (CB mm)</label>
+        <input type="text" id="edit-rin-centro" placeholder="60.1">
+      </div>
+      <div class="form-group">
+        <label>Material</label>
+        <select id="edit-rin-material">
+          <option value="">— Sin especificar —</option>
+          <option value="Aluminio">Aluminio</option>
+          <option value="Acero">Acero</option>
+          <option value="Magnesio">Magnesio</option>
+          <option value="Fibra de carbono">Fibra de carbono</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Color / Acabado</label>
+        <input type="text" id="edit-rin-color" placeholder="Negro brillante, Plata...">
+      </div>
+    </div>
+
+    <!-- Fila 4: Proveedor + Sucursal -->
+    <div class="form-row">
+      <div class="form-group" id="edit-rin-proveedor-group">
+        <label id="edit-rin-prov-label">Proveedor *</label>
+        <select id="edit-rin-proveedor"></select>
+      </div>
+      <div class="form-group">
+        <label>Sucursal destino *</label>
+        <select id="edit-rin-sucursal"></select>
+      </div>
+    </div>
+
+    <!-- Fila 5: Código auto -->
+    <div class="form-row">
+      <div class="form-group full">
+        <label>Código *</label>
+        <div style="display:flex;gap:6px;align-items:stretch">
+          <input type="text" id="edit-rin-codigo" placeholder="Se genera automático o escríbelo manualmente" style="flex:1;font-family:monospace">
+          <button class="btn btn-secondary btn-sm" onclick="autoGenerarCodigoModalForce('rin')" title="Generar código desde los datos" style="white-space:nowrap;flex-shrink:0">🔄 Auto-código</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">
+          Formato: <span style="font-family:monospace;color:var(--accent)">MARCA-R{MEDIDA}-{ANCHO}-{BARR}-ET{OFFSET}-ESTADO</span> &nbsp;·&nbsp; Ej: <span style="font-family:monospace">ENK-R15-6J-4x100-ET38-N</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fila 6: Piezas + Costo + Precio -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>Piezas</label>
+        <input type="number" id="edit-rin-pz" min="0" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Costo unitario ($)</label>
+        <input type="number" id="edit-rin-costo" placeholder="0.00" min="0" step="0.01" oninput="_updateRinPreview()">
+      </div>
+      <div class="form-group">
+        <label>Precio de venta ($)</label>
+        <input type="number" id="edit-rin-precio" placeholder="0.00" min="0" step="0.01" oninput="_updateRinPreview()">
+      </div>
+    </div>
+
+    <div id="edit-rin-preview" style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text2);margin-bottom:14px;display:none"></div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveEditRin()">💾 Guardar Rin</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalEditRin')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CANCELAR VENTA (con PIN) -->
 <div class="modal-overlay" id="modalCancelarVenta">
   <div class="modal" style="max-width:440px">
@@ -954,6 +1269,9 @@ let DB = {
     { id:'sv3', nombre:'Alineación', costo:0, precio:250, descripcion:'4 ruedas' },
   ],
   apartados: [],  // {id,folio,fecha,cliente,productos,servicios,totalVenta,anticipo,saldo,estado,vendedor,sucursal,pagos,comentario}
+  usuarios: [     // {id,nombre,pin,rol} rol: 'admin' | 'usuario'
+    { id:'u1', nombre:'Administrador', pin:'1234', rol:'admin' },
+  ],
 };
 
 let csvBuffer = [];
@@ -974,6 +1292,12 @@ function init() {
   updateDateBadge();
   refreshSelectsGlobal();
   updateLogoDisplay();
+  // Auto-select vendedor if current user name matches a vendedor entry
+  const pvVend = document.getElementById('pv-vendedor');
+  if (pvVend && usuarioActivo) {
+    const match = DB.vendedores.find(v => v.toLowerCase() === usuarioActivo.nombre.toLowerCase());
+    if (match) pvVend.value = match;
+  }
 }
 function loadFromStorage() {
   const saved = localStorage.getItem('peters_wheels_db');
@@ -984,6 +1308,7 @@ function loadFromStorage() {
   if (!DB.folioConsecutivo) DB.folioConsecutivo = {};
   if (!DB.servicios) DB.servicios = [];
   if (!DB.apartados) DB.apartados = [];
+  if (!DB.usuarios) DB.usuarios = [{ id:'u1', nombre:'Administrador', pin:'1234', rol:'admin' }];
 }
 function saveToStorage() { localStorage.setItem('peters_wheels_db', JSON.stringify(DB)); }
 function setTodayDates() {
@@ -1006,6 +1331,10 @@ const sectionTitles = {
   'corte-caja':'CORTE DE CAJA','historial-mov':'HISTORIAL DE MOVIMIENTOS'
 };
 function showSection(id) {
+  // Block non-admins from Configuración
+  if (id === 'configuracion' && usuarioActivo?.rol !== 'admin') {
+    id = 'punto-venta';
+  }
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const sec = document.getElementById('section-'+id);
@@ -1015,8 +1344,8 @@ function showSection(id) {
   });
   document.getElementById('topbarTitle').textContent = sectionTitles[id]||id.toUpperCase();
   if (id==='dashboard') renderDashboard();
-  if (id==='inventario-global') renderGlobalInventory();
-  if (id==='inventario-rines') renderRinesInventory();
+  if (id==='inventario-global') { renderGlobalInventory(); setTimeout(showAddProductBtn,50); }
+  if (id==='inventario-rines') { renderRinesInventory(); setTimeout(showAddProductBtn,50); }
   if (id==='inventario-sucursal') loadSucursalInventory();
   if (id==='punto-venta') {
     refreshPVSelects();
@@ -1029,6 +1358,7 @@ function showSection(id) {
   if (id==='configuracion') renderConfig();
   if (id==='corte-caja') { setTodayDateForCorte(); renderCorteCaja(); }
   if (id==='historial-mov') { setTodayDateForHistorial(); renderHistorialUnificado(); }
+  applyRoleUI();
 }
 function switchTab(el, targetId) {
   el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -1095,11 +1425,12 @@ function previewLogo() { DB.config.logoId=document.getElementById('cfg-logo-id')
 // ══════════════════════════════════════════════════════════════
 function renderDashboard() {
   const today=new Date().toISOString().slice(0,10); const ym=today.slice(0,7);
-  const ventasHoy=DB.ventas.filter(v=>v.fecha===today);
-  const ventasMes=DB.ventas.filter(v=>v.fecha&&v.fecha.startsWith(ym));
-  const gastosMes=DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(ym));
-  const totalHoy=ventasHoy.reduce((a,v)=>a+(v.precioTotal||0),0);
-  const totalMes=ventasMes.reduce((a,v)=>a+(v.precioTotal||0),0);
+  // Exclude cancelled sales everywhere
+  const ventasHoy =DB.ventas.filter(v=>v.fecha===today && !v.cancelada);
+  const ventasMes =DB.ventas.filter(v=>v.fecha&&v.fecha.startsWith(ym) && !v.cancelada);
+  const gastosMes =DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(ym));
+  const totalHoy  =ventasHoy.reduce((a,v)=>a+(v.precioTotal||0),0);
+  const totalMes  =ventasMes.reduce((a,v)=>a+(v.precioTotal||0),0);
   const totalGastos=gastosMes.reduce((a,g)=>a+(g.monto||0),0)+ventasMes.reduce((a,v)=>a+(v.comisionTarjeta||0),0);
   document.getElementById('dash-ventas-hoy').textContent=fmt(totalHoy);
   document.getElementById('dash-ventas-hoy-n').textContent=ventasHoy.length+' operaciones';
@@ -1108,14 +1439,21 @@ function renderDashboard() {
   document.getElementById('dash-gastos-mes').textContent=fmt(totalGastos);
   document.getElementById('dash-productos').textContent=DB.inventario.length+DB.rines.length;
   document.getElementById('dash-sucursal-nombre').textContent=DB.sucursales[0]?.nombre||'';
+  // Recent sales table — show last 8 non-cancelled
   const tbody=document.getElementById('dash-tabla-ventas');
-  const last=[...DB.ventas].reverse().slice(0,8);
-  tbody.innerHTML=last.length?last.map(v=>`<tr><td>${v.vale||'-'}</td><td>${v.fecha||'-'}</td><td>${v.vendedor||'-'}</td><td><span class="badge-pill badge-accent">${v.metodoPago||'-'}</span></td><td>${getSucNombre(v.sucursal)}</td><td class="td-right">${fmt(v.precioTotal||0)}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Sin ventas registradas</td></tr>';
+  const last=[...DB.ventas].filter(v=>!v.cancelada).reverse().slice(0,8);
+  tbody.innerHTML=last.length?last.map(v=>`<tr><td>${esc(v.vale||'-')}</td><td>${v.fecha||'-'}</td><td>${esc(v.vendedor||'-')}</td><td><span class="badge-pill badge-accent">${esc(v.metodoPago||'-')}</span></td><td>${esc(getSucNombre(v.sucursal))}</td><td class="td-right">${fmt(v.precioTotal||0)}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Sin ventas registradas</td></tr>';
+  // Chart: last 7 days — exclude cancelled
   const labels7=[],data7=[];
-  for(let i=6;i>=0;i--){ const d=new Date();d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10);labels7.push(ds.slice(5));data7.push(DB.ventas.filter(v=>v.fecha===ds).reduce((a,v2)=>a+(v2.precioTotal||0),0)); }
+  for(let i=6;i>=0;i--){ const d=new Date();d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10);labels7.push(ds.slice(5));data7.push(DB.ventas.filter(v=>v.fecha===ds&&!v.cancelada).reduce((a,v2)=>a+(v2.precioTotal||0),0)); }
   renderChart('chartDashVentas',dashCharts,'bar',labels7,[{label:'Ventas',data:data7,backgroundColor:'rgba(232,184,75,0.7)',borderColor:'#e8b84b',borderWidth:1}]);
+  // Chart: payment methods — exclude cancelled
   const metCount={};
-  ventasMes.forEach(v=>{if(v.metodoPago)metCount[v.metodoPago]=(metCount[v.metodoPago]||0)+(v.precioTotal||0);});
+  ventasMes.forEach(v=>{
+    (v.metodosPago||[{metodo:v.metodoPago,monto:v.precioTotal}]).forEach(p=>{
+      if(p.metodo) metCount[p.metodo]=(metCount[p.metodo]||0)+(p.monto||0);
+    });
+  });
   renderChart('chartDashMetodos',dashCharts,'doughnut',Object.keys(metCount),[{data:Object.values(metCount),backgroundColor:['#e8b84b','#4be87a','#4b8de8','#e84b4b','#be4be8','#4be8d8','#e8824b','#8ae84b']}]);
 }
 
@@ -1324,9 +1662,11 @@ function renderGlobalInventory() {
     return mSuc&&mSrch&&mEst&&mDisp;
   });
   document.getElementById('inv-global-count').textContent=items.length+' productos';
+  const isAdmin=usuarioActivo?.rol==='admin';
   const tbody=document.getElementById('inv-global-tbody');
-  if(!items.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px">Sin datos</td></tr>';return;}
-  tbody.innerHTML=items.map(i=>{
+  if(!items.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:24px">Sin datos</td></tr>';return;}
+  tbody.innerHTML=items.map((i,idx)=>{
+    const realIdx=DB.inventario.indexOf(i);
     const util=i.precio-i.costo;
     const pct=i.costo?((util/i.costo)*100).toFixed(1):0;
     return `<tr>
@@ -1339,6 +1679,7 @@ function renderGlobalInventory() {
       <td class="td-right">${fmt(i.costo)}</td>
       <td class="td-right">${fmt(i.precio)}</td>
       <td class="td-right"><span class="badge-pill ${util>0?'badge-green':'badge-red'}">${fmt(util)} (${pct}%)</span></td>
+      <td>${isAdmin?`<div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="openEditProduct(${realIdx})">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteProduct(${realIdx})">✕</button></div>`:''}</td>
     </tr>`;
   }).join('');
 }
@@ -1363,9 +1704,11 @@ function renderRinesInventory() {
     return mSuc&&mSrch&&mEst&&mDisp;
   });
   document.getElementById('inv-rines-count').textContent=items.length+' rines';
+  const isAdmin=usuarioActivo?.rol==='admin';
   const tbody=document.getElementById('inv-rines-tbody');
-  if(!items.length){tbody.innerHTML='<tr><td colspan="16" style="text-align:center;color:var(--text3);padding:24px">Sin datos</td></tr>';return;}
+  if(!items.length){tbody.innerHTML='<tr><td colspan="17" style="text-align:center;color:var(--text3);padding:24px">Sin datos</td></tr>';return;}
   tbody.innerHTML=items.map(i=>{
+    const realIdx=DB.rines.indexOf(i);
     const util=i.precio-i.costo;
     const pct=i.costo?((util/i.costo)*100).toFixed(1):0;
     return `<tr>
@@ -1385,6 +1728,7 @@ function renderRinesInventory() {
       <td class="td-right">${fmt(i.costo)}</td>
       <td class="td-right">${fmt(i.precio)}</td>
       <td class="td-right"><span class="badge-pill ${util>0?'badge-green':'badge-red'}">${fmt(util)} (${pct}%)</span></td>
+      <td>${isAdmin?`<div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="openEditRin(${realIdx})">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteRin(${realIdx})">✕</button></div>`:''}</td>
     </tr>`;
   }).join('');
 }
@@ -1494,7 +1838,7 @@ function saveMovimiento() {
   const now=new Date();
   const mov={fecha:now.toISOString().slice(0,10),hora:now.toTimeString().slice(0,5),tipo:movType,sucursal:sucId,codigo:movSelectedProduct.codigo,descripcion:movSelectedProduct.descripcion||`${movSelectedProduct.marca} ${movSelectedProduct.medida_rin}"`,cantidad:cant,motivo};
   DB.movimientos.push(mov);
-  addHistorial({tipo:movType,folio:'',descripcion:`${movType==='entrada'?'Entrada':'Salida'}: ${mov.descripcion} x${cant} — ${motivo}`,sucursal:sucId,usuario:'Sistema',monto:0});
+  addHistorial({tipo:movType,folio:'',descripcion:`${movType==='entrada'?'Entrada':'Salida'}: ${mov.descripcion} x${cant} — ${motivo}`,sucursal:sucId,usuario:getCurrentUserName(),monto:0});
   saveToStorage();closeModal('modalMov');renderSucursalInventory();renderSucursalRines();renderMovimientos();
 }
 
@@ -1588,7 +1932,7 @@ function saveTraspaso(){
   const desc=trasSelectedProduct.descripcion||`${trasSelectedProduct.marca} ${trasSelectedProduct.medida_rin}"`;
   DB.movimientos.push({fecha,hora,tipo:'salida',sucursal:origen,codigo:trasSelectedProduct.codigo,descripcion:desc,cantidad:cant,motivo:`Traspaso → ${getSucNombre(destino)}: ${motivo}`});
   DB.movimientos.push({fecha,hora,tipo:'entrada',sucursal:destino,codigo:trasSelectedProduct.codigo,descripcion:desc,cantidad:cant,motivo:`Traspaso ← ${getSucNombre(origen)}: ${motivo}`});
-  addHistorial({tipo:'traspaso',folio:'',descripcion:`Traspaso x${cant} ${desc} de ${getSucNombre(origen)} → ${getSucNombre(destino)}`,sucursal:origen,usuario:'Sistema',monto:0});
+  addHistorial({tipo:'traspaso',folio:'',descripcion:`Traspaso x${cant} ${desc} de ${getSucNombre(origen)} → ${getSucNombre(destino)}`,sucursal:origen,usuario:getCurrentUserName(),monto:0});
   saveToStorage();closeModal('modalTraspaso');loadSucursalInventory();
   alert(`✅ Traspaso completado: ${cant} × ${desc}`);
 }
@@ -1612,7 +1956,9 @@ function confirmarCancelacion(){
   const pin=document.getElementById('cancelar-pin').value;
   const errEl=document.getElementById('cancelar-error');
   if(!motivo){errEl.textContent='El motivo es obligatorio';return;}
-  if(pin!==getStoredPin()){errEl.textContent='PIN incorrecto';document.getElementById('cancelar-pin').value='';return;}
+  // Verificar PIN contra cualquier usuario administrador
+  const adminUser = DB.usuarios.find(u => u.rol === 'admin' && u.pin === pin);
+  if(!adminUser){errEl.textContent='PIN de administrador incorrecto';document.getElementById('cancelar-pin').value='';return;}
   const v=DB.ventas.find(v=>v.id===ventaACancelarId);
   if(!v){closeModal('modalCancelarVenta');return;}
   v.cancelada=true;v.motivoCancelacion=motivo;v.fechaCancelacion=new Date().toISOString();
@@ -1621,7 +1967,7 @@ function confirmarCancelacion(){
     const idx=DB.inventario.findIndex(i=>i.codigo===r.codigo&&i.sucursal===v.sucursal);
     if(idx>=0) DB.inventario[idx].pz+=r.pz;
   });
-  addHistorial({tipo:'cancelacion',folio:v.vale,descripcion:`Cancelación de venta ${v.vale}: ${motivo}`,sucursal:v.sucursal,usuario:'Admin',monto:v.precioTotal,ventaId:v.id});
+  addHistorial({tipo:'cancelacion',folio:v.vale,descripcion:`Cancelación de venta ${v.vale}: ${motivo}`,sucursal:v.sucursal,usuario:getCurrentUserName(),monto:v.precioTotal,ventaId:v.id});
   saveToStorage();closeModal('modalCancelarVenta');renderHistorial();
   alert(`✅ Venta ${v.vale} cancelada. Inventario restaurado.`);
 }
@@ -2237,10 +2583,10 @@ function saveSale() {
     } else {
       DB.inventario.push({id:'',sucursal:suc,codigo,descripcion:cr.desc,medida:'',estado:cr.estado,pz:cr.cant,costo:0,precio:cr.valor});
     }
-    addHistorial({tipo:'entrada',folio:vale,descripcion:`Recibido a cambio (${cr.tipo==='rines'?'Rin':'Llanta'}) en venta ${vale}: ${cr.desc}`,sucursal:suc,usuario:vendedor,monto:cr.valor});
+    addHistorial({tipo:'entrada',folio:vale,descripcion:`Recibido a cambio (${cr.tipo==='rines'?'Rin':'Llanta'}) en venta ${vale}: ${cr.desc}`,sucursal:suc,usuario:getCurrentUserName(),monto:cr.valor});
   });
   // Historial
-  addHistorial({tipo:'venta',folio:vale,descripcion:`Venta ${vale} — ${rows.map(r=>r.desc).join(', ')}`,sucursal:suc,usuario:vendedor,monto:precioTotal,ventaId:venta.id});
+  addHistorial({tipo:'venta',folio:vale,descripcion:`Venta ${vale} — ${rows.map(r=>r.desc).join(', ')}`,sucursal:suc,usuario:getCurrentUserName(),monto:precioTotal,ventaId:venta.id});
   saveToStorage();
   showAlert('sale-alert','success','✅ Venta registrada: '+vale);
   clearSaleForm(); renderHistorial();
@@ -2407,7 +2753,7 @@ function saveApartado() {
     if(r.tipo==='rin'){const idx=DB.rines.findIndex(i=>i.codigo===r.codigo&&i.sucursal===suc);if(idx>=0)DB.rines[idx].pz=Math.max(0,DB.rines[idx].pz-r.pz);}
     else{const idx=DB.inventario.findIndex(i=>i.codigo===r.codigo&&i.sucursal===suc);if(idx>=0)DB.inventario[idx].pz=Math.max(0,DB.inventario[idx].pz-r.pz);}
   });
-  addHistorial({tipo:'entrada',folio,descripcion:`Apartado ${folio} — Cliente: ${cliente} | Anticipo: ${fmt(anticipo)} | Saldo: ${fmt(saldo)}`,sucursal:suc,usuario:vendedor,monto:anticipo});
+  addHistorial({tipo:'entrada',folio,descripcion:`Apartado ${folio} — Cliente: ${cliente} | Anticipo: ${fmt(anticipo)} | Saldo: ${fmt(saldo)}`,sucursal:suc,usuario:getCurrentUserName(),monto:anticipo});
   saveToStorage();
   closeModal('modalApartado');
   clearSaleForm();
@@ -2532,10 +2878,10 @@ function saveLiquidacion() {
       clienteApartado:a.cliente,
     };
     DB.ventas.push(venta);
-    addHistorial({tipo:'venta',folio:a.folio,descripcion:`Liquidación total de apartado ${a.folio} — ${a.cliente}. Registrado como venta.`,sucursal:a.sucursal,usuario:a.vendedor||'Sistema',monto:a.totalVenta,ventaId:venta.id});
+    addHistorial({tipo:'venta',folio:a.folio,descripcion:`Liquidación total de apartado ${a.folio} — ${a.cliente}. Registrado como venta.`,sucursal:a.sucursal,usuario:getCurrentUserName(),monto:a.totalVenta,ventaId:venta.id});
   } else {
     // Abono parcial — solo historial
-    addHistorial({tipo:'venta',folio:a.folio,descripcion:`Abono de apartado ${a.folio} — ${a.cliente}: ${fmt(monto)} via ${metodo}. Saldo: ${fmt(a.saldo)}`,sucursal:a.sucursal,usuario:a.vendedor||'Sistema',monto});
+    addHistorial({tipo:'venta',folio:a.folio,descripcion:`Abono de apartado ${a.folio} — ${a.cliente}: ${fmt(monto)} via ${metodo}. Saldo: ${fmt(a.saldo)}`,sucursal:a.sucursal,usuario:getCurrentUserName(),monto});
   }
 
   saveToStorage();
@@ -2559,7 +2905,7 @@ function cancelarApartado(id) {
     if(r.tipo==='rin'){const idx=DB.rines.findIndex(i=>i.codigo===r.codigo&&i.sucursal===a.sucursal);if(idx>=0)DB.rines[idx].pz+=r.pz;}
     else{const idx=DB.inventario.findIndex(i=>i.codigo===r.codigo&&i.sucursal===a.sucursal);if(idx>=0)DB.inventario[idx].pz+=r.pz;}
   });
-  addHistorial({tipo:'cancelacion',folio:a.folio,descripcion:`Cancelación de apartado ${a.folio} — ${a.cliente}`,sucursal:a.sucursal,usuario:'Sistema',monto:0});
+  addHistorial({tipo:'cancelacion',folio:a.folio,descripcion:`Cancelación de apartado ${a.folio} — ${a.cliente}`,sucursal:a.sucursal,usuario:getCurrentUserName(),monto:0});
   saveToStorage();renderApartados();
 }
 
@@ -2715,7 +3061,10 @@ function renderHistorial() {
     document.getElementById('historial-gastos-tbody').innerHTML=gastosDia.map(g=>`<tr><td>${esc(g.concepto)}</td><td>${esc(getSucNombre(g.sucursal))}</td><td class="td-right" style="color:var(--red)">${fmt(g.monto)}</td><td>${esc(g.notas||'-')}</td></tr>`).join('');
   } else seccion.style.display='none';
 }
-function deleteVenta(id){if(!confirm('¿Eliminar esta venta?'))return;DB.ventas=DB.ventas.filter(v=>v.id!==id);saveToStorage();renderHistorial();}
+function deleteVenta(id){
+  // Use the same cancellation flow that restores inventory
+  showCancelarVentaModal(id);
+}
 
 function showVentaDetail(id) {
   const v=DB.ventas.find(v2=>v2.id===id); if(!v) return;
@@ -2842,75 +3191,1021 @@ function shareWhatsApp(){
 }
 
 // ══════════════════════════════════════════════════════════════
-// PIN SECURITY
+// MULTI-USER LOGIN SYSTEM
 // ══════════════════════════════════════════════════════════════
-let pinInput='';
-const DEFAULT_PIN='1234';
+let pinInput = '';
+let usuarioActivo = null;
+let loginSelectedUser = null;
 
-function getStoredPin(){return localStorage.getItem('pw_pin')||DEFAULT_PIN;}
+function buildLoginUserList() {
+  // Load fresh so we always have current users
+  loadFromStorage();
+  const list = document.getElementById('login-user-list');
+  if (!list) return;
+  const users = DB.usuarios || [];
+  list.innerHTML = users.map(u => `
+    <button onclick="selectLoginUser('${u.id}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:all .15s;width:100%;text-align:left"
+      onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:22px">${u.rol==='admin'?'🛡️':'👤'}</span>
+      <div>
+        <div style="font-weight:700;color:var(--text);font-size:14px">${esc(u.nombre)}</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">${u.rol==='admin'?'Administrador':'Usuario'}</div>
+      </div>
+    </button>
+  `).join('');
+}
 
-// Build the PIN pad buttons with JS (avoids broken template literals in static HTML)
-function buildPinPad(){
-  const pad=document.getElementById('pin-pad');
-  if(!pad) return;
-  pad.innerHTML='';
-  [1,2,3,4,5,6,7,8,9,'',0,'⌫'].forEach(k=>{
-    const btn=document.createElement('button');
-    btn.textContent= k==='' ? '' : String(k);
-    btn.style.cssText='background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:\'Bebas Neue\',sans-serif;font-size:22px;letter-spacing:1px;padding:14px 0;cursor:pointer;transition:all .15s;';
-    if(k==='') { btn.disabled=true; btn.style.opacity='0'; btn.style.cursor='default'; }
-    btn.addEventListener('mouseover',()=>{ if(k!==''){btn.style.borderColor='var(--accent)';btn.style.color='var(--accent)';} });
-    btn.addEventListener('mouseout',()=>{ btn.style.borderColor='var(--border)';btn.style.color='var(--text)'; });
-    btn.addEventListener('click',()=>pinKey(String(k)));
+function selectLoginUser(userId) {
+  loadFromStorage();
+  loginSelectedUser = DB.usuarios.find(u => u.id === userId);
+  if (!loginSelectedUser) return;
+  // Show PIN step
+  document.getElementById('login-step-user').style.display = 'none';
+  document.getElementById('login-step-pin').style.display = '';
+  document.getElementById('login-user-display').textContent = loginSelectedUser.nombre;
+  document.getElementById('login-role-display').textContent = loginSelectedUser.rol === 'admin' ? '🛡️ Administrador' : '👤 Usuario';
+  pinInput = ''; updatePinDots();
+  buildPinPad();
+}
+
+function loginGoBack() {
+  document.getElementById('login-step-pin').style.display = 'none';
+  document.getElementById('login-step-user').style.display = '';
+  document.getElementById('login-error').textContent = '';
+  loginSelectedUser = null;
+  pinInput = ''; updatePinDots();
+}
+
+function buildPinPad() {
+  const pad = document.getElementById('pin-pad');
+  if (!pad) return;
+  pad.innerHTML = '';
+  [1,2,3,4,5,6,7,8,9,'',0,'⌫'].forEach(k => {
+    const btn = document.createElement('button');
+    btn.textContent = k === '' ? '' : String(k);
+    btn.style.cssText = "background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;padding:14px 0;cursor:pointer;transition:all .15s;";
+    if (k === '') { btn.disabled = true; btn.style.opacity = '0'; btn.style.cursor = 'default'; }
+    btn.addEventListener('mouseover', () => { if(k !== '') { btn.style.borderColor='var(--accent)'; btn.style.color='var(--accent)'; }});
+    btn.addEventListener('mouseout', () => { btn.style.borderColor='var(--border)'; btn.style.color='var(--text)'; });
+    btn.addEventListener('click', () => pinKey(String(k)));
     pad.appendChild(btn);
   });
 }
 
-function pinKey(k){
-  if(k==='⌫'){pinInput=pinInput.slice(0,-1);}
-  else if(k===''||pinInput.length>=4){}
-  else{pinInput+=k;}
+function pinKey(k) {
+  if (k === '⌫') { pinInput = pinInput.slice(0, -1); }
+  else if (k === '' || pinInput.length >= 4) {}
+  else { pinInput += k; }
   updatePinDots();
-  if(pinInput.length===4) setTimeout(checkPin,120);
+  if (pinInput.length === 4) setTimeout(checkPin, 120);
 }
-function updatePinDots(){
-  for(let i=0;i<4;i++){
-    const dot=document.getElementById('pd'+i);
-    if(dot) dot.style.background=i<pinInput.length?'var(--accent)':'var(--border)';
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('pd' + i);
+    if (dot) dot.style.background = i < pinInput.length ? 'var(--accent)' : 'var(--border)';
   }
 }
-function checkPin(){
-  if(pinInput===getStoredPin()){
-    document.getElementById('login-overlay').style.display='none';
-    init(); addProductRow();
-    startAutoRefresh(); // ← iniciar auto-refresh al entrar
+
+function checkPin() {
+  if (!loginSelectedUser) return;
+  if (pinInput === loginSelectedUser.pin) {
+    usuarioActivo = loginSelectedUser;
+    document.getElementById('login-overlay').style.display = 'none';
+    init(); addProductRow(); addPaymentRow();
+    applyRoleUI();
+    startAutoRefresh();
   } else {
-    const errEl=document.getElementById('login-error');
-    if(errEl) errEl.textContent='PIN incorrecto. Intenta de nuevo.';
-    // shake animation
-    const overlay=document.getElementById('login-overlay');
-    if(overlay){overlay.style.animation='none';setTimeout(()=>{overlay.style.animation='';},10);}
-    pinInput=''; updatePinDots();
-    setTimeout(()=>{const e=document.getElementById('login-error');if(e)e.textContent='';},2000);
+    const errEl = document.getElementById('login-error');
+    if (errEl) errEl.textContent = 'PIN incorrecto. Intenta de nuevo.';
+    pinInput = ''; updatePinDots();
+    setTimeout(() => { const e = document.getElementById('login-error'); if(e) e.textContent = ''; }, 2000);
   }
 }
-function logout(){
-  if(!confirm('¿Cerrar sesión? Volverás a la pantalla de PIN.')) return;
-  if(_autoRefreshInterval){ clearInterval(_autoRefreshInterval); _autoRefreshInterval=null; }
-  pinInput=''; updatePinDots();
-  const errEl=document.getElementById('login-error'); if(errEl) errEl.textContent='';
-  document.getElementById('login-overlay').style.display='flex';
+
+function applyRoleUI() {
+  const isAdmin = usuarioActivo?.rol === 'admin';
+
+  // Topbar user badge
+  const icon = document.getElementById('topbar-user-icon');
+  const name = document.getElementById('topbar-user-name');
+  if (icon) icon.textContent = isAdmin ? '🛡️' : '👤';
+  if (name) name.textContent = usuarioActivo?.nombre || '—';
+
+  // Sidebar footer
+  const footer = document.getElementById('sidebar-user-info');
+  if (footer) footer.innerHTML = `<strong style="color:var(--accent)">${esc(usuarioActivo?.nombre||'')}</strong><br><span style="color:var(--text3)">${isAdmin?'Administrador':'Usuario'} · v3.0</span>`;
+
+  // Configuración nav: only admin
+  const navCfg = document.getElementById('nav-config-section');
+  if (navCfg) navCfg.style.display = isAdmin ? '' : 'none';
+
+  // Usuarios tab in config: only admin
+  const usrTab = document.getElementById('cfg-usuarios-tab');
+  if (usrTab) usrTab.style.display = isAdmin ? '' : 'none';
+
+  // Admin action buttons in inventory tabs
+  ['inv-global-admin-btns','inv-rines-admin-btns'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isAdmin ? 'flex' : 'none';
+  });
+
+  // If non-admin is on Configuración, go to dashboard
+  if (!isAdmin) {
+    const active = document.querySelector('.section.active');
+    const activeId = active ? active.id.replace('section-', '') : '';
+    if (activeId === 'configuracion') showSection('dashboard');
+  }
 }
+
+function getCurrentUserName() {
+  return usuarioActivo?.nombre || 'Sistema';
+}
+
+function logout() {
+  if (!confirm('¿Cerrar sesión?')) return;
+  if (_autoRefreshInterval) { clearInterval(_autoRefreshInterval); _autoRefreshInterval = null; }
+  usuarioActivo = null; loginSelectedUser = null;
+  pinInput = ''; updatePinDots();
+  document.getElementById('login-error').textContent = '';
+  // Reset to user selection step
+  document.getElementById('login-step-pin').style.display = 'none';
+  document.getElementById('login-step-user').style.display = '';
+  buildLoginUserList();
+  document.getElementById('login-overlay').style.display = 'flex';
+}
+
 // Keyboard support for PIN
-document.addEventListener('keydown',e=>{
-  const overlay=document.getElementById('login-overlay');
-  if(!overlay||overlay.style.display==='none') return;
-  if(e.key>='0'&&e.key<='9') pinKey(e.key);
-  else if(e.key==='Backspace') pinKey('⌫');
-  else if(e.key==='Enter'&&pinInput.length===4) checkPin();
+document.addEventListener('keydown', e => {
+  const overlay = document.getElementById('login-overlay');
+  if (!overlay || overlay.style.display === 'none') return;
+  if (document.getElementById('login-step-pin').style.display === 'none') return;
+  if (e.key >= '0' && e.key <= '9') pinKey(e.key);
+  else if (e.key === 'Backspace') pinKey('⌫');
+  else if (e.key === 'Enter' && pinInput.length === 4) checkPin();
 });
-// Build pad on load
-buildPinPad();
+
+// Build user list on page load
+buildLoginUserList();
+
+// ══════════════════════════════════════════════════════════════
+// GESTIÓN DE USUARIOS (Configuración)
+// ══════════════════════════════════════════════════════════════
+function addUsuario() {
+  if (usuarioActivo?.rol !== 'admin') { alert('Solo los administradores pueden gestionar usuarios'); return; }
+  const nombre = document.getElementById('cfg-usr-nombre').value.trim();
+  const pin = document.getElementById('cfg-usr-pin').value.trim();
+  const rol = document.getElementById('cfg-usr-rol').value;
+  if (!nombre) { alert('El nombre es obligatorio'); return; }
+  if (!/^\d{4}$/.test(pin)) { alert('El PIN debe ser exactamente 4 dígitos numéricos'); return; }
+  if (DB.usuarios.find(u => u.pin === pin)) { alert('Ese PIN ya está en uso. Elige otro.'); return; }
+  DB.usuarios.push({ id: 'u' + Date.now(), nombre, pin, rol });
+  document.getElementById('cfg-usr-nombre').value = '';
+  document.getElementById('cfg-usr-pin').value = '';
+  saveToStorage(); renderCfgUsuarios();
+}
+
+function renderCfgUsuarios() {
+  const tbody = document.getElementById('cfg-usr-tbody'); if (!tbody) return;
+  if (!DB.usuarios.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:16px">Sin usuarios</td></tr>'; return; }
+  tbody.innerHTML = DB.usuarios.map(u => `<tr>
+    <td><strong>${esc(u.nombre)}</strong></td>
+    <td><span class="badge-pill ${u.rol==='admin'?'badge-accent':'badge-blue'}">${u.rol==='admin'?'🛡️ Admin':'👤 Usuario'}</span></td>
+    <td style="font-family:monospace;letter-spacing:4px;color:var(--text3)">••••</td>
+    <td>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-secondary btn-sm" onclick="editUsuarioPIN('${u.id}')">🔑 PIN</button>
+        ${u.id !== usuarioActivo?.id ? `<button class="btn btn-danger btn-sm" onclick="deleteUsuario('${u.id}')">✕</button>` : '<span style="font-size:11px;color:var(--text3);padding:4px">← tú</span>'}
+      </div>
+    </td>
+  </tr>`).join('');
+}
+
+function editUsuarioPIN(uid) {
+  const u = DB.usuarios.find(x => x.id === uid); if (!u) return;
+  const newPin = prompt(`Nuevo PIN para "${u.nombre}" (4 dígitos):`);
+  if (!newPin) return;
+  if (!/^\d{4}$/.test(newPin)) { alert('El PIN debe ser exactamente 4 dígitos'); return; }
+  if (DB.usuarios.find(x => x.pin === newPin && x.id !== uid)) { alert('Ese PIN ya está en uso'); return; }
+  u.pin = newPin;
+  // If editing own PIN, update active session
+  if (uid === usuarioActivo?.id) usuarioActivo.pin = newPin;
+  saveToStorage(); renderCfgUsuarios();
+  alert(`✅ PIN de "${u.nombre}" actualizado`);
+}
+
+function deleteUsuario(uid) {
+  if (uid === usuarioActivo?.id) { alert('No puedes eliminar tu propio usuario'); return; }
+  const u = DB.usuarios.find(x => x.id === uid); if (!u) return;
+  if (!confirm(`¿Eliminar al usuario "${u.nombre}"?`)) return;
+  DB.usuarios = DB.usuarios.filter(x => x.id !== uid);
+  saveToStorage(); renderCfgUsuarios();
+}
+
+// ══════════════════════════════════════════════════════════════
+// MOVIMIENTOS MASIVOS DE INVENTARIO (admin)
+// ══════════════════════════════════════════════════════════════
+let movMasivoOp   = 'entrada';   // 'entrada' | 'salida' | 'traspaso'
+let movMasivoTipo = 'llantas';   // 'llantas' | 'rines'
+let movMasivoRowId = 0;
+let movMasivoRows  = [];
+
+function openMovMasivo(op, tipo) {
+  if (usuarioActivo?.rol !== 'admin') { alert('Solo administradores'); return; }
+  movMasivoOp   = op;
+  movMasivoTipo = tipo;
+  movMasivoRowId = 0;
+  movMasivoRows  = [];
+
+  // Labels
+  const opLabels = { entrada:'➕ Recibir mercancía', salida:'➖ Dar salida', traspaso:'↔️ Traspaso entre sucursales' };
+  document.getElementById('movMasivoTitle').textContent   = opLabels[op];
+  document.getElementById('movMasivo-op-label').textContent  = opLabels[op];
+  document.getElementById('movMasivo-tipo-label').textContent = tipo === 'rines' ? '⚙️ Rines' : '🔵 Llantas';
+
+  // Populate sucursal selects
+  ['movMasivo-sucursal','movMasivo-destino'].forEach(id => {
+    const sel = document.getElementById(id); if (!sel) return;
+    sel.innerHTML = DB.sucursales.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+  });
+  // Default destino to second sucursal to avoid same-same
+  const dest = document.getElementById('movMasivo-destino');
+  if (dest && DB.sucursales.length > 1) dest.value = DB.sucursales[1].id;
+
+  // Proveedor select (only for entrada)
+  const provSel = document.getElementById('movMasivo-proveedor');
+  provSel.innerHTML = '<option value="">-- Seleccionar proveedor --</option>' +
+    DB.proveedores.map(p => `<option value="${p}">${p}</option>`).join('');
+
+  // Show/hide groups based on op
+  document.getElementById('movMasivo-destino-group').style.display   = op === 'traspaso' ? '' : 'none';
+  document.getElementById('movMasivo-proveedor-group').style.display  = op === 'entrada'  ? '' : 'none';
+  document.getElementById('movMasivo-suc-label').textContent = op === 'traspaso' ? 'Sucursal Origen *' : 'Sucursal *';
+
+  // Clear
+  document.getElementById('movMasivo-referencia').value = '';
+  document.getElementById('movMasivo-rows').innerHTML = '';
+  document.getElementById('movMasivo-error').textContent = '';
+  document.getElementById('movMasivo-resumen').style.display = 'none';
+
+  // Add first row
+  addMovMasivoRow();
+  document.getElementById('modalMovMasivo').classList.add('open');
+}
+
+function addMovMasivoRow() {
+  movMasivoRowId++;
+  const id = movMasivoRowId;
+  movMasivoRows.push(id);
+
+  const row = document.createElement('div');
+  row.id = 'mmrow-' + id;
+  row.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;';
+
+  const isRin     = movMasivoTipo === 'rines';
+  const isEntrada = movMasivoOp   === 'entrada';
+
+  // Product selector for salida/traspaso
+  const inv = isRin ? DB.rines : DB.inventario;
+  const suc = document.getElementById('movMasivo-sucursal')?.value || '';
+  const prodOptions = inv
+    .filter(i => !suc || i.sucursal === suc)
+    .map(i => {
+      const label = isRin
+        ? `${i.codigo} – ${i.marca||''} ${i.medida_rin||''}" ${i.ancho||''}J ${i.barrenacion||''} (Pz:${i.pz})`
+        : `${i.codigo} – ${i.descripcion} ${i.medida||''} (Pz:${i.pz})`;
+      return `<option value="${i.codigo}|${i.sucursal}">${label}</option>`;
+    }).join('');
+
+  // ── Campo código con botón auto-generar ──
+  const codField = `
+    <div style="display:flex;gap:6px;align-items:flex-end">
+      <div style="flex:1">
+        <label style="font-size:10px;color:var(--text3)">CÓDIGO *</label>
+        <input type="text" id="mmrow-cod-${id}" placeholder="Escribe o genera automático" style="width:100%">
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="autoGenerarCodigo(${id})" title="Generar código desde los datos del producto" style="white-space:nowrap;margin-bottom:0">🔄 Auto</button>
+    </div>`;
+
+  // ── Campos para LLANTA nueva ──
+  const entradaLlantaFields = !isRin && isEntrada ? `
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-top:8px">
+      <div><label style="font-size:10px;color:var(--text3)">DESCRIPCIÓN * <span style="color:var(--text3);font-weight:400">(ej: Llanta Radial)</span></label>
+        <input type="text" id="mmrow-desc-${id}" placeholder="Llanta Radial..." style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
+      <div><label style="font-size:10px;color:var(--text3)">MEDIDA * <span style="color:var(--text3);font-weight:400">(ej: 195/65R15)</span></label>
+        <input type="text" id="mmrow-medida-${id}" placeholder="195/65R15" style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
+      <div><label style="font-size:10px;color:var(--text3)">ESTADO</label>
+        <select id="mmrow-estado-${id}" style="width:100%">
+          <option value="Nuevo">Nuevo</option><option value="Seminuevo">Seminuevo</option><option value="Usado">Usado</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:8px">${codField}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div><label style="font-size:10px;color:var(--text3)">COSTO UNIT. ($)</label>
+        <input type="number" id="mmrow-costo-${id}" placeholder="0.00" style="width:100%" oninput="updateMovMasivoResumen()"></div>
+      <div><label style="font-size:10px;color:var(--text3)">PRECIO VENTA ($)</label>
+        <input type="number" id="mmrow-precio-${id}" placeholder="0.00" style="width:100%"></div>
+    </div>` : '';
+
+  // ── Campos para RIN nuevo ──
+  const entradaRinFields = isRin && isEntrada ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px">
+      <div><label style="font-size:10px;color:var(--text3)">MARCA * <span style="color:var(--text3);font-weight:400">(ej: Enkei)</span></label>
+        <input type="text" id="mmrow-marca-${id}" placeholder="Enkei, Jogo..." style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
+      <div><label style="font-size:10px;color:var(--text3)">MEDIDA * <span style="color:var(--text3);font-weight:400">(pulg, ej: 15)</span></label>
+        <input type="text" id="mmrow-medida-${id}" placeholder="15" style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
+      <div><label style="font-size:10px;color:var(--text3)">ANCHO <span style="color:var(--text3);font-weight:400">(ej: 6J)</span></label>
+        <input type="text" id="mmrow-ancho-${id}" placeholder="6J" style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
+      <div><label style="font-size:10px;color:var(--text3)">ESTADO</label>
+        <select id="mmrow-estado-${id}" style="width:100%">
+          <option value="Nuevo">Nuevo</option><option value="Seminuevo">Seminuevo</option><option value="Usado">Usado</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px">
+      <div><label style="font-size:10px;color:var(--text3)">BARRENACIÓN <span style="color:var(--text3);font-weight:400">(ej: 4x100)</span></label>
+        <input type="text" id="mmrow-barr-${id}" placeholder="4x100" style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
+      <div><label style="font-size:10px;color:var(--text3)">OFFSET <span style="color:var(--text3);font-weight:400">(ej: +38)</span></label>
+        <input type="text" id="mmrow-offset-${id}" placeholder="+38" style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
+      <div><label style="font-size:10px;color:var(--text3)">CENTRO (CB) <span style="color:var(--text3);font-weight:400">(ej: 60.1)</span></label>
+        <input type="text" id="mmrow-centro-${id}" placeholder="60.1" style="width:100%"></div>
+      <div><label style="font-size:10px;color:var(--text3)">MATERIAL</label>
+        <input type="text" id="mmrow-material-${id}" placeholder="Aluminio" style="width:100%"></div>
+    </div>
+    <div style="margin-top:8px">${codField}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div><label style="font-size:10px;color:var(--text3)">COSTO UNIT. ($)</label>
+        <input type="number" id="mmrow-costo-${id}" placeholder="0.00" style="width:100%" oninput="updateMovMasivoResumen()"></div>
+      <div><label style="font-size:10px;color:var(--text3)">PRECIO VENTA ($)</label>
+        <input type="number" id="mmrow-precio-${id}" placeholder="0.00" style="width:100%"></div>
+    </div>` : '';
+
+  row.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Producto #${id}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeMovMasivoRow(${id})">✕</button>
+    </div>
+    ${!isEntrada ? `
+    <div style="margin-bottom:8px">
+      <label style="font-size:10px;color:var(--text3)">BUSCAR Y SELECCIONAR PRODUCTO</label>
+      <input type="text" id="mmrow-search-${id}" placeholder="🔍 Código, descripción, marca..." oninput="filterMovMasivoSearch(${id})" style="width:100%;margin-bottom:4px">
+      <select id="mmrow-select-${id}" style="width:100%" onchange="onMovMasivoSelect(${id})">
+        <option value="">-- Seleccionar producto existente --</option>
+        ${prodOptions}
+      </select>
+    </div>` : ''}
+    ${entradaLlantaFields}
+    ${entradaRinFields}
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:8px">
+      <div><label style="font-size:10px;color:var(--text3)">CANTIDAD *</label>
+        <input type="number" id="mmrow-cant-${id}" placeholder="0" min="1" style="width:100%" oninput="updateMovMasivoResumen()"></div>
+      <div><label style="font-size:10px;color:var(--text3)">NOTA DEL PRODUCTO</label>
+        <input type="text" id="mmrow-nota-${id}" placeholder="Opcional..." style="width:100%"></div>
+    </div>
+    <div id="mmrow-stock-${id}" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+  `;
+  document.getElementById('movMasivo-rows').appendChild(row);
+  // Auto-generate code immediately if possible
+  autoGenerarCodigo(id);
+}
+
+function removeMovMasivoRow(id) {
+  movMasivoRows = movMasivoRows.filter(r => r !== id);
+  const el = document.getElementById('mmrow-' + id); if (el) el.remove();
+  updateMovMasivoResumen();
+}
+
+// ── AUTO-GENERACIÓN DE CÓDIGO ──────────────────────────────────
+// Llantas: L-{medida limpia}  ej: L-19565R15
+// Rines:   R{medida}-{ancho}-{barrenacion}-{offset}  ej: R15-6J-4x100-38
+// Si el código ya fue editado manualmente, no lo sobreescribe
+function autoGenerarCodigo(rowId) {
+  const codEl = document.getElementById(`mmrow-cod-${rowId}`);
+  if (!codEl) return;
+
+  let codigo = '';
+  if (movMasivoTipo === 'llantas') {
+    const medida = (document.getElementById(`mmrow-medida-${rowId}`)?.value || '').trim();
+    if (!medida) return;
+    // Clean medida: keep alphanumeric and slashes, strip spaces
+    const medLimpia = medida.replace(/\s+/g,'').toUpperCase();
+    codigo = 'L-' + medLimpia;
+  } else {
+    // Rines
+    const medida = (document.getElementById(`mmrow-medida-${rowId}`)?.value || '').trim();
+    const ancho  = (document.getElementById(`mmrow-ancho-${rowId}`)?.value  || '').trim();
+    const barr   = (document.getElementById(`mmrow-barr-${rowId}`)?.value   || '').trim();
+    const offset = (document.getElementById(`mmrow-offset-${rowId}`)?.value || '').trim();
+    const marca  = (document.getElementById(`mmrow-marca-${rowId}`)?.value  || '').trim();
+    if (!medida) return;
+    // Format: {MARCA_PREFIX}{MEDIDA}-{ANCHO}-{BARR}-{OFFSET}
+    const marcaPfx = marca ? marca.replace(/\s+/g,'').substring(0,3).toUpperCase()+'-' : '';
+    const offsetLimpio = offset.replace(/[^0-9]/g,''); // only digits
+    const parts = [medida, ancho, barr, offsetLimpio ? 'ET'+offsetLimpio : ''].filter(Boolean);
+    codigo = marcaPfx + 'R' + parts.join('-');
+  }
+
+  // Only auto-fill if field is empty or was previously auto-generated (starts with L- or has R pattern)
+  const current = codEl.value.trim();
+  const wasAuto = !current || current.startsWith('L-') || /^[A-Z]{0,4}-?R\d/.test(current);
+  if (wasAuto) {
+    codEl.value = codigo;
+    // Highlight to show it was auto-generated
+    codEl.style.borderColor = 'var(--accent)';
+    setTimeout(() => { codEl.style.borderColor = ''; }, 1500);
+  }
+}
+
+// ── Auto-generación en modales de edición ──────────────────────
+// Pasiva: se activa al escribir en campos clave, no sobreescribe códigos manuales
+// Forzada: se activa al presionar el botón, siempre genera
+function _buildCodigoLlanta() {
+  const marca  = (document.getElementById('edit-prod-marca')?.value  || '').trim();
+  const medida = (document.getElementById('edit-prod-medida')?.value || '').trim();
+  const estado = (document.getElementById('edit-prod-estado')?.value || 'N');
+  if (!medida) return '';
+  // Marca: first 3 chars uppercase, no spaces
+  const marcaPfx = marca ? marca.replace(/\s+/g,'').substring(0,3).toUpperCase()+'-' : '';
+  // Medida: clean (remove spaces)
+  const medidaLimpia = medida.replace(/\s+/g,'').toUpperCase();
+  // Estado: N / S / U
+  const estadoMap = { Nuevo:'N', Seminuevo:'S', Usado:'U' };
+  const estadoPfx = estadoMap[estado] || 'N';
+  return `${marcaPfx}${medidaLimpia}-${estadoPfx}`;
+}
+function _buildCodigoRin() {
+  const medida = (document.getElementById('edit-rin-medida')?.value  || '').trim();
+  const ancho  = (document.getElementById('edit-rin-ancho')?.value   || '').trim();
+  const barr   = (document.getElementById('edit-rin-barr')?.value    || '').trim();
+  const offset = (document.getElementById('edit-rin-offset')?.value  || '').trim();
+  const marca  = (document.getElementById('edit-rin-marca')?.value   || '').trim();
+  const estado = (document.getElementById('edit-rin-estado')?.value  || 'Nuevo');
+  if (!medida) return '';
+  const marcaPfx  = marca ? marca.replace(/\s+/g,'').substring(0,3).toUpperCase()+'-' : '';
+  const offsetNum = offset.replace(/[^0-9]/g,'');
+  const estadoMap = { Nuevo:'N', Seminuevo:'S', Usado:'U' };
+  const estadoSfx = estadoMap[estado] || 'N';
+  const parts = ['R'+medida, ancho, barr, offsetNum?'ET'+offsetNum:''].filter(Boolean);
+  return marcaPfx + parts.join('-') + '-' + estadoSfx;
+}
+
+function autoGenerarCodigoModal(tipo) {
+  // Passive: only update if field is empty or has auto-pattern
+  if (tipo === 'llanta') {
+    const codEl = document.getElementById('edit-prod-codigo'); if (!codEl) return;
+    const cur = codEl.value.trim();
+    const isAuto = !cur || cur.startsWith('L-');
+    if (isAuto) {
+      const nuevo = _buildCodigoLlanta();
+      if (nuevo) { codEl.value = nuevo; _flashInput(codEl); }
+    }
+    _updateProductPreview();
+  } else {
+    const codEl = document.getElementById('edit-rin-codigo'); if (!codEl) return;
+    const cur = codEl.value.trim();
+    const isAuto = !cur || /^[A-Z]{0,4}-?R\d/.test(cur);
+    if (isAuto) {
+      const nuevo = _buildCodigoRin();
+      if (nuevo) { codEl.value = nuevo; _flashInput(codEl); }
+    }
+    _updateRinPreview();
+  }
+}
+
+function autoGenerarCodigoModalForce(tipo) {
+  // Forced: always overwrites, triggered by button click
+  if (tipo === 'llanta') {
+    const codEl = document.getElementById('edit-prod-codigo'); if (!codEl) return;
+    const nuevo = _buildCodigoLlanta();
+    if (!nuevo) { alert('Escribe la medida primero (ej: 195/65R15)'); document.getElementById('edit-prod-medida')?.focus(); return; }
+    codEl.value = nuevo; _flashInput(codEl); _updateProductPreview();
+  } else {
+    const codEl = document.getElementById('edit-rin-codigo'); if (!codEl) return;
+    const nuevo = _buildCodigoRin();
+    if (!nuevo) { alert('Escribe la medida primero (ej: 15)'); document.getElementById('edit-rin-medida')?.focus(); return; }
+    codEl.value = nuevo; _flashInput(codEl); _updateRinPreview();
+  }
+}
+
+function _flashInput(el) {
+  el.style.borderColor = 'var(--accent)';
+  el.style.background  = 'rgba(232,184,75,.08)';
+  setTimeout(() => { el.style.borderColor=''; el.style.background=''; }, 1800);
+}
+
+function _updateProductPreview() {
+  const el = document.getElementById('edit-prod-preview'); if (!el) return;
+  const marca  = document.getElementById('edit-prod-marca')?.value.trim();
+  const desc   = document.getElementById('edit-prod-desc')?.value.trim();
+  const medida = document.getElementById('edit-prod-medida')?.value.trim();
+  const codigo = document.getElementById('edit-prod-codigo')?.value.trim();
+  const estado = document.getElementById('edit-prod-estado')?.value;
+  const costo  = parseFloat(document.getElementById('edit-prod-costo')?.value)||0;
+  const precio = parseFloat(document.getElementById('edit-prod-precio')?.value)||0;
+  if (!desc && !medida && !codigo && !marca) { el.style.display='none'; return; }
+  const util = precio - costo;
+  el.style.display = '';
+  el.innerHTML = `<strong style="color:var(--text);font-family:monospace">${codigo||'—'}</strong> &nbsp;·&nbsp; ${marca||''} ${desc||'Sin descripción'} &nbsp;·&nbsp; ${medida||'—'} &nbsp;·&nbsp; ${estadoBadge(estado)} &nbsp;·&nbsp; Costo: <strong>${fmt(costo)}</strong> &nbsp; Precio: <strong>${fmt(precio)}</strong> &nbsp; Utilidad: <strong style="color:${util>=0?'var(--green)':'var(--red)'}">${fmt(util)}</strong>`;
+}
+
+function _updateRinPreview() {
+  const el = document.getElementById('edit-rin-preview'); if (!el) return;
+  const marca  = document.getElementById('edit-rin-marca')?.value.trim();
+  const medida = document.getElementById('edit-rin-medida')?.value.trim();
+  const ancho  = document.getElementById('edit-rin-ancho')?.value.trim();
+  const barr   = document.getElementById('edit-rin-barr')?.value.trim();
+  const offset = document.getElementById('edit-rin-offset')?.value.trim();
+  const codigo = document.getElementById('edit-rin-codigo')?.value.trim();
+  const costo  = parseFloat(document.getElementById('edit-rin-costo')?.value)||0;
+  const precio = parseFloat(document.getElementById('edit-rin-precio')?.value)||0;
+  if (!marca && !medida && !codigo) { el.style.display='none'; return; }
+  const util = precio - costo;
+  el.style.display = '';
+  el.innerHTML = `<strong style="color:var(--text)">${codigo||'—'}</strong> &nbsp;·&nbsp; ${marca||'—'} ${medida?medida+'"':''} ${ancho||''} ${barr||''} ${offset?'ET'+offset.replace(/[^0-9]/g,''):''} &nbsp;·&nbsp; Costo: <strong>${fmt(costo)}</strong> &nbsp; Precio: <strong>${fmt(precio)}</strong> &nbsp; Utilidad: <strong style="color:${util>=0?'var(--green)':'var(--red)'}">${fmt(util)}</strong>`;
+}
+
+function filterMovMasivoSearch(id) {
+  const sel = document.getElementById(`mmrow-select-${id}`); if (!sel) return;
+  const suc = document.getElementById('movMasivo-sucursal')?.value || '';
+  const inv = movMasivoTipo === 'rines' ? DB.rines : DB.inventario;
+  const items = inv.filter(i => {
+    const matchSuc = !suc || i.sucursal === suc;
+    const searchStr = movMasivoTipo === 'rines'
+      ? `${i.codigo} ${i.marca||''} ${i.medida_rin||''} ${i.barrenacion||''}`
+      : `${i.codigo} ${i.descripcion||''} ${i.medida||''}`;
+    return matchSuc && (!q || searchStr.toLowerCase().includes(q));
+  });
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>' + items.map(i => {
+    const label = movMasivoTipo === 'rines'
+      ? `${i.codigo} – ${i.marca||''} ${i.medida_rin||''}" ${i.ancho||''}J ${i.barrenacion||''} | Stock:${i.pz}`
+      : `${i.codigo} – ${i.descripcion||''} ${i.medida||''} | Stock:${i.pz}`;
+    return `<option value="${i.codigo}|${i.sucursal}">${label}</option>`;
+  }).join('');
+  if (items.length === 1) {
+    sel.value = `${items[0].codigo}|${items[0].sucursal}`;
+    onMovMasivoSelect(id);
+  } else if (prev) sel.value = prev;
+}
+
+function onMovMasivoSelect(id) {
+  const sel = document.getElementById(`mmrow-select-${id}`); if (!sel || !sel.value) return;
+  const [codigo, suc] = sel.value.split('|');
+  const inv = movMasivoTipo === 'rines' ? DB.rines : DB.inventario;
+  const prod = inv.find(i => i.codigo === codigo && i.sucursal === suc);
+  if (!prod) return;
+  const stockEl = document.getElementById(`mmrow-stock-${id}`);
+  if (stockEl) stockEl.textContent = `Stock actual: ${prod.pz} pz — Costo: ${fmt(prod.costo)} — Precio: ${fmt(prod.precio)}`;
+  updateMovMasivoResumen();
+}
+
+function updateMovMasivoResumen() {
+  let total = 0, items = 0;
+  movMasivoRows.forEach(id => {
+    const cant = parseFloat(document.getElementById(`mmrow-cant-${id}`)?.value) || 0;
+    const costo = parseFloat(document.getElementById(`mmrow-costo-${id}`)?.value) || 0;
+    total += cant * costo; items += cant;
+  });
+  const resEl = document.getElementById('movMasivo-resumen');
+  if (!resEl) return;
+  resEl.style.display = items > 0 ? '' : 'none';
+  resEl.innerHTML = `<strong>${movMasivoRows.length}</strong> producto(s) · <strong>${items}</strong> pieza(s) total · Valor estimado: <strong style="color:var(--accent)">${fmt(total)}</strong>`;
+}
+
+function saveMovMasivo() {
+  if (usuarioActivo?.rol !== 'admin') { alert('Solo administradores'); return; }
+  const errEl = document.getElementById('movMasivo-error');
+  const sucId  = document.getElementById('movMasivo-sucursal')?.value;
+  const destId = document.getElementById('movMasivo-destino')?.value;
+  const proveedor = document.getElementById('movMasivo-proveedor')?.value;
+  const referencia = document.getElementById('movMasivo-referencia')?.value.trim();
+
+  if (!sucId) { errEl.textContent = 'Selecciona una sucursal'; return; }
+  if (movMasivoOp === 'traspaso' && !destId) { errEl.textContent = 'Selecciona sucursal destino'; return; }
+  if (movMasivoOp === 'traspaso' && sucId === destId) { errEl.textContent = 'El origen y destino no pueden ser iguales'; return; }
+  if (movMasivoOp === 'entrada' && !proveedor) { errEl.textContent = 'Selecciona un proveedor para la entrada'; return; }
+  if (!movMasivoRows.length) { errEl.textContent = 'Agrega al menos un producto'; return; }
+
+  const now = new Date();
+  const fecha = now.toISOString().slice(0,10);
+  const hora  = now.toTimeString().slice(0,5);
+  const inv   = movMasivoTipo === 'rines' ? DB.rines : DB.inventario;
+  const isRin = movMasivoTipo === 'rines';
+  const errors = [];
+  const processed = [];
+
+  movMasivoRows.forEach(id => {
+    const cant = parseInt(document.getElementById(`mmrow-cant-${id}`)?.value) || 0;
+    if (!cant || cant < 1) { errors.push(`Producto #${id}: cantidad inválida`); return; }
+    const nota = document.getElementById(`mmrow-nota-${id}`)?.value || '';
+
+    if (movMasivoOp === 'entrada') {
+      // New product — read all fields
+      const codigo = (document.getElementById(`mmrow-cod-${id}`)?.value || '').trim();
+      const costo  = parseFloat(document.getElementById(`mmrow-costo-${id}`)?.value) || 0;
+      const precio = parseFloat(document.getElementById(`mmrow-precio-${id}`)?.value) || 0;
+      const estado = document.getElementById(`mmrow-estado-${id}`)?.value || 'Nuevo';
+
+      if (!codigo) { errors.push(`Producto #${id}: el código es obligatorio`); return; }
+
+      if (isRin) {
+        const marca     = document.getElementById(`mmrow-marca-${id}`)?.value || '';
+        const medida    = document.getElementById(`mmrow-medida-${id}`)?.value || '';
+        const ancho     = document.getElementById(`mmrow-ancho-${id}`)?.value || '';
+        const barr      = document.getElementById(`mmrow-barr-${id}`)?.value || '';
+        const offset    = document.getElementById(`mmrow-offset-${id}`)?.value || '';
+        const centro    = document.getElementById(`mmrow-centro-${id}`)?.value || '';
+        const material  = document.getElementById(`mmrow-material-${id}`)?.value || '';
+        // Check if already exists
+        const existing = DB.rines.findIndex(i => i.codigo === codigo && i.sucursal === sucId);
+        if (existing >= 0) { DB.rines[existing].pz += cant; DB.rines[existing].costo = costo; DB.rines[existing].precio = precio; }
+        else { DB.rines.push({ id:'', sucursal:sucId, codigo, marca, estado, medida_rin:medida, ancho, barrenacion:barr, offset, centro, material, pz:cant, costo, precio }); }
+        processed.push({ desc:`${codigo} ${marca} ${medida}" ${barr}`, cant });
+      } else {
+        const desc   = document.getElementById(`mmrow-desc-${id}`)?.value.trim() || '';
+        const medida = document.getElementById(`mmrow-medida-${id}`)?.value || '';
+        if (!desc) { errors.push(`Producto #${id}: la descripción es obligatoria`); return; }
+        const existing = DB.inventario.findIndex(i => i.codigo === codigo && i.sucursal === sucId);
+        if (existing >= 0) { DB.inventario[existing].pz += cant; DB.inventario[existing].costo = costo; DB.inventario[existing].precio = precio; }
+        else { DB.inventario.push({ id:'', sucursal:sucId, codigo, descripcion:desc, medida, estado, pz:cant, costo, precio }); }
+        processed.push({ desc:`${codigo} ${desc} ${medida}`, cant });
+      }
+
+      // Historial entrada
+      addHistorial({ tipo:'entrada', folio:referencia||'', descripcion:`Entrada (${proveedor}): ${processed[processed.length-1].desc} x${cant}${nota?' — '+nota:''}`, sucursal:sucId, usuario:getCurrentUserName(), monto:0 });
+
+    } else if (movMasivoOp === 'salida') {
+      const selEl = document.getElementById(`mmrow-select-${id}`); if (!selEl?.value) { errors.push(`Producto #${id}: no seleccionado`); return; }
+      const [codigo, prodSuc] = selEl.value.split('|');
+      const idx = inv.findIndex(i => i.codigo === codigo && i.sucursal === prodSuc);
+      if (idx < 0) { errors.push(`Producto #${id}: no encontrado`); return; }
+      if (inv[idx].pz < cant) { errors.push(`Producto #${id}: stock insuficiente (disponible: ${inv[idx].pz})`); return; }
+      inv[idx].pz = Math.max(0, inv[idx].pz - cant);
+      const desc = isRin ? `${inv[idx].codigo} ${inv[idx].marca||''} ${inv[idx].medida_rin||''}` : `${inv[idx].codigo} ${inv[idx].descripcion||''}`;
+      processed.push({ desc, cant });
+      addHistorial({ tipo:'salida', folio:referencia||'', descripcion:`Salida: ${desc} x${cant}${nota?' — '+nota:''}${referencia?' ('+referencia+')':''}`, sucursal:sucId, usuario:getCurrentUserName(), monto:0 });
+
+    } else if (movMasivoOp === 'traspaso') {
+      const selEl = document.getElementById(`mmrow-select-${id}`); if (!selEl?.value) { errors.push(`Producto #${id}: no seleccionado`); return; }
+      const [codigo, prodSuc] = selEl.value.split('|');
+      const idxOrigen = inv.findIndex(i => i.codigo === codigo && i.sucursal === prodSuc);
+      if (idxOrigen < 0) { errors.push(`Producto #${id}: no encontrado`); return; }
+      if (inv[idxOrigen].pz < cant) { errors.push(`Producto #${id}: stock insuficiente (disponible: ${inv[idxOrigen].pz})`); return; }
+      inv[idxOrigen].pz -= cant;
+      const idxDest = inv.findIndex(i => i.codigo === codigo && i.sucursal === destId);
+      if (idxDest >= 0) { inv[idxDest].pz += cant; }
+      else { inv.push({ ...inv[idxOrigen], sucursal:destId, pz:cant }); }
+      const desc = isRin ? `${inv[idxOrigen].codigo} ${inv[idxOrigen].marca||''} ${inv[idxOrigen].medida_rin||''}` : `${inv[idxOrigen].codigo} ${inv[idxOrigen].descripcion||''}`;
+      processed.push({ desc, cant });
+      addHistorial({ tipo:'traspaso', folio:referencia||'', descripcion:`Traspaso x${cant} ${desc}: ${getSucNombre(sucId)} → ${getSucNombre(destId)}${nota?' — '+nota:''}`, sucursal:sucId, usuario:getCurrentUserName(), monto:0 });
+      addHistorial({ tipo:'traspaso', folio:referencia||'', descripcion:`Traspaso x${cant} ${desc}: ${getSucNombre(sucId)} → ${getSucNombre(destId)}${nota?' — '+nota:''}`, sucursal:destId, usuario:getCurrentUserName(), monto:0 });
+    }
+  });
+
+  if (errors.length) { errEl.textContent = errors.join(' | '); return; }
+
+  saveToStorage();
+  closeModal('modalMovMasivo');
+
+  const opNombres = { entrada:'Recepción', salida:'Salida', traspaso:'Traspaso' };
+  const resumen = processed.map(p => `${p.desc} ×${p.cant}`).join(', ');
+  alert(`✅ ${opNombres[movMasivoOp]} registrada.\n${resumen}`);
+
+  // Refresh
+  if (movMasivoTipo === 'rines') renderRinesInventory();
+  else renderGlobalInventory();
+  loadSucursalInventory();
+}
+
+// ══════════════════════════════════════════════════════════════
+// GESTIÓN DE INVENTARIO — EDITAR / AGREGAR / ELIMINAR
+// ══════════════════════════════════════════════════════════════
+function openEditProduct(idx) {
+  const isNew = idx === -1;
+  const p = isNew ? {} : DB.inventario[idx];
+  if (!isNew && !p) { alert('Producto no encontrado'); return; }
+
+  document.getElementById('editProductTitle').textContent = isNew ? '➕ Agregar Producto' : '✏️ Editar Producto';
+  document.getElementById('edit-prod-idx').value = idx;
+
+  // Clear/fill fields
+  document.getElementById('edit-prod-codigo').value  = isNew ? '' : (p.codigo      || '');
+  document.getElementById('edit-prod-marca').value   = p.marca        || '';
+  document.getElementById('edit-prod-desc').value    = p.descripcion  || '';
+  document.getElementById('edit-prod-medida').value  = p.medida       || '';
+  document.getElementById('edit-prod-estado').value  = p.estado       || 'Nuevo';
+  const tipoEl = document.getElementById('edit-prod-tipo');
+  if (tipoEl) tipoEl.value = p.tipo || '';
+  document.getElementById('edit-prod-pz').value      = isNew ? 1     : (p.pz    ?? 0);
+  document.getElementById('edit-prod-costo').value   = isNew ? ''    : (p.costo  ?? '');
+  document.getElementById('edit-prod-precio').value  = isNew ? ''    : (p.precio ?? '');
+
+  // Proveedor select — only visible/required for new products
+  const provGrp = document.getElementById('edit-prod-proveedor-group');
+  const provSel = document.getElementById('edit-prod-proveedor');
+  const provLbl = document.getElementById('edit-prod-prov-label');
+  if (provSel) {
+    provSel.innerHTML = '<option value="">— Seleccionar proveedor —</option>' +
+      DB.proveedores.map(pr => `<option value="${pr}" ${p.proveedor===pr?'selected':''}>${pr}</option>`).join('');
+    if (provGrp) provGrp.style.display = '';
+    if (provLbl) provLbl.textContent = isNew ? 'Proveedor *' : 'Proveedor';
+  }
+
+  // Sucursal — default to first for new
+  const sel = document.getElementById('edit-prod-sucursal');
+  const defSuc = isNew ? DB.sucursales[0]?.id : p.sucursal;
+  sel.innerHTML = DB.sucursales.map(s =>
+    `<option value="${s.id}" ${s.id===defSuc?'selected':''}>${s.nombre}</option>`
+  ).join('');
+
+  // Reset preview
+  const prevEl = document.getElementById('edit-prod-preview');
+  if (prevEl) prevEl.style.display = 'none';
+  if (isNew) setTimeout(() => autoGenerarCodigoModal('llanta'), 50);
+
+  document.getElementById('modalEditProduct').classList.add('open');
+  setTimeout(() => document.getElementById('edit-prod-marca').focus(), 150);
+}
+
+function saveEditProduct() {
+  const idx = parseInt(document.getElementById('edit-prod-idx').value);
+  const isNew = idx === -1;
+  const marca       = document.getElementById('edit-prod-marca').value.trim();
+  const descripcion = document.getElementById('edit-prod-desc').value.trim();
+  const sucursal    = document.getElementById('edit-prod-sucursal').value;
+  const proveedor   = document.getElementById('edit-prod-proveedor')?.value || '';
+  const pz          = parseFloat(document.getElementById('edit-prod-pz').value)     || 0;
+  const costo       = parseFloat(document.getElementById('edit-prod-costo').value)  || 0;
+  const precio      = parseFloat(document.getElementById('edit-prod-precio').value) || 0;
+  const tipo        = document.getElementById('edit-prod-tipo')?.value || '';
+
+  if (!descripcion) { alert('La descripción es obligatoria'); document.getElementById('edit-prod-desc').focus(); return; }
+  if (!sucursal)    { alert('Selecciona una sucursal destino'); return; }
+  if (isNew && !proveedor) { alert('Selecciona el proveedor del producto'); document.getElementById('edit-prod-proveedor')?.focus(); return; }
+
+  // Auto-generate code if empty
+  if (!document.getElementById('edit-prod-codigo').value.trim()) autoGenerarCodigoModalForce('llanta');
+  const codigo = document.getElementById('edit-prod-codigo').value.trim();
+  if (!codigo) { alert('El código es obligatorio'); document.getElementById('edit-prod-codigo').focus(); return; }
+
+  // Duplicate check for new products
+  if (isNew) {
+    const dup = DB.inventario.find(i => i.codigo === codigo && i.sucursal === sucursal);
+    if (dup) {
+      if (!confirm(`Ya existe un producto con código "${codigo}" en esta sucursal.\n¿Sumar ${pz} piezas y actualizar precios?`)) return;
+      const dupIdx = DB.inventario.indexOf(dup);
+      DB.inventario[dupIdx].pz    += pz;
+      DB.inventario[dupIdx].costo  = costo;
+      DB.inventario[dupIdx].precio = precio;
+      if (proveedor) DB.inventario[dupIdx].proveedor = proveedor;
+      addHistorial({ tipo:'entrada', folio:'', descripcion:`Ajuste stock: ${codigo} — ${descripcion} +${pz} pz (${proveedor||'—'})`, sucursal, usuario:getCurrentUserName(), monto:costo*pz });
+      saveToStorage(); closeModal('modalEditProduct'); renderGlobalInventory(); return;
+    }
+  }
+
+  const prod = {
+    id:          isNew ? '' : (DB.inventario[idx]?.id || ''),
+    codigo,
+    marca,
+    descripcion,
+    tipo,
+    medida:      document.getElementById('edit-prod-medida').value.trim(),
+    estado:      document.getElementById('edit-prod-estado').value,
+    sucursal,
+    proveedor:   isNew ? proveedor : (document.getElementById('edit-prod-proveedor')?.value || DB.inventario[idx]?.proveedor || ''),
+    pz, costo, precio,
+  };
+
+  if (isNew) { DB.inventario.push(prod); }
+  else { DB.inventario[idx] = prod; }
+
+  const desc = `${isNew?'Producto agregado':'Producto editado'}: ${codigo} — ${marca} ${descripcion} ${prod.medida} (${prod.estado})${isNew?' | Prov: '+proveedor:''}`;
+  addHistorial({ tipo: isNew?'entrada':'ajuste', folio:'', descripcion: desc, sucursal, usuario:getCurrentUserName(), monto: isNew ? costo*pz : 0 });
+  saveToStorage(); closeModal('modalEditProduct'); renderGlobalInventory();
+}
+
+function deleteProduct(idx) {
+  const p = DB.inventario[idx]; if (!p) return;
+  if (!confirm(`¿Eliminar "${p.codigo} – ${p.descripcion}"?\n\nEsta acción NO puede deshacerse y el stock no se puede recuperar.`)) return;
+  addHistorial({ tipo:'salida', folio:'', descripcion:`Producto eliminado: ${p.codigo} — ${p.descripcion} (${p.pz} pz)`, sucursal:p.sucursal, usuario:getCurrentUserName(), monto:0 });
+  DB.inventario.splice(idx, 1);
+  saveToStorage(); renderGlobalInventory();
+}
+
+function openEditRin(idx) {
+  const isNew = idx === -1;
+  const r = isNew ? {} : DB.rines[idx];
+  if (!isNew && !r) { alert('Rin no encontrado'); return; }
+
+  document.getElementById('editRinTitle').textContent = isNew ? '➕ Agregar Rin' : '✏️ Editar Rin';
+  document.getElementById('edit-rin-idx').value = idx;
+
+  document.getElementById('edit-rin-codigo').value   = isNew ? '' : (r.codigo      || '');
+  document.getElementById('edit-rin-marca').value    = r.marca       || '';
+  document.getElementById('edit-rin-estado').value   = r.estado      || 'Nuevo';
+  document.getElementById('edit-rin-medida').value   = r.medida_rin  || '';
+  document.getElementById('edit-rin-ancho').value    = r.ancho       || '';
+  document.getElementById('edit-rin-barr').value     = r.barrenacion || '';
+  document.getElementById('edit-rin-offset').value   = r.offset      || '';
+  document.getElementById('edit-rin-centro').value   = r.centro      || '';
+  const matEl = document.getElementById('edit-rin-material');
+  if (matEl) matEl.value = r.material || '';
+  const colorEl = document.getElementById('edit-rin-color');
+  if (colorEl) colorEl.value = r.color || '';
+  document.getElementById('edit-rin-pz').value       = isNew ? 1    : (r.pz    ?? 0);
+  document.getElementById('edit-rin-costo').value    = isNew ? ''   : (r.costo  ?? '');
+  document.getElementById('edit-rin-precio').value   = isNew ? ''   : (r.precio ?? '');
+
+  // Proveedor
+  const provSel = document.getElementById('edit-rin-proveedor');
+  const provGrp = document.getElementById('edit-rin-proveedor-group');
+  const provLbl = document.getElementById('edit-rin-prov-label');
+  if (provSel) {
+    provSel.innerHTML = '<option value="">— Seleccionar proveedor —</option>' +
+      DB.proveedores.map(pr => `<option value="${pr}" ${r.proveedor===pr?'selected':''}>${pr}</option>`).join('');
+    if (provLbl) provLbl.textContent = isNew ? 'Proveedor *' : 'Proveedor';
+  }
+
+  // Sucursal
+  const sel = document.getElementById('edit-rin-sucursal');
+  const defSuc = isNew ? DB.sucursales[0]?.id : r.sucursal;
+  sel.innerHTML = DB.sucursales.map(s =>
+    `<option value="${s.id}" ${s.id===defSuc?'selected':''}>${s.nombre}</option>`
+  ).join('');
+
+  const prevEl = document.getElementById('edit-rin-preview');
+  if (prevEl) prevEl.style.display = 'none';
+  if (isNew) setTimeout(() => autoGenerarCodigoModal('rin'), 50);
+
+  document.getElementById('modalEditRin').classList.add('open');
+  setTimeout(() => document.getElementById('edit-rin-marca')?.focus(), 150);
+}
+
+function saveEditRin() {
+  const idx = parseInt(document.getElementById('edit-rin-idx').value);
+  const isNew = idx === -1;
+  const marca     = document.getElementById('edit-rin-marca').value.trim();
+  const sucursal  = document.getElementById('edit-rin-sucursal').value;
+  const proveedor = document.getElementById('edit-rin-proveedor')?.value || '';
+  const pz        = parseFloat(document.getElementById('edit-rin-pz').value)     || 0;
+  const costo     = parseFloat(document.getElementById('edit-rin-costo').value)  || 0;
+  const precio    = parseFloat(document.getElementById('edit-rin-precio').value) || 0;
+
+  if (!sucursal) { alert('Selecciona una sucursal destino'); return; }
+  if (!marca)    { alert('La marca es obligatoria'); document.getElementById('edit-rin-marca').focus(); return; }
+  if (isNew && !proveedor) { alert('Selecciona el proveedor del rin'); document.getElementById('edit-rin-proveedor')?.focus(); return; }
+
+  if (!document.getElementById('edit-rin-codigo').value.trim()) autoGenerarCodigoModalForce('rin');
+  const codigo = document.getElementById('edit-rin-codigo').value.trim();
+  if (!codigo) { alert('El código es obligatorio'); document.getElementById('edit-rin-codigo').focus(); return; }
+
+  if (isNew) {
+    const dup = DB.rines.find(i => i.codigo === codigo && i.sucursal === sucursal);
+    if (dup) {
+      if (!confirm(`Ya existe un rin con código "${codigo}" en esta sucursal.\n¿Sumar ${pz} piezas y actualizar precios?`)) return;
+      const dupIdx = DB.rines.indexOf(dup);
+      DB.rines[dupIdx].pz    += pz;
+      DB.rines[dupIdx].costo  = costo;
+      DB.rines[dupIdx].precio = precio;
+      if (proveedor) DB.rines[dupIdx].proveedor = proveedor;
+      addHistorial({ tipo:'entrada', folio:'', descripcion:`Ajuste stock rin: ${codigo} +${pz} pz (${proveedor||'—'})`, sucursal, usuario:getCurrentUserName(), monto:costo*pz });
+      saveToStorage(); closeModal('modalEditRin'); renderRinesInventory(); return;
+    }
+  }
+
+  const matEl = document.getElementById('edit-rin-material');
+  const rin = {
+    id:          isNew ? '' : (DB.rines[idx]?.id || ''),
+    codigo, marca,
+    estado:      document.getElementById('edit-rin-estado').value,
+    sucursal,
+    proveedor:   isNew ? proveedor : (document.getElementById('edit-rin-proveedor')?.value || DB.rines[idx]?.proveedor || ''),
+    medida_rin:  document.getElementById('edit-rin-medida').value.trim(),
+    ancho:       document.getElementById('edit-rin-ancho').value.trim(),
+    barrenacion: document.getElementById('edit-rin-barr').value.trim(),
+    offset:      document.getElementById('edit-rin-offset').value.trim(),
+    centro:      document.getElementById('edit-rin-centro').value.trim(),
+    material:    matEl ? matEl.value : '',
+    color:       (document.getElementById('edit-rin-color')?.value||'').trim(),
+    pz, costo, precio,
+  };
+
+  if (isNew) { DB.rines.push(rin); }
+  else { DB.rines[idx] = rin; }
+
+  const desc = `${isNew?'Rin agregado':'Rin editado'}: ${codigo} — ${marca} ${rin.medida_rin}" ${rin.ancho} ${rin.barrenacion} (${rin.estado})${isNew?' | Prov: '+proveedor:''}`;
+  addHistorial({ tipo: isNew?'entrada':'ajuste', folio:'', descripcion: desc, sucursal, usuario:getCurrentUserName(), monto: isNew ? costo*pz : 0 });
+  saveToStorage(); closeModal('modalEditRin'); renderRinesInventory();
+}
+
+function deleteRin(idx) {
+  const r = DB.rines[idx]; if (!r) return;
+  if (!confirm(`¿Eliminar rin "${r.codigo} – ${r.marca} ${r.medida_rin}"?\n\nEsta acción NO puede deshacerse.`)) return;
+  addHistorial({ tipo:'salida', folio:'', descripcion:`Rin eliminado: ${r.codigo} — ${r.marca} ${r.medida_rin}" (${r.pz} pz)`, sucursal:r.sucursal, usuario:getCurrentUserName(), monto:0 });
+  DB.rines.splice(idx, 1);
+  saveToStorage(); renderRinesInventory();
+}
+
+// ══════════════════════════════════════════════════════════════
+// BOTONES AGREGAR PRODUCTO en inventario (admin only)
+// ══════════════════════════════════════════════════════════════
+function showAddProductBtn() {
+  // Called after inventory renders if admin — adds a button above the table
+  if (usuarioActivo?.rol !== 'admin') return;
+  ['inv-global-ver','inv-rines-ver'].forEach(id => {
+    const sec = document.getElementById(id); if (!sec) return;
+    const existing = sec.querySelector('.add-prod-btn'); if (existing) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-green btn-sm add-prod-btn';
+    btn.style.marginBottom = '10px';
+    btn.textContent = id.includes('rines') ? '➕ Nuevo Rin' : '➕ Nuevo Producto';
+    btn.onclick = id.includes('rines') ? () => openEditRin(-1) : () => openEditProduct(-1);
+    sec.querySelector('.card-title')?.after(btn);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// EXPORTAR CORTE DE CAJA A CSV (F)
+// ══════════════════════════════════════════════════════════════
+function downloadInventarioCSV(tipo) {
+  const fecha = new Date().toISOString().slice(0,10);
+
+  if (tipo === 'llantas') {
+    const suc   = document.getElementById('inv-global-filter-suc')?.value   || '';
+    const est   = document.getElementById('inv-global-filter-estado')?.value || '';
+    const soloDisp = document.getElementById('inv-global-solo-disponibles')?.checked;
+    const q     = (document.getElementById('inv-global-search')?.value || '').toLowerCase();
+    let items = DB.inventario.filter(i => {
+      const mSuc  = !suc  || i.sucursal === suc;
+      const mEst  = !est  || i.estado   === est;
+      const mDisp = !soloDisp || i.pz > 0;
+      const mQ    = !q    || (i.codigo + i.descripcion + (i.medida||'')).toLowerCase().includes(q);
+      return mSuc && mEst && mDisp && mQ;
+    });
+    let csv = 'ID,Sucursal,Codigo,Estado,Descripcion,Medida,Piezas,Costo,Precio,Utilidad\n';
+    items.forEach(i => {
+      csv += `"${i.id||''}","${getSucNombre(i.sucursal)}","${i.codigo}","${i.estado||''}","${i.descripcion}","${i.medida||''}",${i.pz},${i.costo},${i.precio},${i.precio-i.costo}\n`;
+    });
+    downloadFile(`inventario_llantas_${fecha}.csv`, csv, 'text/csv');
+
+  } else {
+    const suc   = document.getElementById('inv-rines-filter-suc')?.value   || '';
+    const est   = document.getElementById('inv-rines-filter-estado')?.value || '';
+    const soloDisp = document.getElementById('inv-rines-solo-disponibles')?.checked;
+    const q     = (document.getElementById('inv-rines-search')?.value || '').toLowerCase();
+    let items = DB.rines.filter(i => {
+      const mSuc  = !suc  || i.sucursal === suc;
+      const mEst  = !est  || i.estado   === est;
+      const mDisp = !soloDisp || i.pz > 0;
+      const mQ    = !q    || (i.codigo + (i.marca||'') + (i.medida_rin||'') + (i.barrenacion||'')).toLowerCase().includes(q);
+      return mSuc && mEst && mDisp && mQ;
+    });
+    let csv = 'ID,Sucursal,Codigo,Estado,Marca,Medida,Ancho,Barrenacion,Offset,CentroBarrenacion,Material,Piezas,Costo,Precio,Utilidad\n';
+    items.forEach(i => {
+      csv += `"${i.id||''}","${getSucNombre(i.sucursal)}","${i.codigo}","${i.estado||''}","${i.marca||''}","${i.medida_rin||''}","${i.ancho||''}","${i.barrenacion||''}","${i.offset||''}","${i.centro||''}","${i.material||''}",${i.pz},${i.costo},${i.precio},${i.precio-i.costo}\n`;
+    });
+    downloadFile(`inventario_rines_${fecha}.csv`, csv, 'text/csv');
+  }
+}
+
+function downloadCorteCajaCSV() {
+  const fecha = document.getElementById('corte-fecha')?.value || new Date().toISOString().slice(0,10);
+  const suc = document.getElementById('corte-suc')?.value || '';
+  const ventas = DB.ventas.filter(v => v.fecha === fecha && (!suc || v.sucursal === suc) && !v.cancelada);
+  const gastos = DB.gastos.filter(g => g.fecha === fecha && (!suc || g.sucursal === suc));
+
+  let csv = `CORTE DE CAJA — ${fecha} — ${suc ? getSucNombre(suc) : 'Todas las sucursales'}\n\n`;
+  csv += 'VENTAS\n';
+  csv += 'Folio,Hora,Sucursal,Vendedor,Métodos de Pago,Productos,Servicios,Subtotal,Com.Tarjeta,Taxi,Utilidad,Total\n';
+  ventas.forEach(v => {
+    const prods = (v.productos||[]).map(p=>`${p.codigo||''} x${p.pz}`).join(' | ');
+    const srvs = (v.servicios||[]).map(s=>s.desc).join(' | ');
+    const metodos = (v.metodosPago||[]).map(p=>`${p.metodo}:$${p.monto}`).join(' | ') || v.metodoPago || '';
+    csv += `"${v.vale}","${v.hora||''}","${getSucNombre(v.sucursal)}","${v.vendedor}","${metodos}","${prods}","${srvs}",${v.subtotal},${v.comisionTarjeta||0},${v.taxi||0},${v.utilidad||0},${v.precioTotal}\n`;
+  });
+  csv += `\nTOTAL VENTAS,${ventas.reduce((a,v)=>a+(v.precioTotal||0),0).toFixed(2)}\n\n`;
+
+  // Apartados pagados ese día
+  const pagosDia = [];
+  (DB.apartados||[]).forEach(a => {
+    if (suc && a.sucursal !== suc) return;
+    (a.pagos||[]).forEach(p => { if (p.fecha === fecha) pagosDia.push({...p, folio:a.folio, cliente:a.cliente}); });
+  });
+  if (pagosDia.length) {
+    csv += 'ANTICIPOS / ABONOS\n';
+    csv += 'Folio,Cliente,Método,Monto\n';
+    pagosDia.forEach(p => { csv += `"${p.folio}","${p.cliente}","${p.metodo}",${p.monto}\n`; });
+    csv += `TOTAL ANTICIPOS,${pagosDia.reduce((a,p)=>a+p.monto,0).toFixed(2)}\n\n`;
+  }
+
+  csv += 'GASTOS\n';
+  csv += 'Concepto,Sucursal,Monto,Notas\n';
+  gastos.forEach(g => { csv += `"${g.concepto}","${getSucNombre(g.sucursal)}",${g.monto},"${g.notas||''}"\n`; });
+  csv += `TOTAL GASTOS,${gastos.reduce((a,g)=>a+(g.monto||0),0).toFixed(2)}\n`;
+
+  downloadFile(`corte_caja_${fecha}.csv`, csv, 'text/csv');
+}
 
 // ══════════════════════════════════════════════════════════════
 // CONFIGURACIÓN
@@ -2919,27 +4214,17 @@ function renderConfig() {
   document.getElementById('cfg-nombre').value=DB.config.nombre||'Peters Wheels';
   document.getElementById('cfg-logo-id').value=DB.config.logoId||'';
   document.getElementById('cfg-comision-pct').value=DB.config.comisionPct||5;
-  renderCfgSucursales();renderCfgVendedores();renderCfgProveedores();renderCfgMetodos();renderCfgServicios();
+  renderCfgSucursales();renderCfgVendedores();renderCfgProveedores();renderCfgMetodos();renderCfgServicios();renderCfgUsuarios();
+  // Show/hide usuarios tab based on role
+  const usrTab=document.querySelector('[onclick*="cfg-usuarios"]');
+  if(usrTab) usrTab.style.display=usuarioActivo?.rol==='admin'?'':'none';
 }
 function saveConfig(){
   DB.config.nombre=document.getElementById('cfg-nombre').value;
   DB.config.logoId=document.getElementById('cfg-logo-id').value;
   DB.config.comisionPct=parseFloat(document.getElementById('cfg-comision-pct').value)||0;
-  // PIN change
-  const newPin=document.getElementById('cfg-pin-nuevo')?.value||'';
-  if(newPin){
-    if(/^\d{4}$/.test(newPin)){
-      localStorage.setItem('pw_pin',newPin);
-      document.getElementById('cfg-pin-nuevo').value='';
-      alert('✅ Configuración guardada. PIN actualizado.');
-    } else {
-      alert('El PIN debe ser exactamente 4 dígitos numéricos.');
-      return;
-    }
-  } else {
-    alert('✅ Configuración guardada.');
-  }
   saveToStorage();updateLogoDisplay();refreshSelectsGlobal();
+  alert('✅ Configuración guardada.');
 }
 function addSucursal(){
   const nombre=document.getElementById('cfg-suc-nombre').value.trim(); if(!nombre) return;
@@ -3006,6 +4291,7 @@ function importJSONFile(input){
       if(!DB.folioConsecutivo)DB.folioConsecutivo={};
       if(!DB.servicios)DB.servicios=[];
       if(!DB.apartados)DB.apartados=[];
+      if(!DB.usuarios)DB.usuarios=[{id:'u1',nombre:'Administrador',pin:'1234',rol:'admin'}];
       saveToStorage();renderAll();alert('✅ Datos cargados correctamente');
     }catch{alert('Error al leer el archivo JSON');}
   };
@@ -3068,6 +4354,7 @@ function refreshActiveSection() {
   else if(id==='reportes') renderReportes();
   else if(id==='corte-caja') renderCorteCaja();
   else if(id==='historial-mov') renderHistorialUnificado();
+  else if(id==='configuracion') renderConfig();
   updateDateBadge();
 }
 
