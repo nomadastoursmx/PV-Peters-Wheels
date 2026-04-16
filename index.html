@@ -754,8 +754,10 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
         <div class="form-row" style="align-items:flex-end">
           <div class="form-group"><label>Fecha</label><input type="date" id="corte-fecha" oninput="renderCorteCaja()"></div>
           <div class="form-group"><label>Sucursal</label><select id="corte-suc" onchange="renderCorteCaja()"><option value="">Todas</option></select></div>
-          <div class="form-group" style="padding-top:20px">
+          <div class="form-group" style="padding-top:20px;display:flex;gap:8px">
             <button class="btn btn-secondary" onclick="downloadCorteCajaCSV()">📥 Descargar CSV</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('corte-csv-input').click()" id="btn-cargar-corte-suc" style="display:none">📤 Cargar Corte de Sucursal</button>
+            <input type="file" id="corte-csv-input" accept=".csv" style="display:none" onchange="leerCorteSucursal(this)">
           </div>
         </div>
       </div>
@@ -962,8 +964,11 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
 
     <!-- Tabla de productos a mover -->
     <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-weight:700;font-size:14px">Productos a mover</span>
-      <button class="btn btn-secondary btn-sm" onclick="addMovMasivoRow()">➕ Agregar producto</button>
+      <div>
+        <span style="font-weight:700;font-size:14px" id="movMasivo-list-label">Productos</span>
+        <div id="movMasivo-hint" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="addMovMasivoRow()">➕ Agregar fila</button>
     </div>
     <div id="movMasivo-rows" style="margin-bottom:14px"></div>
 
@@ -1186,6 +1191,66 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
     <div class="btn-group">
       <button class="btn btn-primary" onclick="saveEditRin()">💾 Guardar Rin</button>
       <button class="btn btn-secondary" onclick="closeModal('modalEditRin')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CARGAR CORTE DE SUCURSAL -->
+<div class="modal-overlay" id="modalCorteSucursal">
+  <div class="modal" style="max-width:900px">
+    <div class="modal-title">📤 Cargar Corte de Sucursal — Vista Previa</div>
+
+    <!-- Info del archivo -->
+    <div id="corte-suc-info" style="background:var(--surface2);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--text2)"></div>
+
+    <!-- Controles globales -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <label style="font-size:13px;font-weight:600;color:var(--text)">Sucursal origen (del archivo):</label>
+      <select id="corte-suc-origen" style="max-width:200px">
+        <option value="">— Detectar automático —</option>
+      </select>
+      <label style="font-size:13px;font-weight:600;color:var(--text)">Operación por defecto:</label>
+      <select id="corte-suc-op-default" onchange="aplicarOpDefaultCorte()">
+        <option value="descuento">➖ Descontar del inventario</option>
+        <option value="traspaso">↔️ Traspasar a esta sucursal</option>
+        <option value="ninguno">⛔ No aplicar</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="corte-suc-sel-todos" onchange="toggleTodosCorte(this.checked)" style="width:auto;accent-color:var(--accent)">
+        Seleccionar todos
+      </label>
+    </div>
+
+    <!-- Tabla de movimientos detectados -->
+    <div style="margin-bottom:8px;font-size:12px;color:var(--text3)">
+      Los movimientos detectados provienen de las ventas registradas en el corte. Marca cuáles deseas aplicar.
+    </div>
+    <div class="table-wrap" style="max-height:400px;overflow-y:auto;margin-bottom:16px">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px"><input type="checkbox" id="corte-suc-check-all" onchange="toggleTodosCorte(this.checked)" style="width:auto;accent-color:var(--accent)"></th>
+            <th>Folio</th>
+            <th>Código</th>
+            <th>Producto</th>
+            <th class="td-right">Cant.</th>
+            <th>Stock actual</th>
+            <th>Operación</th>
+            <th>Sucursal destino</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="corte-suc-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Resumen -->
+    <div id="corte-suc-resumen" style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text2);margin-bottom:16px"></div>
+
+    <div id="corte-suc-error" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px"></div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="aplicarCorteSucursal()">✅ Aplicar movimientos seleccionados</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalCorteSucursal')">Cancelar</button>
     </div>
   </div>
 </div>
@@ -3310,6 +3375,10 @@ function applyRoleUI() {
     if (el) el.style.display = isAdmin ? 'flex' : 'none';
   });
 
+  // Cargar corte sucursal button — only admin
+  const btnCargar = document.getElementById('btn-cargar-corte-suc');
+  if (btnCargar) btnCargar.style.display = isAdmin ? '' : 'none';
+
   // If non-admin is on Configuración, go to dashboard
   if (!isAdmin) {
     const active = document.querySelector('.section.active');
@@ -3442,6 +3511,18 @@ function openMovMasivo(op, tipo) {
   document.getElementById('movMasivo-proveedor-group').style.display  = op === 'entrada'  ? '' : 'none';
   document.getElementById('movMasivo-suc-label').textContent = op === 'traspaso' ? 'Sucursal Origen *' : 'Sucursal *';
 
+  // Labels and hints
+  const hints = {
+    entrada:  '💡 Selecciona productos ya registrados en el inventario y captura la cantidad recibida. Para agregar un producto nuevo usa "➕ Nuevo Producto".',
+    salida:   '💡 Selecciona los productos que salen del inventario y captura la cantidad.',
+    traspaso: '💡 Selecciona los productos a traspasar de la sucursal origen a la destino.',
+  };
+  const listLabels = { entrada: 'Productos a recibir', salida: 'Productos a dar salida', traspaso: 'Productos a traspasar' };
+  const hintEl = document.getElementById('movMasivo-hint');
+  const listEl = document.getElementById('movMasivo-list-label');
+  if (hintEl) hintEl.textContent = hints[op] || '';
+  if (listEl) listEl.textContent = listLabels[op] || 'Productos';
+
   // Clear
   document.getElementById('movMasivo-referencia').value = '';
   document.getElementById('movMasivo-rows').innerHTML = '';
@@ -3462,112 +3543,71 @@ function addMovMasivoRow() {
   row.id = 'mmrow-' + id;
   row.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;';
 
-  const isRin     = movMasivoTipo === 'rines';
-  const isEntrada = movMasivoOp   === 'entrada';
+  const isRin = movMasivoTipo === 'rines';
+  const isEntrada = movMasivoOp === 'entrada';
 
-  // Product selector for salida/traspaso
+  // Build product options from existing inventory filtered by sucursal
   const inv = isRin ? DB.rines : DB.inventario;
   const suc = document.getElementById('movMasivo-sucursal')?.value || '';
   const prodOptions = inv
     .filter(i => !suc || i.sucursal === suc)
     .map(i => {
       const label = isRin
-        ? `${i.codigo} – ${i.marca||''} ${i.medida_rin||''}" ${i.ancho||''}J ${i.barrenacion||''} (Pz:${i.pz})`
-        : `${i.codigo} – ${i.descripcion} ${i.medida||''} (Pz:${i.pz})`;
+        ? `${i.codigo} – ${i.marca||''} ${i.medida_rin||''}" ${i.ancho||''}J ${i.barrenacion||''} (Stock: ${i.pz})`
+        : `${i.codigo} – ${i.descripcion||''} ${i.medida||''} (Stock: ${i.pz})`;
       return `<option value="${i.codigo}|${i.sucursal}">${label}</option>`;
     }).join('');
 
-  // ── Campo código con botón auto-generar ──
-  const codField = `
-    <div style="display:flex;gap:6px;align-items:flex-end">
-      <div style="flex:1">
-        <label style="font-size:10px;color:var(--text3)">CÓDIGO *</label>
-        <input type="text" id="mmrow-cod-${id}" placeholder="Escribe o genera automático" style="width:100%">
-      </div>
-      <button class="btn btn-secondary btn-sm" onclick="autoGenerarCodigo(${id})" title="Generar código desde los datos del producto" style="white-space:nowrap;margin-bottom:0">🔄 Auto</button>
-    </div>`;
-
-  // ── Campos para LLANTA nueva ──
-  const entradaLlantaFields = !isRin && isEntrada ? `
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-top:8px">
-      <div><label style="font-size:10px;color:var(--text3)">DESCRIPCIÓN * <span style="color:var(--text3);font-weight:400">(ej: Llanta Radial)</span></label>
-        <input type="text" id="mmrow-desc-${id}" placeholder="Llanta Radial..." style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
-      <div><label style="font-size:10px;color:var(--text3)">MEDIDA * <span style="color:var(--text3);font-weight:400">(ej: 195/65R15)</span></label>
-        <input type="text" id="mmrow-medida-${id}" placeholder="195/65R15" style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
-      <div><label style="font-size:10px;color:var(--text3)">ESTADO</label>
-        <select id="mmrow-estado-${id}" style="width:100%">
-          <option value="Nuevo">Nuevo</option><option value="Seminuevo">Seminuevo</option><option value="Usado">Usado</option>
-        </select>
-      </div>
-    </div>
-    <div style="margin-top:8px">${codField}</div>
+  // ── Campos opcionales para actualizar costo/precio en entrada ──
+  const entradaExtraFields = isEntrada ? `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-      <div><label style="font-size:10px;color:var(--text3)">COSTO UNIT. ($)</label>
-        <input type="number" id="mmrow-costo-${id}" placeholder="0.00" style="width:100%" oninput="updateMovMasivoResumen()"></div>
-      <div><label style="font-size:10px;color:var(--text3)">PRECIO VENTA ($)</label>
-        <input type="number" id="mmrow-precio-${id}" placeholder="0.00" style="width:100%"></div>
-    </div>` : '';
-
-  // ── Campos para RIN nuevo ──
-  const entradaRinFields = isRin && isEntrada ? `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px">
-      <div><label style="font-size:10px;color:var(--text3)">MARCA * <span style="color:var(--text3);font-weight:400">(ej: Enkei)</span></label>
-        <input type="text" id="mmrow-marca-${id}" placeholder="Enkei, Jogo..." style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
-      <div><label style="font-size:10px;color:var(--text3)">MEDIDA * <span style="color:var(--text3);font-weight:400">(pulg, ej: 15)</span></label>
-        <input type="text" id="mmrow-medida-${id}" placeholder="15" style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
-      <div><label style="font-size:10px;color:var(--text3)">ANCHO <span style="color:var(--text3);font-weight:400">(ej: 6J)</span></label>
-        <input type="text" id="mmrow-ancho-${id}" placeholder="6J" style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
-      <div><label style="font-size:10px;color:var(--text3)">ESTADO</label>
-        <select id="mmrow-estado-${id}" style="width:100%">
-          <option value="Nuevo">Nuevo</option><option value="Seminuevo">Seminuevo</option><option value="Usado">Usado</option>
-        </select>
+      <div>
+        <label style="font-size:10px;color:var(--text3)">ACTUALIZAR COSTO UNIT. ($) <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
+        <input type="number" id="mmrow-costo-${id}" placeholder="Dejar vacío para mantener actual" style="width:100%" oninput="updateMovMasivoResumen()">
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px">
-      <div><label style="font-size:10px;color:var(--text3)">BARRENACIÓN <span style="color:var(--text3);font-weight:400">(ej: 4x100)</span></label>
-        <input type="text" id="mmrow-barr-${id}" placeholder="4x100" style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
-      <div><label style="font-size:10px;color:var(--text3)">OFFSET <span style="color:var(--text3);font-weight:400">(ej: +38)</span></label>
-        <input type="text" id="mmrow-offset-${id}" placeholder="+38" style="width:100%" oninput="autoGenerarCodigo(${id})"></div>
-      <div><label style="font-size:10px;color:var(--text3)">CENTRO (CB) <span style="color:var(--text3);font-weight:400">(ej: 60.1)</span></label>
-        <input type="text" id="mmrow-centro-${id}" placeholder="60.1" style="width:100%"></div>
-      <div><label style="font-size:10px;color:var(--text3)">MATERIAL</label>
-        <input type="text" id="mmrow-material-${id}" placeholder="Aluminio" style="width:100%"></div>
-    </div>
-    <div style="margin-top:8px">${codField}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-      <div><label style="font-size:10px;color:var(--text3)">COSTO UNIT. ($)</label>
-        <input type="number" id="mmrow-costo-${id}" placeholder="0.00" style="width:100%" oninput="updateMovMasivoResumen()"></div>
-      <div><label style="font-size:10px;color:var(--text3)">PRECIO VENTA ($)</label>
-        <input type="number" id="mmrow-precio-${id}" placeholder="0.00" style="width:100%"></div>
+      <div>
+        <label style="font-size:10px;color:var(--text3)">ACTUALIZAR PRECIO VENTA ($) <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
+        <input type="number" id="mmrow-precio-${id}" placeholder="Dejar vacío para mantener actual" style="width:100%">
+      </div>
     </div>` : '';
 
   row.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <span style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Producto #${id}</span>
+      <span style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">
+        ${isEntrada ? '📦 Producto a recibir' : isRin ? '⚙️ Rin' : '🔵 Llanta'} #${id}
+      </span>
       <button class="btn btn-danger btn-sm" onclick="removeMovMasivoRow(${id})">✕</button>
     </div>
-    ${!isEntrada ? `
+
     <div style="margin-bottom:8px">
-      <label style="font-size:10px;color:var(--text3)">BUSCAR Y SELECCIONAR PRODUCTO</label>
-      <input type="text" id="mmrow-search-${id}" placeholder="🔍 Código, descripción, marca..." oninput="filterMovMasivoSearch(${id})" style="width:100%;margin-bottom:4px">
+      <label style="font-size:10px;color:var(--text3)">
+        ${isEntrada ? 'SELECCIONAR PRODUCTO A RECIBIR *' : 'BUSCAR Y SELECCIONAR PRODUCTO *'}
+      </label>
+      <input type="text" id="mmrow-search-${id}"
+        placeholder="🔍 Busca por código, descripción, marca..."
+        oninput="filterMovMasivoSearch(${id})"
+        style="width:100%;margin-bottom:4px">
       <select id="mmrow-select-${id}" style="width:100%" onchange="onMovMasivoSelect(${id})">
-        <option value="">-- Seleccionar producto existente --</option>
+        <option value="">-- Seleccionar producto del inventario --</option>
         ${prodOptions}
       </select>
-    </div>` : ''}
-    ${entradaLlantaFields}
-    ${entradaRinFields}
-    <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:8px">
-      <div><label style="font-size:10px;color:var(--text3)">CANTIDAD *</label>
-        <input type="number" id="mmrow-cant-${id}" placeholder="0" min="1" style="width:100%" oninput="updateMovMasivoResumen()"></div>
-      <div><label style="font-size:10px;color:var(--text3)">NOTA DEL PRODUCTO</label>
-        <input type="text" id="mmrow-nota-${id}" placeholder="Opcional..." style="width:100%"></div>
     </div>
-    <div id="mmrow-stock-${id}" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+
+    ${entradaExtraFields}
+
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:8px">
+      <div>
+        <label style="font-size:10px;color:var(--text3)">CANTIDAD A ${isEntrada?'RECIBIR':'MOVER'} *</label>
+        <input type="number" id="mmrow-cant-${id}" placeholder="0" min="1" style="width:100%" oninput="updateMovMasivoResumen()">
+      </div>
+      <div>
+        <label style="font-size:10px;color:var(--text3)">NOTA</label>
+        <input type="text" id="mmrow-nota-${id}" placeholder="Opcional..." style="width:100%">
+      </div>
+    </div>
+    <div id="mmrow-stock-${id}" style="background:var(--surface3);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2);margin-top:8px;display:none"></div>
   `;
   document.getElementById('movMasivo-rows').appendChild(row);
-  // Auto-generate code immediately if possible
-  autoGenerarCodigo(id);
 }
 
 function removeMovMasivoRow(id) {
@@ -3750,13 +3790,33 @@ function filterMovMasivoSearch(id) {
 }
 
 function onMovMasivoSelect(id) {
-  const sel = document.getElementById(`mmrow-select-${id}`); if (!sel || !sel.value) return;
+  const sel = document.getElementById(`mmrow-select-${id}`);
+  if (!sel || !sel.value) return;
   const [codigo, suc] = sel.value.split('|');
   const inv = movMasivoTipo === 'rines' ? DB.rines : DB.inventario;
   const prod = inv.find(i => i.codigo === codigo && i.sucursal === suc);
   if (!prod) return;
+
   const stockEl = document.getElementById(`mmrow-stock-${id}`);
-  if (stockEl) stockEl.textContent = `Stock actual: ${prod.pz} pz — Costo: ${fmt(prod.costo)} — Precio: ${fmt(prod.precio)}`;
+  if (stockEl) {
+    stockEl.style.display = '';
+    if (movMasivoTipo === 'rines') {
+      stockEl.innerHTML = `
+        <strong style="color:var(--text)">${esc(prod.codigo)}</strong> · ${esc(prod.marca||'')} ${prod.medida_rin||''}" ${prod.ancho||''}J · ${esc(prod.barrenacion||'')} · Offset: ${prod.offset||'—'} · CB: ${prod.centro||'—'}<br>
+        Estado: ${estadoBadge(prod.estado)} &nbsp; Stock actual: <strong style="color:var(--accent)">${prod.pz} pz</strong> &nbsp; Costo: ${fmt(prod.costo)} &nbsp; Precio: ${fmt(prod.precio)}`;
+    } else {
+      stockEl.innerHTML = `
+        <strong style="color:var(--text)">${esc(prod.codigo)}</strong> · ${esc(prod.descripcion||'')} ${esc(prod.medida||'')} · ${esc(prod.marca||'')} ${prod.tipo?'· '+esc(prod.tipo):''}<br>
+        Estado: ${estadoBadge(prod.estado)} &nbsp; Stock actual: <strong style="color:var(--accent)">${prod.pz} pz</strong> &nbsp; Costo: ${fmt(prod.costo)} &nbsp; Precio: ${fmt(prod.precio)}`;
+    }
+    // Pre-fill cost/price in entrada so user can see and optionally change
+    if (movMasivoOp === 'entrada') {
+      const costoEl = document.getElementById(`mmrow-costo-${id}`);
+      const precioEl = document.getElementById(`mmrow-precio-${id}`);
+      if (costoEl && !costoEl.value) costoEl.placeholder = `Actual: $${prod.costo.toFixed(2)}`;
+      if (precioEl && !precioEl.value) precioEl.placeholder = `Actual: $${prod.precio.toFixed(2)}`;
+    }
+  }
   updateMovMasivoResumen();
 }
 
@@ -3801,39 +3861,34 @@ function saveMovMasivo() {
     const nota = document.getElementById(`mmrow-nota-${id}`)?.value || '';
 
     if (movMasivoOp === 'entrada') {
-      // New product — read all fields
-      const codigo = (document.getElementById(`mmrow-cod-${id}`)?.value || '').trim();
-      const costo  = parseFloat(document.getElementById(`mmrow-costo-${id}`)?.value) || 0;
-      const precio = parseFloat(document.getElementById(`mmrow-precio-${id}`)?.value) || 0;
-      const estado = document.getElementById(`mmrow-estado-${id}`)?.value || 'Nuevo';
+      // Select existing product and add quantity
+      const selEl = document.getElementById(`mmrow-select-${id}`);
+      if (!selEl?.value) { errors.push(`Fila #${id}: selecciona un producto del inventario`); return; }
+      const [codigo, prodSuc] = selEl.value.split('|');
+      const idx = inv.findIndex(i => i.codigo === codigo && i.sucursal === prodSuc);
+      if (idx < 0) { errors.push(`Fila #${id}: producto no encontrado`); return; }
 
-      if (!codigo) { errors.push(`Producto #${id}: el código es obligatorio`); return; }
+      // Sum quantity
+      inv[idx].pz += cant;
 
-      if (isRin) {
-        const marca     = document.getElementById(`mmrow-marca-${id}`)?.value || '';
-        const medida    = document.getElementById(`mmrow-medida-${id}`)?.value || '';
-        const ancho     = document.getElementById(`mmrow-ancho-${id}`)?.value || '';
-        const barr      = document.getElementById(`mmrow-barr-${id}`)?.value || '';
-        const offset    = document.getElementById(`mmrow-offset-${id}`)?.value || '';
-        const centro    = document.getElementById(`mmrow-centro-${id}`)?.value || '';
-        const material  = document.getElementById(`mmrow-material-${id}`)?.value || '';
-        // Check if already exists
-        const existing = DB.rines.findIndex(i => i.codigo === codigo && i.sucursal === sucId);
-        if (existing >= 0) { DB.rines[existing].pz += cant; DB.rines[existing].costo = costo; DB.rines[existing].precio = precio; }
-        else { DB.rines.push({ id:'', sucursal:sucId, codigo, marca, estado, medida_rin:medida, ancho, barrenacion:barr, offset, centro, material, pz:cant, costo, precio }); }
-        processed.push({ desc:`${codigo} ${marca} ${medida}" ${barr}`, cant });
-      } else {
-        const desc   = document.getElementById(`mmrow-desc-${id}`)?.value.trim() || '';
-        const medida = document.getElementById(`mmrow-medida-${id}`)?.value || '';
-        if (!desc) { errors.push(`Producto #${id}: la descripción es obligatoria`); return; }
-        const existing = DB.inventario.findIndex(i => i.codigo === codigo && i.sucursal === sucId);
-        if (existing >= 0) { DB.inventario[existing].pz += cant; DB.inventario[existing].costo = costo; DB.inventario[existing].precio = precio; }
-        else { DB.inventario.push({ id:'', sucursal:sucId, codigo, descripcion:desc, medida, estado, pz:cant, costo, precio }); }
-        processed.push({ desc:`${codigo} ${desc} ${medida}`, cant });
-      }
+      // Optionally update cost and/or price if provided
+      const nuevoCosto  = parseFloat(document.getElementById(`mmrow-costo-${id}`)?.value);
+      const nuevoPrecio = parseFloat(document.getElementById(`mmrow-precio-${id}`)?.value);
+      if (!isNaN(nuevoCosto)  && nuevoCosto  > 0) inv[idx].costo  = nuevoCosto;
+      if (!isNaN(nuevoPrecio) && nuevoPrecio > 0) inv[idx].precio = nuevoPrecio;
 
-      // Historial entrada
-      addHistorial({ tipo:'entrada', folio:referencia||'', descripcion:`Entrada (${proveedor}): ${processed[processed.length-1].desc} x${cant}${nota?' — '+nota:''}`, sucursal:sucId, usuario:getCurrentUserName(), monto:0 });
+      const desc = isRin
+        ? `${inv[idx].codigo} ${inv[idx].marca||''} ${inv[idx].medida_rin||''}"`
+        : `${inv[idx].codigo} ${inv[idx].descripcion||''} ${inv[idx].medida||''}`;
+      processed.push({ desc, cant });
+      addHistorial({
+        tipo:'entrada',
+        folio: referencia||'',
+        descripcion: `Entrada (${proveedor}): ${desc} +${cant} pz. Stock: ${inv[idx].pz-cant} → ${inv[idx].pz}${nota?' — '+nota:''}`,
+        sucursal: prodSuc,
+        usuario: getCurrentUserName(),
+        monto: (nuevoCosto||inv[idx].costo) * cant
+      });
 
     } else if (movMasivoOp === 'salida') {
       const selEl = document.getElementById(`mmrow-select-${id}`); if (!selEl?.value) { errors.push(`Producto #${id}: no seleccionado`); return; }
@@ -4167,6 +4222,287 @@ function downloadInventarioCSV(tipo) {
     });
     downloadFile(`inventario_rines_${fecha}.csv`, csv, 'text/csv');
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// CARGAR CORTE DE SUCURSAL (importar CSV y aplicar movimientos)
+// ══════════════════════════════════════════════════════════════
+let corteSucursalMovimientos = []; // parsed movements ready for preview
+
+function leerCorteSucursal(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      parsearCorteSucursal(e.target.result);
+    } catch(err) {
+      alert('Error al leer el archivo: ' + err.message);
+    }
+  };
+  reader.readAsText(input.files[0], 'UTF-8');
+  input.value = ''; // allow re-loading same file
+}
+
+function parsearCorteSucursal(text) {
+  const lines = text.split(/\r?\n/);
+  corteSucursalMovimientos = [];
+
+  // --- Extract header info (line 0: "CORTE DE CAJA — FECHA — SUCURSAL") ---
+  const headerLine = lines[0] || '';
+  const headerParts = headerLine.split('—').map(s => s.trim());
+  const fechaArchivo  = headerParts[1] || '—';
+  const sucursalNombre = headerParts[2] || 'Desconocida';
+
+  // --- Find VENTAS section ---
+  let inVentas = false;
+  let headerRow = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    if (line === 'VENTAS') { inVentas = true; continue; }
+    if (inVentas && line.startsWith('TOTAL VENTAS')) { inVentas = false; continue; }
+    if (line === 'ANTICIPOS / ABONOS' || line === 'GASTOS') { inVentas = false; continue; }
+
+    if (inVentas) {
+      const cols = parseCSVLine(line);
+      if (!headerRow) {
+        // This is the column header line
+        headerRow = cols.map(c => c.toLowerCase().trim());
+        continue;
+      }
+
+      // Data row — get folio and productos
+      const idxFolio    = 0;  // Folio
+      const idxProductos = 5; // Productos: "COD x PZ | COD x PZ"
+      const folio     = cols[idxFolio] || '—';
+      const prodStr   = cols[idxProductos] || '';
+      if (!prodStr.trim()) continue;
+
+      // Parse products: "CODIGO x PZ | CODIGO x PZ"
+      const prodItems = prodStr.split('|').map(s => s.trim()).filter(Boolean);
+      prodItems.forEach(item => {
+        // Format: "CODIGO x PZ"
+        const match = item.match(/^(.+?)\s+x\s*(\d+)$/);
+        if (!match) return;
+        const codigo = match[1].trim();
+        const cant   = parseInt(match[2]) || 0;
+        if (!codigo || !cant) return;
+
+        // Find product in both inventories
+        const prodLlanta = DB.inventario.find(i => i.codigo === codigo);
+        const prodRin    = DB.rines.find(i => i.codigo === codigo);
+        const prod = prodLlanta || prodRin;
+        const tipo = prodLlanta ? 'llantas' : prodRin ? 'rines' : null;
+
+        corteSucursalMovimientos.push({
+          id: Date.now() + Math.random(),
+          folio,
+          codigo,
+          cant,
+          tipo,         // 'llantas' | 'rines' | null (not found)
+          prod,         // product object or null
+          op: 'descuento',  // default
+          seleccionado: true,
+        });
+      });
+    }
+  }
+
+  if (!corteSucursalMovimientos.length) {
+    alert('No se encontraron productos de ventas en el archivo.\nVerifica que sea un corte de caja válido generado por Peters Wheels.');
+    return;
+  }
+
+  // Populate sucursal origen select
+  const origenSel = document.getElementById('corte-suc-origen');
+  origenSel.innerHTML = '<option value="">— Detectar automático —</option>' +
+    DB.sucursales.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+  // Try to match sucursal by name
+  const matchSuc = DB.sucursales.find(s => s.nombre.toLowerCase() === sucursalNombre.toLowerCase());
+  if (matchSuc) origenSel.value = matchSuc.id;
+
+  // Info header
+  document.getElementById('corte-suc-info').innerHTML =
+    `📄 <strong>${lines[0]}</strong> &nbsp;·&nbsp; ` +
+    `<strong style="color:var(--accent)">${corteSucursalMovimientos.length}</strong> movimientos detectados &nbsp;·&nbsp; ` +
+    `Fecha del archivo: <strong>${fechaArchivo}</strong>`;
+
+  renderCorteSucursalTabla();
+  actualizarResumenCorte();
+  document.getElementById('modalCorteSucursal').classList.add('open');
+}
+
+function renderCorteSucursalTabla() {
+  const tbody = document.getElementById('corte-suc-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = corteSucursalMovimientos.map((m, idx) => {
+    const prod = m.prod;
+    const stockActual = prod ? prod.pz : null;
+    const stockBadge = prod
+      ? `<span style="color:${prod.pz >= m.cant ? 'var(--green)':'var(--red)'};font-weight:700">${prod.pz} pz</span>`
+      : `<span style="color:var(--red)">No encontrado</span>`;
+    const prodNombre = prod
+      ? (m.tipo==='rines'
+          ? `${esc(prod.marca||'')} ${prod.medida_rin||''}" ${prod.ancho||''} ${prod.barrenacion||''}`
+          : `${esc(prod.descripcion||'')} ${prod.medida||''}`)
+      : `<span style="color:var(--red)">—</span>`;
+
+    // Sucursal destino select (only for traspaso)
+    const sucDestOptions = DB.sucursales.map(s =>
+      `<option value="${s.id}">${s.nombre}</option>`).join('');
+
+    // Estado del movimiento
+    let estadoBadgeHtml = '';
+    if (!prod) {
+      estadoBadgeHtml = '<span class="badge-pill badge-red">Sin coincidencia</span>';
+    } else if (m.op === 'descuento' && prod.pz < m.cant) {
+      estadoBadgeHtml = '<span class="badge-pill badge-accent">⚠️ Stock bajo</span>';
+    } else if (m.op === 'ninguno') {
+      estadoBadgeHtml = '<span class="badge-pill" style="background:rgba(100,100,100,.2);color:var(--text3)">Omitir</span>';
+    } else {
+      estadoBadgeHtml = '<span class="badge-pill badge-green">✓ Listo</span>';
+    }
+
+    return `<tr style="${!m.seleccionado||m.op==='ninguno'?'opacity:.5':''}">
+      <td><input type="checkbox" ${m.seleccionado?'checked':''} onchange="toggleMovCorte(${idx},this.checked)" style="width:auto;accent-color:var(--accent)"></td>
+      <td style="font-family:monospace;font-size:11px">${esc(m.folio)}</td>
+      <td style="font-family:monospace">${esc(m.codigo)}</td>
+      <td style="font-size:12px">${prodNombre} ${m.tipo?`<span style="font-size:10px;color:var(--text3)">(${m.tipo==='rines'?'⚙️ Rin':'🔵 Llanta'})</span>`:''}</td>
+      <td class="td-right"><strong>${m.cant}</strong></td>
+      <td>${stockBadge}</td>
+      <td>
+        <select onchange="cambiarOpCorte(${idx},this.value)" style="font-size:12px">
+          <option value="descuento" ${m.op==='descuento'?'selected':''}>➖ Descontar</option>
+          <option value="traspaso"  ${m.op==='traspaso' ?'selected':''}>↔️ Traspasar</option>
+          <option value="ninguno"   ${m.op==='ninguno'  ?'selected':''}>⛔ Omitir</option>
+        </select>
+      </td>
+      <td id="corte-dest-cell-${idx}">
+        ${m.op==='traspaso'
+          ? `<select onchange="cambiarDestCorte(${idx},this.value)" style="font-size:12px">${sucDestOptions}</select>`
+          : '<span style="color:var(--text3);font-size:11px">—</span>'}
+      </td>
+      <td>${estadoBadgeHtml}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">Sin movimientos</td></tr>';
+}
+
+function toggleMovCorte(idx, checked) {
+  corteSucursalMovimientos[idx].seleccionado = checked;
+  actualizarResumenCorte();
+  renderCorteSucursalTabla();
+}
+
+function cambiarOpCorte(idx, op) {
+  corteSucursalMovimientos[idx].op = op;
+  if (op !== 'ninguno') corteSucursalMovimientos[idx].seleccionado = true;
+  actualizarResumenCorte();
+  renderCorteSucursalTabla();
+}
+
+function cambiarDestCorte(idx, sucId) {
+  corteSucursalMovimientos[idx].destSuc = sucId;
+}
+
+function toggleTodosCorte(checked) {
+  corteSucursalMovimientos.forEach(m => { if (m.prod) m.seleccionado = checked; });
+  document.getElementById('corte-suc-check-all').checked = checked;
+  document.getElementById('corte-suc-sel-todos').checked = checked;
+  actualizarResumenCorte();
+  renderCorteSucursalTabla();
+}
+
+function aplicarOpDefaultCorte() {
+  const op = document.getElementById('corte-suc-op-default').value;
+  corteSucursalMovimientos.forEach(m => { if (m.prod) m.op = op; });
+  renderCorteSucursalTabla();
+  actualizarResumenCorte();
+}
+
+function actualizarResumenCorte() {
+  const sel     = corteSucursalMovimientos.filter(m => m.seleccionado && m.op !== 'ninguno');
+  const desc    = sel.filter(m => m.op === 'descuento');
+  const trasp   = sel.filter(m => m.op === 'traspaso');
+  const sinProd = corteSucursalMovimientos.filter(m => !m.prod);
+  const stockBajo = desc.filter(m => m.prod && m.prod.pz < m.cant);
+
+  const resEl = document.getElementById('corte-suc-resumen');
+  resEl.innerHTML =
+    `<strong style="color:var(--text)">${sel.length}</strong> movimientos seleccionados &nbsp;·&nbsp; ` +
+    `<span style="color:var(--red)">➖ ${desc.length} descuentos</span> &nbsp;·&nbsp; ` +
+    `<span style="color:var(--blue)">↔️ ${trasp.length} traspasos</span>` +
+    (sinProd.length ? ` &nbsp;·&nbsp; <span style="color:var(--red)">⚠️ ${sinProd.length} sin coincidencia (se omitirán)</span>` : '') +
+    (stockBajo.length ? ` &nbsp;·&nbsp; <span style="color:var(--accent)">⚠️ ${stockBajo.length} con stock insuficiente (se permiten pero quedarán en negativo)</span>` : '');
+}
+
+function aplicarCorteSucursal() {
+  if (usuarioActivo?.rol !== 'admin') { alert('Solo administradores'); return; }
+  const errEl = document.getElementById('corte-suc-error');
+  errEl.textContent = '';
+
+  const sucOrigenId = document.getElementById('corte-suc-origen')?.value || DB.sucursales[0]?.id;
+  const sel = corteSucursalMovimientos.filter(m => m.seleccionado && m.op !== 'ninguno' && m.prod);
+
+  if (!sel.length) { errEl.textContent = 'Selecciona al menos un movimiento para aplicar'; return; }
+
+  // Validate traspasos have destino
+  const sinDest = sel.filter(m => m.op === 'traspaso' && !m.destSuc);
+  if (sinDest.length) {
+    errEl.textContent = `${sinDest.length} traspaso(s) sin sucursal destino seleccionada`;
+    return;
+  }
+
+  const now   = new Date();
+  const fecha = now.toISOString().slice(0,10);
+  const hora  = now.toTimeString().slice(0,5);
+  let aplicados = 0;
+
+  sel.forEach(m => {
+    const inv = m.tipo === 'rines' ? DB.rines : DB.inventario;
+    const idx = inv.findIndex(i => i.codigo === m.codigo && i.sucursal === (m.prod.sucursal || sucOrigenId));
+
+    if (idx < 0) return; // product not found in that sucursal
+
+    if (m.op === 'descuento') {
+      inv[idx].pz = Math.max(0, inv[idx].pz - m.cant);
+      addHistorial({
+        tipo: 'salida',
+        folio: m.folio,
+        descripcion: `Corte sucursal: venta ${m.folio} — ${m.codigo} -${m.cant} pz (corte importado)`,
+        sucursal: inv[idx].sucursal,
+        usuario: getCurrentUserName(),
+        monto: 0,
+      });
+      aplicados++;
+
+    } else if (m.op === 'traspaso') {
+      // Move from origen to destino
+      inv[idx].pz = Math.max(0, inv[idx].pz - m.cant);
+      const idxDest = inv.findIndex(i => i.codigo === m.codigo && i.sucursal === m.destSuc);
+      if (idxDest >= 0) { inv[idxDest].pz += m.cant; }
+      else { inv.push({ ...inv[idx], sucursal: m.destSuc, pz: m.cant }); }
+
+      addHistorial({
+        tipo: 'traspaso',
+        folio: m.folio,
+        descripcion: `Corte sucursal: traspaso ${m.codigo} x${m.cant} ${getSucNombre(inv[idx].sucursal)} → ${getSucNombre(m.destSuc)}`,
+        sucursal: inv[idx].sucursal,
+        usuario: getCurrentUserName(),
+        monto: 0,
+      });
+      aplicados++;
+    }
+  });
+
+  saveToStorage();
+  closeModal('modalCorteSucursal');
+  loadSucursalInventory();
+  renderGlobalInventory();
+  renderRinesInventory();
+  alert(`✅ Se aplicaron ${aplicados} movimiento(s) al inventario.\nRevisa el Historial para ver el detalle.`);
 }
 
 function downloadCorteCajaCSV() {
