@@ -4753,6 +4753,38 @@ function renderCfgVendedores(){
 }
 function deleteVendedor(nombre){DB.vendedores=DB.vendedores.filter(v=>v!==nombre);saveToStorage();renderCfgVendedores();refreshSelectsGlobal();}
 
+// ══════════════════════════════════════
+// MAYÚSCULAS: convertir valor real al escribir
+// ══════════════════════════════════════
+(function initUppercase() {
+  // Aplicar a inputs ya existentes y a los que se creen dinámicamente
+  function uppercaseInput(e) {
+    const el = e.target;
+    if (!el) return;
+    const tag = el.tagName;
+    const type = (el.type || '').toLowerCase();
+    // Solo text inputs y textareas, excluir password, number, date, email, search-de-filtro
+    if ((tag === 'INPUT' && (type === '' || type === 'text' || type === 'search')) || tag === 'TEXTAREA') {
+      // Excluir campos de solo lectura o deshabilitados
+      if (el.readOnly || el.disabled) return;
+      // Excluir campos de PIN o contraseña por clase o id
+      if (el.id && (el.id.includes('pin') || el.id.includes('Pass') || el.id.includes('pass'))) return;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const val = el.value;
+      const upper = val.toUpperCase();
+      if (val !== upper) {
+        el.value = upper;
+        // Restaurar posición del cursor
+        try { el.setSelectionRange(start, end); } catch(e) {}
+      }
+    }
+  }
+  // Captura en fase de captura para cubrir todos los inputs, incluidos los dinámicos
+  document.addEventListener('input', uppercaseInput, true);
+  document.addEventListener('change', uppercaseInput, true);
+})();
+
 // PROVEEDORES
 function addProveedor(){
   const nombre=document.getElementById('cfg-prov-nombre').value.trim();
