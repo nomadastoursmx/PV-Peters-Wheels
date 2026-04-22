@@ -811,7 +811,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
       </div>
       <div class="card">
         <div class="card-title">📋 Ventas del Día</div>
-        <div class="table-wrap"><table><thead><tr><th>Folio</th><th>Hora</th><th>Vendedor</th><th>Métodos</th><th>Productos/Servicios</th><th class="td-right">Total</th><th>Estado</th></tr></thead><tbody id="corte-ventas-tbody"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Folio</th><th>Hora</th><th>Vendedor</th><th>Métodos</th><th>Productos/Servicios</th><th class="td-right">Total</th><th>Estado</th><th id="corte-ventas-acciones-th" style="display:none"></th></tr></thead><tbody id="corte-ventas-tbody"></tbody></table></div>
       </div>
       <div class="card">
         <div class="card-title">📦 Apartados / Anticipos del Día</div>
@@ -1302,20 +1302,46 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
   </div>
 </div>
 
-<!-- MODAL CANCELAR VENTA (con PIN) -->
+<!-- MODAL CANCELAR / ELIMINAR VENTA (con PIN admin) -->
 <div class="modal-overlay" id="modalCancelarVenta">
-  <div class="modal" style="max-width:440px">
-    <div class="modal-title">🚫 Cancelar Venta</div>
-    <div id="cancelar-venta-info" style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px"></div>
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title" id="cancelar-modal-title">🚫 Cancelar Venta</div>
+
+    <!-- Info de la venta -->
+    <div id="cancelar-venta-info" style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;line-height:1.7"></div>
+
+    <!-- Tipo de acción (solo visible en modo admin) -->
+    <div class="form-row" id="cancelar-tipo-group">
+      <div class="form-group full">
+        <label>Tipo de acción</label>
+        <div style="display:flex;gap:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500;flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px" id="cancelar-opt-cancelar">
+            <input type="radio" name="cancelar-tipo" value="cancelar" checked style="width:auto;accent-color:var(--accent)">
+            <div>
+              <div style="font-weight:700;color:var(--text)">🚫 Cancelar</div>
+              <div style="font-size:11px;color:var(--text3)">Marca la venta como cancelada y devuelve el inventario. Queda en el historial.</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500;flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px" id="cancelar-opt-eliminar">
+            <input type="radio" name="cancelar-tipo" value="eliminar" style="width:auto;accent-color:var(--red)">
+            <div>
+              <div style="font-weight:700;color:var(--red)">🗑️ Eliminar</div>
+              <div style="font-size:11px;color:var(--text3)">Borra la venta permanentemente. Solo para errores de captura. No se puede deshacer.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
     <div class="form-row">
-      <div class="form-group full"><label>Motivo de cancelación *</label><textarea id="cancelar-motivo" placeholder="Describe el motivo..." style="min-height:60px"></textarea></div>
+      <div class="form-group full"><label>Motivo *</label><textarea id="cancelar-motivo" placeholder="Describe el motivo del error o cancelación..." style="min-height:60px;text-transform:uppercase"></textarea></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>PIN de Administrador *</label><input type="password" id="cancelar-pin" placeholder="••••" maxlength="4" style="letter-spacing:4px"></div>
+      <div class="form-group"><label>PIN de Administrador *</label><input type="password" id="cancelar-pin" placeholder="••••" maxlength="4" style="letter-spacing:4px;text-transform:none"></div>
     </div>
     <div id="cancelar-error" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px"></div>
     <div class="btn-group">
-      <button class="btn btn-danger" onclick="confirmarCancelacion()">🚫 Confirmar Cancelación</button>
+      <button class="btn btn-danger" onclick="confirmarCancelacion()" id="cancelar-btn-confirm">🚫 Confirmar</button>
       <button class="btn btn-secondary" onclick="closeModal('modalCancelarVenta')">Cerrar</button>
     </div>
   </div>
@@ -1326,7 +1352,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
   <div class="modal" style="max-width:700px">
     <div class="modal-title">📋 Detalle de Venta</div>
     <div id="venta-detail-content"></div>
-    <div class="btn-group" style="margin-top:16px"><button class="btn btn-secondary" onclick="closeModal('modalVentaDetail')">Cerrar</button></div>
+    <div class="btn-group" style="margin-top:16px" id="venta-detail-acciones"></div>
   </div>
 </div>
 
@@ -2075,35 +2101,137 @@ function saveTraspaso(){
 // CANCELAR VENTA CON PIN
 // ══════════════════════════════════════════════════════════════
 let ventaACancelarId=null;
-function showCancelarVentaModal(ventaId){
-  ventaACancelarId=ventaId;
-  const v=DB.ventas.find(v=>v.id===ventaId);
-  if(!v) return;
-  document.getElementById('cancelar-venta-info').innerHTML=`<strong>Folio:</strong> ${esc(v.vale)} | <strong>Fecha:</strong> ${v.fecha} | <strong>Total:</strong> ${fmt(v.precioTotal)}<br>${(v.productos||[]).map(p=>esc(p.desc)+' x'+p.pz).join(', ')}`;
-  document.getElementById('cancelar-motivo').value='';
-  document.getElementById('cancelar-pin').value='';
-  document.getElementById('cancelar-error').textContent='';
+function showCancelarVentaModal(ventaId, modoInicial) {
+  ventaACancelarId = ventaId;
+  const v = DB.ventas.find(v => v.id === ventaId);
+  if (!v) return;
+
+  // Info de la venta
+  const prodsStr = (v.productos||[]).map(p => `${esc(p.desc||p.codigo)} ×${p.pz}`).join(', ') || '—';
+  const srvStr   = (v.servicios||[]).map(s => esc(s.desc)).join(', ');
+  document.getElementById('cancelar-venta-info').innerHTML =
+    `<strong>Folio:</strong> ${esc(v.vale||'—')} &nbsp;·&nbsp; <strong>Fecha:</strong> ${v.fecha||'—'} &nbsp;·&nbsp; <strong>Sucursal:</strong> ${esc(getSucNombre(v.sucursal))} &nbsp;·&nbsp; <strong>Total:</strong> <span style="color:var(--accent)">${fmt(v.precioTotal)}</span><br>` +
+    `<span style="color:var(--text2)">Productos: ${prodsStr}${srvStr?` | Servicios: ${srvStr}`:''}</span>` +
+    (v.cancelada ? `<br><span style="color:var(--red)">⚠️ Esta venta ya fue cancelada: ${esc(v.motivoCancelacion||'')}</span>` : '');
+
+  // Modo: cancelar o eliminar
+  const modo = modoInicial || (v.cancelada ? 'eliminar' : 'cancelar');
+  const radioCancel = document.querySelector('input[name="cancelar-tipo"][value="cancelar"]');
+  const radioElim   = document.querySelector('input[name="cancelar-tipo"][value="eliminar"]');
+  if (radioCancel) radioCancel.checked = (modo === 'cancelar');
+  if (radioElim)   radioElim.checked   = (modo === 'eliminar');
+
+  // Actualizar visual del título y botón
+  _actualizarVisualCancelModal();
+
+  // Escuchar cambios en radio buttons
+  document.querySelectorAll('input[name="cancelar-tipo"]').forEach(r => {
+    r.onchange = _actualizarVisualCancelModal;
+  });
+
+  // Si ya está cancelada, ocultar opción cancelar
+  const optCancelar = document.getElementById('cancelar-opt-cancelar');
+  if (optCancelar) optCancelar.style.display = v.cancelada ? 'none' : '';
+
+  document.getElementById('cancelar-motivo').value = '';
+  document.getElementById('cancelar-pin').value = '';
+  document.getElementById('cancelar-error').textContent = '';
   document.getElementById('modalCancelarVenta').classList.add('open');
 }
-function confirmarCancelacion(){
-  const motivo=document.getElementById('cancelar-motivo').value.trim();
-  const pin=document.getElementById('cancelar-pin').value;
-  const errEl=document.getElementById('cancelar-error');
-  if(!motivo){errEl.textContent='El motivo es obligatorio';return;}
-  // Verificar PIN contra cualquier usuario administrador
+
+function _actualizarVisualCancelModal() {
+  const modo = document.querySelector('input[name="cancelar-tipo"]:checked')?.value || 'cancelar';
+  const titulo = document.getElementById('cancelar-modal-title');
+  const btnConfirm = document.getElementById('cancelar-btn-confirm');
+  if (titulo) titulo.textContent = modo === 'eliminar' ? '🗑️ Eliminar Venta Permanentemente' : '🚫 Cancelar Venta';
+  if (btnConfirm) {
+    btnConfirm.textContent = modo === 'eliminar' ? '🗑️ Eliminar permanentemente' : '🚫 Confirmar Cancelación';
+    btnConfirm.style.background = modo === 'eliminar' ? 'rgba(232,75,75,.4)' : '';
+  }
+}
+function confirmarCancelacion() {
+  const motivo   = document.getElementById('cancelar-motivo').value.trim();
+  const pin      = document.getElementById('cancelar-pin').value;
+  const errEl    = document.getElementById('cancelar-error');
+  const modo     = document.querySelector('input[name="cancelar-tipo"]:checked')?.value || 'cancelar';
+
+  if (!motivo) { errEl.textContent = 'El motivo es obligatorio'; return; }
+
+  // Verificar PIN de administrador
   const adminUser = DB.usuarios.find(u => u.rol === 'admin' && u.pin === pin);
-  if(!adminUser){errEl.textContent='PIN de administrador incorrecto';document.getElementById('cancelar-pin').value='';return;}
-  const v=DB.ventas.find(v=>v.id===ventaACancelarId);
-  if(!v){closeModal('modalCancelarVenta');return;}
-  v.cancelada=true;v.motivoCancelacion=motivo;v.fechaCancelacion=new Date().toISOString();
-  // Devolver inventario
-  (v.productos||[]).forEach(r=>{
-    const idx=DB.inventario.findIndex(i=>i.codigo===r.codigo&&i.sucursal===v.sucursal);
-    if(idx>=0) DB.inventario[idx].pz+=r.pz;
-  });
-  addHistorial({tipo:'cancelacion',folio:v.vale,descripcion:`Cancelación de venta ${v.vale}: ${motivo}`,sucursal:v.sucursal,usuario:getCurrentUserName(),monto:v.precioTotal,ventaId:v.id});
-  saveToStorage();closeModal('modalCancelarVenta');renderHistorial();
-  alert(`✅ Venta ${v.vale} cancelada. Inventario restaurado.`);
+  if (!adminUser) {
+    errEl.textContent = 'PIN de administrador incorrecto';
+    document.getElementById('cancelar-pin').value = '';
+    return;
+  }
+
+  const v = DB.ventas.find(v => v.id === ventaACancelarId);
+  if (!v) { closeModal('modalCancelarVenta'); return; }
+
+  if (modo === 'eliminar') {
+    // ── ELIMINAR PERMANENTEMENTE ──
+    if (!confirm(`⚠️ Eliminar permanentemente la venta ${v.vale}.
+
+Esta acción NO se puede deshacer.
+¿Continuar?`)) return;
+    // Devolver inventario si no estaba cancelada
+    if (!v.cancelada) {
+      (v.productos||[]).forEach(r => {
+        const idx = DB.inventario.findIndex(i => i.codigo === r.codigo && i.sucursal === v.sucursal);
+        if (idx >= 0) DB.inventario[idx].pz += r.pz;
+      });
+      (v.productos||[]).filter(r => r.tipo === 'rin').forEach(r => {
+        const idx = DB.rines.findIndex(i => i.codigo === r.codigo && i.sucursal === v.sucursal);
+        if (idx >= 0) DB.rines[idx].pz += r.pz;
+      });
+    }
+    addHistorial({
+      tipo: 'cancelacion',
+      folio: v.vale,
+      descripcion: `⚠️ ELIMINACIÓN de venta ${v.vale} por ${adminUser.nombre}: ${motivo}`,
+      sucursal: v.sucursal,
+      usuario: getCurrentUserName(),
+      monto: v.precioTotal,
+    });
+    DB.ventas = DB.ventas.filter(vv => vv.id !== ventaACancelarId);
+    saveToStorage();
+    closeModal('modalCancelarVenta');
+    renderHistorial();
+    renderCorteCaja();
+    alert(`🗑️ Venta ${v.vale} eliminada permanentemente.${!v.cancelada ? ' Inventario restaurado.' : ''}`);
+
+  } else {
+    // ── CANCELAR (marcar como cancelada, mantener en historial) ──
+    v.cancelada = true;
+    v.motivoCancelacion = motivo;
+    v.fechaCancelacion  = new Date().toISOString();
+    v.canceladoPor      = adminUser.nombre;
+    // Devolver inventario llantas
+    (v.productos||[]).filter(r => r.tipo !== 'rin').forEach(r => {
+      const idx = DB.inventario.findIndex(i => i.codigo === r.codigo && i.sucursal === v.sucursal);
+      if (idx >= 0) DB.inventario[idx].pz += r.pz;
+    });
+    // Devolver inventario rines
+    (v.productos||[]).filter(r => r.tipo === 'rin').forEach(r => {
+      const idx = DB.rines.findIndex(i => i.codigo === r.codigo && i.sucursal === v.sucursal);
+      if (idx >= 0) DB.rines[idx].pz += r.pz;
+    });
+    addHistorial({
+      tipo: 'cancelacion',
+      folio: v.vale,
+      descripcion: `Cancelación de venta ${v.vale} por ${adminUser.nombre}: ${motivo}`,
+      sucursal: v.sucursal,
+      usuario: getCurrentUserName(),
+      monto: v.precioTotal,
+      ventaId: v.id,
+    });
+    saveToStorage();
+    closeModal('modalCancelarVenta');
+    renderHistorial();
+    renderCorteCaja();
+    alert(`✅ Venta ${v.vale} cancelada. Inventario restaurado.
+Cancelada por: ${adminUser.nombre}`);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2295,18 +2423,29 @@ function renderCorteCaja(){
     :'<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:12px">Sin gastos</td></tr>';
 
   // ── Ventas del día ──
+  const isAdminCorte = usuarioActivo?.rol === 'admin';
+  // Mostrar/ocultar columna de acciones
+  const accionesTh = document.getElementById('corte-ventas-acciones-th');
+  if (accionesTh) accionesTh.style.display = isAdminCorte ? '' : 'none';
+
   const vtbody=document.getElementById('corte-ventas-tbody');
   vtbody.innerHTML=ventas.length
-    ?[...ventas].reverse().map(v=>`<tr style="cursor:pointer" onclick="showVentaDetail(${v.id})">
-        <td style="font-family:monospace">${esc(v.vale||'-')}</td>
-        <td>${v.hora||'-'}</td>
-        <td>${esc(v.vendedor||'-')}</td>
-        <td style="font-size:11px">${(v.metodosPago||[]).map(p=>`<span class="badge-pill badge-accent" style="font-size:10px;margin:1px">${esc(p.metodo)}</span>`).join('')||esc(v.metodoPago||'-')}</td>
-        <td style="font-size:11px">${[...(v.productos||[]).map(p=>esc(p.desc)),(v.servicios||[]).map(s=>esc(s.desc))].flat().join(', ')}</td>
-        <td class="td-right"><strong>${fmt(v.precioTotal)}</strong></td>
-        <td><span class="badge-pill badge-green">OK</span></td>
+    ?[...ventas].reverse().map(v=>`<tr style="${v.cancelada?'opacity:.5':''}">
+        <td style="font-family:monospace;cursor:pointer" onclick="showVentaDetail(${v.id})">${esc(v.vale||'-')}</td>
+        <td style="cursor:pointer" onclick="showVentaDetail(${v.id})">${v.hora||'-'}</td>
+        <td style="cursor:pointer" onclick="showVentaDetail(${v.id})">${esc(v.vendedor||'-')}</td>
+        <td style="font-size:11px;cursor:pointer" onclick="showVentaDetail(${v.id})">${(v.metodosPago||[]).map(p=>`<span class="badge-pill badge-accent" style="font-size:10px;margin:1px">${esc(p.metodo)}</span>`).join('')||esc(v.metodoPago||'-')}</td>
+        <td style="font-size:11px;cursor:pointer" onclick="showVentaDetail(${v.id})">${[...(v.productos||[]).map(p=>esc(p.desc)),(v.servicios||[]).map(s=>esc(s.desc))].flat().join(', ')}</td>
+        <td class="td-right" style="cursor:pointer" onclick="showVentaDetail(${v.id})"><strong>${fmt(v.precioTotal)}</strong></td>
+        <td>${v.cancelada?'<span class="badge-pill badge-red">Cancelada</span>':'<span class="badge-pill badge-green">OK</span>'}</td>
+        ${isAdminCorte ? `<td style="white-space:nowrap">
+          ${!v.cancelada
+            ? `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal(${v.id},'cancelar')" title="Cancelar venta">🚫</button>
+               <button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal(${v.id},'eliminar')" title="Eliminar permanentemente" style="margin-left:2px;background:rgba(232,75,75,.3)">🗑️</button>`
+            : `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal(${v.id},'eliminar')" title="Eliminar permanentemente" style="background:rgba(232,75,75,.3)">🗑️</button>`}
+        </td>` : ''}
       </tr>`).join('')
-    :'<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:16px">Sin ventas para esta fecha</td></tr>';
+    :`<tr><td colspan="${isAdminCorte?8:7}" style="text-align:center;color:var(--text3);padding:16px">Sin ventas para esta fecha</td></tr>`;
 
   // ── Apartados/anticipos del día ──
   const atbody=document.getElementById('corte-apartados-tbody');
@@ -3181,7 +3320,20 @@ function renderGastos() {
   if(!items.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Sin gastos</td></tr>';return;}
   tbody.innerHTML=items.map(g=>`<tr><td>${g.fecha}</td><td>${g.concepto}</td><td>${getSucNombre(g.sucursal)}</td><td class="td-right">${fmt(g.monto)}</td><td>${g.notas||'-'}</td><td><button class="btn btn-danger btn-sm" onclick="deleteGasto(${g.id})">✕</button></td></tr>`).join('');
 }
-function deleteGasto(id){DB.gastos=DB.gastos.filter(g=>g.id!==id);saveToStorage();renderGastos();}
+function deleteGasto(id) {
+  const g = DB.gastos.find(x => x.id === id); if (!g) return;
+  if (usuarioActivo?.rol !== 'admin') { alert('Solo los administradores pueden eliminar gastos'); return; }
+  if (!confirm(`¿Eliminar el gasto "${g.concepto}" por ${fmt(g.monto)}?
+
+Esta acción no se puede deshacer.`)) return;
+  const pin = prompt('Ingresa tu PIN de administrador:');
+  if (!pin) return;
+  const adminUser = DB.usuarios.find(u => u.rol === 'admin' && u.pin === pin);
+  if (!adminUser) { alert('PIN incorrecto'); return; }
+  addHistorial({ tipo:'salida', folio:'', descripcion:`Gasto eliminado: ${g.concepto} ${fmt(g.monto)} (por ${adminUser.nombre})`, sucursal:g.sucursal, usuario:getCurrentUserName(), monto:0 });
+  DB.gastos = DB.gastos.filter(x => x.id !== id);
+  saveToStorage(); renderGastos();
+}
 
 // ══════════════════════════════════════════════════════════════
 // HISTORIAL DEL DÍA
@@ -3212,7 +3364,10 @@ function renderHistorial() {
       <td class="td-right" style="cursor:pointer" onclick="showVentaDetail(${v.id})"><span style="color:var(--green)">${fmt(v.utilidad||0)}</span></td>
       <td class="td-right" style="cursor:pointer" onclick="showVentaDetail(${v.id})"><strong>${fmt(v.precioTotal||0)}</strong></td>
       <td>${estadoV}</td>
-      <td>${!v.cancelada?`<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal(${v.id})" title="Cancelar">🚫</button>`:''}</td>
+      <td style="white-space:nowrap">
+        ${!v.cancelada && usuarioActivo?.rol==='admin' ? `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal(${v.id},'cancelar')" title="Cancelar venta">🚫</button>` : ''}
+        ${usuarioActivo?.rol==='admin' ? `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal(${v.id},'eliminar')" title="Eliminar permanentemente" style="margin-left:2px;background:rgba(232,75,75,.25)">🗑️</button>` : ''}
+      </td>
     </tr>`;
   }).join('');
   const ventasActivas=ventas.filter(v=>!v.cancelada);
@@ -3267,6 +3422,21 @@ function showVentaDetail(id) {
       <div class="total-line"><span class="lbl">Com. vendedor (${DB.config.comisionPct}%)</span><span class="val accent">${fmt(v.comisionVendedor||0)}</span></div>
       <div class="total-line"><span class="lbl">TOTAL COBRADO</span><span class="val">${fmt(v.precioTotal)}</span></div>
     </div>`;
+  // Botones de acción según rol y estado
+  const accionesEl = document.getElementById('venta-detail-acciones');
+  if (accionesEl) {
+    const vid = v.id;
+    let btns = '<button class="btn btn-secondary" onclick="closeModal(&quot;modalVentaDetail&quot;)">Cerrar</button>';
+    if (usuarioActivo?.rol === 'admin') {
+      if (!v.cancelada) {
+        btns += `<button class="btn btn-danger" onclick="closeModal('modalVentaDetail');showCancelarVentaModal(${vid},'cancelar')" style="margin-left:8px">🚫 Cancelar venta</button>`;
+        btns += `<button class="btn btn-danger" onclick="closeModal('modalVentaDetail');showCancelarVentaModal(${vid},'eliminar')" style="margin-left:4px;background:rgba(232,75,75,.3)">🗑️ Eliminar</button>`;
+      } else {
+        btns += `<button class="btn btn-danger" onclick="closeModal('modalVentaDetail');showCancelarVentaModal(${vid},'eliminar')" style="margin-left:8px">🗑️ Eliminar permanentemente</button>`;
+      }
+    }
+    accionesEl.innerHTML = btns;
+  }
   document.getElementById('modalVentaDetail').classList.add('open');
 }
 
