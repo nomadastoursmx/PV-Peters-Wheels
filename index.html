@@ -727,14 +727,33 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
       </div>
 
       <div id="cfg-datos" style="display:none">
+
+        <!-- ── MODO SUCURSAL: exportar para enviar a Matriz ── -->
+        <div class="card" style="border-color:var(--accent)">
+          <div class="card-title">📤 Exportar para Matriz <span class="badge" style="background:var(--accent);color:#000">SUCURSAL</span></div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Exporta el JSON de esta sucursal para que la Matriz lo importe y fusione los datos sin duplicados.</p>
+          <button class="btn btn-primary" onclick="exportJSONSucursal()">📤 Exportar JSON de esta Sucursal</button>
+          <p style="margin-top:8px;font-size:11px;color:var(--text3)">El archivo incluye todas las ventas, gastos, apartados, movimientos e inventario de esta sucursal con IDs únicos para evitar duplicados al fusionar.</p>
+        </div>
+
+        <!-- ── MODO MATRIZ: importar y fusionar JSONs de sucursales ── -->
+        <div class="card" style="border-color:var(--blue)">
+          <div class="card-title">🔀 Importar y Fusionar desde Sucursal <span class="badge" style="background:var(--blue);color:#fff">MATRIZ</span></div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Carga el JSON exportado por una sucursal. El sistema detecta qué es nuevo, qué ya existe y te muestra los traspasos pendientes para que los apliques una sola vez.</p>
+          <button class="btn btn-secondary" style="border-color:var(--blue);color:var(--blue)" onclick="document.getElementById('importFusionJSON').click()">📥 Cargar JSON de Sucursal</button>
+          <input type="file" id="importFusionJSON" accept=".json" style="display:none" onchange="leerJSONSucursal(this)">
+          <p style="margin-top:8px;font-size:11px;color:var(--text3)">Los datos ya importados anteriormente se ignorarán automáticamente. Los traspasos se aplican una sola vez aunque ambas sucursales los reporten.</p>
+        </div>
+
+        <!-- ── RESPALDO COMPLETO ── -->
         <div class="card">
-          <div class="card-title">💾 Respaldo de Datos</div>
+          <div class="card-title">💾 Respaldo Completo (Administrador)</div>
           <div class="btn-group">
-            <button class="btn btn-primary" onclick="exportJSON()">⬇️ Descargar JSON</button>
-            <button class="btn btn-secondary" onclick="document.getElementById('importJSON').click()">⬆️ Cargar JSON</button>
+            <button class="btn btn-primary" onclick="exportJSON()">⬇️ Descargar JSON Completo</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('importJSON').click()">⬆️ Restaurar JSON Completo</button>
           </div>
           <input type="file" id="importJSON" accept=".json" style="display:none" onchange="importJSONFile(this)">
-          <p style="margin-top:12px;font-size:12px;color:var(--text3)">Descarga el archivo JSON para hacer respaldo o carga uno para restaurar.</p>
+          <p style="margin-top:12px;font-size:12px;color:var(--text3)">Respaldo total — reemplaza todos los datos actuales.</p>
           <hr class="divider">
           <button class="btn btn-danger" onclick="if(confirm('¿Eliminar TODOS los datos?'))clearAllData()">🗑️ Borrar todos los datos</button>
         </div>
@@ -769,10 +788,13 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
         <div class="form-row" style="align-items:flex-end">
           <div class="form-group"><label>Fecha</label><input type="date" id="corte-fecha" oninput="renderCorteCaja()"></div>
           <div class="form-group"><label>Sucursal</label><select id="corte-suc" onchange="renderCorteCaja()"><option value="">Todas</option></select></div>
-          <div class="form-group" style="padding-top:20px;display:flex;gap:8px">
-            <button class="btn btn-secondary" onclick="downloadCorteCajaCSV()">📥 Descargar CSV</button>
-            <button class="btn btn-secondary" onclick="document.getElementById('corte-csv-input').click()" id="btn-cargar-corte-suc" style="display:none">📤 Cargar Corte de Sucursal</button>
+          <div class="form-group" style="padding-top:20px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-secondary" onclick="downloadCorteCajaCSV()">📥 CSV</button>
+            <button class="btn btn-primary" onclick="exportJSONSucursal()" title="Exporta el JSON de esta sucursal para enviarlo a Matriz">📤 Exportar para Matriz</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('corte-csv-input').click()" id="btn-cargar-corte-suc" style="display:none">📋 Cargar Corte CSV</button>
+            <button class="btn btn-secondary" style="border-color:var(--blue);color:var(--blue)" onclick="document.getElementById('corte-fusion-json-input').click()" id="btn-fusion-json-corte" style="display:none">🔀 Cargar JSON Sucursal</button>
             <input type="file" id="corte-csv-input" accept=".csv" style="display:none" onchange="leerCorteSucursal(this)">
+            <input type="file" id="corte-fusion-json-input" accept=".json" style="display:none" onchange="leerJSONSucursal(this)">
           </div>
         </div>
       </div>
@@ -1398,7 +1420,9 @@ function loadFromStorage() {
   if (!DB.folioConsecutivo) DB.folioConsecutivo = {};
   if (!DB.servicios) DB.servicios = [];
   if (!DB.apartados) DB.apartados = [];
-  if (!DB.usuarios) DB.usuarios = [{ id:'u1', nombre:'Administrador', pin:'1234', rol:'admin' }];
+  if (!DB.usuarios)          DB.usuarios = [{ id:'u1', nombre:'Administrador', pin:'1234', rol:'admin' }];
+  if (!DB.fusionesAplicadas) DB.fusionesAplicadas = [];
+  if (!DB.traspasoIds)       DB.traspasoIds = {};
 }
 function saveToStorage() { localStorage.setItem('peters_wheels_db', JSON.stringify(DB)); }
 function setTodayDates() {
@@ -2038,8 +2062,10 @@ function saveTraspaso(){
   const fecha=now.toISOString().slice(0,10);
   const hora=now.toTimeString().slice(0,5);
   const desc=trasSelectedProduct.descripcion||`${trasSelectedProduct.marca} ${trasSelectedProduct.medida_rin}"`;
-  DB.movimientos.push({fecha,hora,tipo:'salida',sucursal:origen,codigo:trasSelectedProduct.codigo,descripcion:desc,cantidad:cant,motivo:`Traspaso → ${getSucNombre(destino)}: ${motivo}`});
-  DB.movimientos.push({fecha,hora,tipo:'entrada',sucursal:destino,codigo:trasSelectedProduct.codigo,descripcion:desc,cantidad:cant,motivo:`Traspaso ← ${getSucNombre(origen)}: ${motivo}`});
+  const _tid = generarTraspasoId();
+  const _tipoProd = trasSelectedProduct.tipoProd || 'llantas';
+  DB.movimientos.push({uid:genUID(),traspasoId:_tid,subTipo:'salida',tipoProducto:_tipoProd,fecha,hora,tipo:'traspaso',sucursal:origen,codigo:trasSelectedProduct.codigo,descripcion:`${desc} — Traspaso → ${getSucNombre(destino)}: ${motivo}`,cantidad:cant,motivo:`Traspaso → ${getSucNombre(destino)}: ${motivo}`});
+  DB.movimientos.push({uid:genUID(),traspasoId:_tid,subTipo:'entrada',tipoProducto:_tipoProd,fecha,hora,tipo:'traspaso',sucursal:destino,codigo:trasSelectedProduct.codigo,descripcion:`${desc} — Traspaso ← ${getSucNombre(origen)}: ${motivo}`,cantidad:cant,motivo:`Traspaso ← ${getSucNombre(origen)}: ${motivo}`});
   addHistorial({tipo:'traspaso',folio:'',descripcion:`Traspaso x${cant} ${desc} de ${getSucNombre(origen)} → ${getSucNombre(destino)}`,sucursal:origen,usuario:getCurrentUserName(),monto:0});
   saveToStorage();closeModal('modalTraspaso');loadSucursalInventory();
   alert(`✅ Traspaso completado: ${cant} × ${desc}`);
@@ -2087,6 +2113,7 @@ function addHistorial(entry){
   const now=new Date();
   DB.historialUnificado.push({
     id:now.getTime()+Math.random(),
+    uid:genUID(),
     fecha:now.toISOString().slice(0,10),
     hora:now.toTimeString().slice(0,5),
     tipo:entry.tipo,
@@ -2675,7 +2702,7 @@ function saveSale() {
   const suc=document.getElementById('inv-suc-selector')?.value||DB.sucursales[0]?.id;
   const now=new Date();
   const venta={
-    id:now.getTime(), vale, vendedor, fecha,
+    id:now.getTime(), uid:genUID(), vale, vendedor, fecha,
     hora:now.toTimeString().slice(0,5),
     sucursal:suc,
     productos:rows, servicios:srvRows,
@@ -2877,7 +2904,7 @@ function saveApartado() {
   const now=new Date();
 
   const apartado={
-    id:now.getTime(), folio, fecha,
+    id:now.getTime(), uid:genUID(), folio, fecha,
     hora:now.toTimeString().slice(0,5),
     cliente, tel, vendedor, sucursal:suc,
     productos:rows, servicios:srvRows, cambioItems:cambioRows_,
@@ -3144,7 +3171,7 @@ function saveGasto() {
   const sucursal=document.getElementById('gasto-sucursal').value;
   const notas=document.getElementById('gasto-notas').value;
   if(!concepto||!monto){alert('Completa concepto y monto');return;}
-  DB.gastos.push({id:Date.now(),fecha,concepto,monto,sucursal,notas});
+  DB.gastos.push({uid:genUID(),id:Date.now(),fecha,concepto,monto,sucursal,notas});
   saveToStorage();renderGastos();
   document.getElementById('gasto-concepto').value='';document.getElementById('gasto-monto').value='';document.getElementById('gasto-notas').value='';
 }
@@ -3467,6 +3494,9 @@ function applyRoleUI() {
   // Cargar corte sucursal button — only admin
   const btnCargar = document.getElementById('btn-cargar-corte-suc');
   if (btnCargar) btnCargar.style.display = isAdmin ? '' : 'none';
+  // Cargar JSON sucursal (fusión) — only admin
+  const btnFusionCorte = document.getElementById('btn-fusion-json-corte');
+  if (btnFusionCorte) btnFusionCorte.style.display = isAdmin ? '' : 'none';
 
   // If non-admin is on Configuración, go to dashboard
   if (!isAdmin) {
@@ -4838,6 +4868,384 @@ function importJSONFile(input){
 function clearAllData(){localStorage.removeItem('peters_wheels_db');location.reload();}
 
 // ══════════════════════════════════════════════════════════════
+// SISTEMA DE FUSIÓN SUCURSAL → MATRIZ
+// ══════════════════════════════════════════════════════════════
+
+/*
+  FILOSOFÍA:
+  - Cada venta, gasto, apartado y traspaso tiene un ID único global (uid).
+  - La Matriz guarda en DB.fusionesAplicadas[] los UIDs ya procesados.
+  - Al fusionar: si el UID ya existe → se ignora (anti-duplicado).
+  - Traspasos: llevan un traspasoId compartido entre origen y destino.
+    La Matriz solo aplica el movimiento de inventario una vez.
+  - El inventario de la Matriz es la ÚNICA fuente de verdad.
+    Las sucursales solo reportan movimientos, no sincronizan stock directamente.
+*/
+
+// ── Asegurar que DB tenga el campo de fusiones ──
+function ensureFusionFields() {
+  if (!DB.fusionesAplicadas) DB.fusionesAplicadas = [];   // UIDs ya importados
+  if (!DB.traspasoIds)       DB.traspasoIds       = {};   // traspasoId → true/false (aplicado)
+}
+
+// ── Generar UID único para cada registro ──
+function genUID() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// ── Al guardar una venta, asignar UID si no tiene ──
+// (Se inyecta en saveSale — ver parche abajo)
+
+// ══════════════════════════
+// EXPORTAR JSON DE SUCURSAL
+// ══════════════════════════
+function exportJSONSucursal() {
+  ensureFusionFields();
+  // Detectar sucursal activa
+  const sucId = usuarioActivo?.sucursal || document.getElementById('inv-suc-selector')?.value || DB.sucursales[0]?.id;
+  const sucNombre = getSucNombre(sucId);
+
+  // Asegurar UIDs en todos los registros antes de exportar
+  DB.ventas.forEach(v => { if (!v.uid) v.uid = genUID(); });
+  DB.gastos.forEach(g => { if (!g.uid) g.uid = genUID(); });
+  DB.apartados.forEach(a => { if (!a.uid) a.uid = genUID(); });
+  DB.movimientos.forEach(m => { if (!m.uid) m.uid = genUID(); });
+  DB.historialUnificado.forEach(h => { if (!h.uid) h.uid = genUID(); });
+  saveToStorage();
+
+  // Filtrar solo datos de esta sucursal
+  const payload = {
+    _meta: {
+      tipo: 'exportacion_sucursal',
+      version: '1.0',
+      sucursalId: sucId,
+      sucursalNombre: sucNombre,
+      exportadoEn: new Date().toISOString(),
+      exportadoPor: getCurrentUserName(),
+    },
+    sucursales:  DB.sucursales,
+    vendedores:  DB.vendedores,
+    proveedores: DB.proveedores,
+    metodosPago: DB.metodosPago,
+    servicios:   DB.servicios,
+    // Solo datos de esta sucursal
+    ventas:      DB.ventas.filter(v => v.sucursal === sucId),
+    gastos:      DB.gastos.filter(g => g.sucursal === sucId),
+    apartados:   DB.apartados.filter(a => a.sucursal === sucId),
+    movimientos: DB.movimientos.filter(m => m.sucursal === sucId || m.sucursalDestino === sucId),
+    historialUnificado: DB.historialUnificado.filter(h => h.sucursal === sucId),
+    // Inventario completo de esta sucursal (para referencia, Matriz no lo aplica directo)
+    inventario:  DB.inventario.filter(i => i.sucursal === sucId),
+    rines:       DB.rines.filter(i => i.sucursal === sucId),
+  };
+
+  const fecha = new Date().toISOString().slice(0,10);
+  downloadFile(`sucursal_${sucNombre.replace(/\s+/g,'-')}_${fecha}.json`, JSON.stringify(payload, null, 2), 'application/json');
+}
+
+// ══════════════════════════
+// LEER JSON DE SUCURSAL (Matriz)
+// ══════════════════════════
+let _fusionPayload = null; // JSON leído pendiente de aplicar
+
+function leerJSONSucursal(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data._meta?.tipo !== 'exportacion_sucursal') {
+        alert('Este archivo no es una exportación de sucursal válida.\nUsa \"Exportar JSON de esta Sucursal\" en la sucursal correspondiente.');
+        return;
+      }
+      analizarFusion(data);
+    } catch(err) {
+      alert('Error al leer el archivo: ' + err.message);
+    }
+  };
+  reader.readAsText(input.files[0], 'UTF-8');
+  input.value = '';
+}
+
+function analizarFusion(data) {
+  ensureFusionFields();
+  _fusionPayload = data;
+
+  const meta = data._meta;
+  const yaImportados = new Set(DB.fusionesAplicadas);
+
+  // ── Contar qué es nuevo ──
+  const ventasNuevas    = (data.ventas||[]).filter(v => v.uid && !yaImportados.has(v.uid));
+  const gastosNuevos    = (data.gastos||[]).filter(g => g.uid && !yaImportados.has(g.uid));
+  const apartadosNuevos = (data.apartados||[]).filter(a => a.uid && !yaImportados.has(a.uid));
+  const histNuevo       = (data.historialUnificado||[]).filter(h => h.uid && !yaImportados.has(h.uid));
+
+  // ── Detectar traspasos ──
+  // Un traspaso = movimiento de tipo 'traspaso' con traspasoId
+  const traspasos = (data.movimientos||[]).filter(m => m.tipo === 'traspaso' && m.traspasoId);
+  const traspasosPendientes = traspasos.filter(m => !DB.traspasoIds[m.traspasoId]);
+  // Agrupar por traspasoId (cada traspaso genera 2 registros: salida en origen, entrada en destino)
+  const traspasoMap = {};
+  traspasosPendientes.forEach(m => {
+    if (!traspasoMap[m.traspasoId]) traspasoMap[m.traspasoId] = [];
+    traspasoMap[m.traspasoId].push(m);
+  });
+
+  // ── Mostrar info ──
+  document.getElementById('fusion-info').innerHTML = `
+    <strong style="color:var(--accent);font-size:15px">📦 ${esc(meta.sucursalNombre)}</strong>
+    &nbsp;·&nbsp; Exportado: <strong>${new Date(meta.exportadoEn).toLocaleString('es-MX')}</strong>
+    &nbsp;·&nbsp; Por: <strong>${esc(meta.exportadoPor)}</strong>
+  `;
+
+  const totalNuevo = ventasNuevas.length + gastosNuevos.length + apartadosNuevos.length;
+  const totalYaExiste = (data.ventas||[]).length - ventasNuevas.length +
+                        (data.gastos||[]).length - gastosNuevos.length +
+                        (data.apartados||[]).length - apartadosNuevos.length;
+
+  document.getElementById('fusion-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Ventas nuevas</div><div class="stat-value green">${ventasNuevas.length}</div><div class="stat-sub">${(data.ventas||[]).length} totales en archivo</div></div>
+    <div class="stat-card"><div class="stat-label">Gastos nuevos</div><div class="stat-value red">${gastosNuevos.length}</div><div class="stat-sub">${(data.gastos||[]).length} totales en archivo</div></div>
+    <div class="stat-card"><div class="stat-label">Traspasos pendientes</div><div class="stat-value blue">${Object.keys(traspasoMap).length}</div><div class="stat-sub">${traspasos.length} mov. de traspaso</div></div>
+    <div class="stat-card"><div class="stat-label">Ya importados</div><div class="stat-value" style="color:var(--text3)">${totalYaExiste}</div><div class="stat-sub">Se ignorarán</div></div>
+  `;
+
+  let detalleHtml = '';
+  if (ventasNuevas.length)    detalleHtml += `✅ Se importarán <strong>${ventasNuevas.length}</strong> ventas nuevas al historial<br>`;
+  if (gastosNuevos.length)    detalleHtml += `✅ Se importarán <strong>${gastosNuevos.length}</strong> gastos nuevos<br>`;
+  if (apartadosNuevos.length) detalleHtml += `✅ Se importarán <strong>${apartadosNuevos.length}</strong> apartados nuevos<br>`;
+  if (histNuevo.length)       detalleHtml += `✅ Se añadirán <strong>${histNuevo.length}</strong> entradas al historial unificado<br>`;
+  if (totalYaExiste > 0)      detalleHtml += `<span style="color:var(--text3)">ℹ️ ${totalYaExiste} registros ya existían — se ignorarán automáticamente</span><br>`;
+  if (!totalNuevo && !Object.keys(traspasoMap).length) {
+    detalleHtml += `<span style="color:var(--accent)">⚠️ No hay datos nuevos para importar en este archivo.</span>`;
+  }
+  document.getElementById('fusion-detalle').innerHTML = detalleHtml || '<span style="color:var(--text3)">No hay datos nuevos para importar.</span>';
+
+  // ── Poblar tabla de ventas nuevas ──
+  const ventasTbody = document.getElementById('fusion-ventas-tbody');
+  if (ventasTbody) {
+    if (ventasNuevas.length) {
+      ventasTbody.innerHTML = ventasNuevas.map(v => {
+        const metodos = (v.metodosPago||[]).map(p=>p.metodo).join(', ') || v.metodoPago || '—';
+        const prods = (v.productos||[]).map(p=>p.desc||p.codigo).slice(0,3).join(', ') + ((v.productos||[]).length>3?'…':'');
+        return `<tr>
+          <td style="font-family:monospace">${esc(v.vale||'—')}</td>
+          <td>${v.fecha||'—'}</td>
+          <td>${v.hora||'—'}</td>
+          <td>${esc(v.vendedor||'—')}</td>
+          <td style="font-size:11px">${esc(metodos)}</td>
+          <td style="font-size:11px">${esc(prods||'—')}</td>
+          <td class="td-right"><strong>${fmt(v.precioTotal||0)}</strong></td>
+          <td><span class="badge-pill ${v.cancelada?'badge-red':'badge-green'}">${v.cancelada?'Cancelada':'OK'}</span></td>
+        </tr>`;
+      }).join('');
+    } else {
+      ventasTbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:16px">Sin ventas nuevas</td></tr>';
+    }
+  }
+
+  // ── Poblar tabla de gastos nuevos ──
+  const gastosTbody = document.getElementById('fusion-gastos-tbody');
+  if (gastosTbody) {
+    if (gastosNuevos.length) {
+      gastosTbody.innerHTML = gastosNuevos.map(g => `<tr>
+        <td>${g.fecha||'—'}</td>
+        <td>${esc(g.concepto||'—')}</td>
+        <td>${esc(getSucNombre(g.sucursal))}</td>
+        <td class="td-right" style="color:var(--red)"><strong>${fmt(g.monto||0)}</strong></td>
+        <td style="font-size:11px;color:var(--text3)">${esc(g.notas||'')}</td>
+      </tr>`).join('');
+    } else {
+      gastosTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:16px">Sin gastos nuevos</td></tr>';
+    }
+  }
+
+  // ── Poblar tabla de traspasos ──
+  const traspasoTbody = document.getElementById('fusion-traspasos-tbody');
+  const tids = Object.keys(traspasoMap);
+
+  if (traspasoTbody) {
+    if (tids.length) {
+      traspasoTbody.innerHTML = tids.map(tid => {
+        const movs = traspasoMap[tid];
+        const movSalida  = movs.find(m => m.subTipo === 'salida')  || movs[0];
+        const movEntrada = movs.find(m => m.subTipo === 'entrada') || movs[1] || movs[0];
+        const sucOrigenNombre  = getSucNombre(movSalida?.sucursal)  || movSalida?.sucursal  || '—';
+        const sucDestinoNombre = getSucNombre(movEntrada?.sucursal) || movEntrada?.sucursal || '(otra sucursal)';
+        const yaEnMatriz = !!DB.traspasoIds[tid];
+        const tidSafe = tid.replace(/[^a-z0-9]/gi,'');
+        // Extraer descripción limpia del producto
+        const descRaw = movSalida?.descripcion || '';
+        const descProd = descRaw.split('—')[0]?.replace('Traspaso →','').replace('Traspaso ←','').trim() || movSalida?.codigo || '—';
+
+        return `<tr>
+          <td>${movSalida?.fecha||'—'}</td>
+          <td style="font-size:12px">${esc(descProd)}</td>
+          <td class="td-right"><strong>${movSalida?.cantidad||'?'}</strong></td>
+          <td>${esc(sucOrigenNombre)}</td>
+          <td>${esc(sucDestinoNombre)}</td>
+          <td>${yaEnMatriz
+            ? '<span class="badge-pill badge-green">✅ Ya aplicado</span>'
+            : '<span class="badge-pill badge-accent">⏳ Pendiente</span>'}</td>
+          <td>
+            <select id="fusion-traspaso-accion-${tidSafe}" style="font-size:12px" ${yaEnMatriz?'disabled':''}>
+              <option value="aplicar">✅ Aplicar en inventario</option>
+              <option value="omitir">⛔ Omitir</option>
+            </select>
+          </td>
+        </tr>`;
+      }).join('');
+    } else {
+      traspasoTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:16px">Sin traspasos pendientes</td></tr>';
+    }
+  }
+
+  // Guardar en variable global para aplicar después
+  _fusionPayload._analizado = { ventasNuevas, gastosNuevos, apartadosNuevos, histNuevo, traspasoMap };
+
+  document.getElementById('fusion-resumen').style.display = '';
+  document.getElementById('fusion-btn-aplicar').style.display = '';
+  document.getElementById('fusion-error').textContent = '';
+  document.getElementById('modalFusionSucursal').classList.add('open');
+}
+
+// ══════════════════════════
+// APLICAR FUSIÓN
+// ══════════════════════════
+function aplicarFusionSucursal() {
+  if (!_fusionPayload?._analizado) { alert('Carga primero un archivo'); return; }
+  ensureFusionFields();
+
+  const { ventasNuevas, gastosNuevos, apartadosNuevos, histNuevo, traspasoMap } = _fusionPayload._analizado;
+  const meta = _fusionPayload._meta;
+  let aplicados = 0;
+
+  // ── 1. Importar ventas nuevas (solo historial, NO tocar inventario Matriz) ──
+  ventasNuevas.forEach(v => {
+    DB.ventas.push({...v, _importadaDe: meta.sucursalId});
+    DB.fusionesAplicadas.push(v.uid);
+    aplicados++;
+  });
+
+  // ── 2. Importar gastos nuevos ──
+  gastosNuevos.forEach(g => {
+    DB.gastos.push({...g, _importadaDe: meta.sucursalId});
+    DB.fusionesAplicadas.push(g.uid);
+    aplicados++;
+  });
+
+  // ── 3. Importar apartados nuevos ──
+  apartadosNuevos.forEach(a => {
+    DB.apartados.push({...a, _importadaDe: meta.sucursalId});
+    DB.fusionesAplicadas.push(a.uid);
+    aplicados++;
+  });
+
+  // ── 4. Historial unificado ──
+  histNuevo.forEach(h => {
+    DB.historialUnificado.push({...h, _importadaDe: meta.sucursalId});
+    DB.fusionesAplicadas.push(h.uid);
+  });
+
+  // ── 5. Traspasos: aplicar movimiento de inventario UNA SOLA VEZ ──
+  const tids = Object.keys(traspasoMap);
+  let traspasoAplicados = 0;
+  let traspasoOmitidos  = 0;
+
+  tids.forEach(tid => {
+    const tidSafe = tid.replace(/[^a-z0-9]/gi,'');
+    const accionEl = document.getElementById(`fusion-traspaso-accion-${tidSafe}`);
+    const accion = accionEl ? accionEl.value : 'aplicar';
+
+    if (DB.traspasoIds[tid]) {
+      // Ya fue aplicado anteriormente
+      traspasoOmitidos++;
+      return;
+    }
+
+    if (accion === 'omitir') {
+      DB.traspasoIds[tid] = 'omitido';
+      traspasoOmitidos++;
+      return;
+    }
+
+    // Aplicar: buscar el movimiento de salida (origen) y de entrada (destino)
+    const movs = traspasoMap[tid];
+    movs.forEach(mov => {
+      const inv = (mov.tipoProducto === 'rines') ? DB.rines : DB.inventario;
+      const idx = inv.findIndex(i => i.codigo === mov.codigo && i.sucursal === mov.sucursal);
+
+      if (mov.subTipo === 'salida' || (mov.descripcion||'').includes('→')) {
+        // Salida de origen
+        if (idx >= 0) inv[idx].pz = Math.max(0, inv[idx].pz - (mov.cantidad||0));
+      } else {
+        // Entrada a destino
+        if (idx >= 0) {
+          inv[idx].pz += (mov.cantidad||0);
+        } else {
+          // Crear el producto en la sucursal destino
+          const prodOrigen = inv.find(i => i.codigo === mov.codigo);
+          if (prodOrigen) {
+            inv.push({...prodOrigen, sucursal: mov.sucursal, pz: mov.cantidad||0, id: ''});
+          }
+        }
+      }
+
+      addHistorial({
+        tipo: 'traspaso',
+        folio: mov.folio||'',
+        descripcion: `[FUSIÓN ${meta.sucursalNombre}] ${mov.descripcion||'Traspaso importado'}`,
+        sucursal: mov.sucursal,
+        usuario: getCurrentUserName(),
+        monto: 0,
+      });
+    });
+
+    DB.traspasoIds[tid] = 'aplicado';
+    traspasoAplicados++;
+  });
+
+  // ── 6. Fusionar catálogos (proveedores, vendedores, métodos) sin duplicar ──
+  (_fusionPayload.proveedores||[]).forEach(p => {
+    if (p && !DB.proveedores.includes(p)) DB.proveedores.push(p);
+  });
+  (_fusionPayload.vendedores||[]).forEach(v => {
+    if (v && !DB.vendedores.includes(v)) DB.vendedores.push(v);
+  });
+  (_fusionPayload.metodosPago||[]).forEach(m => {
+    if (m?.nombre && !DB.metodosPago.find(x => x.nombre === m.nombre)) DB.metodosPago.push(m);
+  });
+
+  saveToStorage();
+  closeModal('modalFusionSucursal');
+  renderAll();
+  renderDashboard();
+
+  alert(
+    `✅ Fusión completada exitosamente.
+
+` +
+    `📊 Registros importados: ${aplicados}
+` +
+    `↔️ Traspasos aplicados al inventario: ${traspasoAplicados}
+` +
+    `⛔ Traspasos omitidos/ya existentes: ${traspasoOmitidos}
+
+` +
+    `Los datos ya existentes fueron ignorados automáticamente.`
+  );
+  _fusionPayload = null;
+}
+
+// ══════════════════════════
+// PARCHE: asignar UID y traspasoId al registrar traspasos
+// ══════════════════════════
+// Se llama desde saveTraspaso() — ver código abajo
+function generarTraspasoId() {
+  return 'TRP-' + genUID();
+}
+
+// ══════════════════════════════════════════════════════════════
 // CHARTS
 // ══════════════════════════════════════════════════════════════
 function renderChart(canvasId,registry,type,labels,datasets){
@@ -4928,5 +5336,83 @@ window.addEventListener('focus',()=>{
 // init() and addProductRow() are called by checkPin() after successful login
 // so the app never loads without authentication
 </script>
+
+<!-- ══ MODAL FUSIÓN SUCURSAL ══ -->
+<div class="modal-overlay" id="modalFusionSucursal">
+  <div class="modal" style="max-width:860px">
+    <div class="modal-title">🔀 Fusionar JSON de Sucursal → Matriz</div>
+
+    <!-- Info del archivo -->
+    <div id="fusion-info" style="background:var(--surface2);border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:13px;line-height:1.7"></div>
+
+    <!-- Aviso importante: NO borra datos -->
+    <div class="alert alert-warning" style="font-size:12px;margin-bottom:12px">
+      🛡️ <strong>Esta operación es segura:</strong> solo <u>agrega</u> registros nuevos a la Matriz. No borra ni modifica ventas, gastos ni inventario ya existente. Los registros duplicados se detectan automáticamente y se ignoran. Puedes cargar el mismo archivo varias veces sin problema.
+    </div>
+
+    <!-- Resumen estadístico -->
+    <div id="fusion-resumen" style="display:none;margin-bottom:16px">
+      <div class="grid-4" id="fusion-stats" style="margin-bottom:12px"></div>
+
+      <!-- Tabs de previsualización -->
+      <div class="tabs" style="margin-bottom:0">
+        <div class="tab active" onclick="switchTab(this,'fusion-tab-ventas')">🧾 Ventas nuevas</div>
+        <div class="tab" onclick="switchTab(this,'fusion-tab-gastos')">💸 Gastos nuevos</div>
+        <div class="tab" onclick="switchTab(this,'fusion-tab-traspasos')">↔️ Traspasos</div>
+        <div class="tab" onclick="switchTab(this,'fusion-tab-resumen')">📋 Resumen</div>
+      </div>
+
+      <!-- TAB: Ventas nuevas -->
+      <div id="fusion-tab-ventas" style="margin-top:12px">
+        <div class="table-wrap" style="max-height:280px;overflow-y:auto">
+          <table style="font-size:12px">
+            <thead><tr><th>Folio</th><th>Fecha</th><th>Hora</th><th>Vendedor</th><th>Método(s)</th><th>Productos</th><th class="td-right">Total</th><th>Estado</th></tr></thead>
+            <tbody id="fusion-ventas-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: Gastos nuevos -->
+      <div id="fusion-tab-gastos" style="display:none;margin-top:12px">
+        <div class="table-wrap" style="max-height:280px;overflow-y:auto">
+          <table style="font-size:12px">
+            <thead><tr><th>Fecha</th><th>Concepto</th><th>Sucursal</th><th class="td-right">Monto</th><th>Notas</th></tr></thead>
+            <tbody id="fusion-gastos-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: Traspasos pendientes -->
+      <div id="fusion-tab-traspasos" style="display:none;margin-top:12px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">
+          Revisa cada traspaso. Si la Matriz ya lo registró manualmente, selecciona <strong>Omitir</strong> para no duplicar el movimiento de inventario.
+        </div>
+        <div class="table-wrap" style="max-height:280px;overflow-y:auto">
+          <table style="font-size:12px">
+            <thead><tr>
+              <th>Fecha</th><th>Código / Producto</th><th class="td-right">Cant</th>
+              <th>Origen</th><th>Destino</th><th>Estado Matriz</th><th>Acción</th>
+            </tr></thead>
+            <tbody id="fusion-traspasos-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: Resumen final -->
+      <div id="fusion-tab-resumen" style="display:none;margin-top:12px">
+        <div style="background:var(--surface2);border-radius:8px;padding:14px 18px;font-size:13px;line-height:2">
+          <div id="fusion-detalle" style="color:var(--text2)"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="fusion-error" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px"></div>
+    <div class="btn-group">
+      <button class="btn btn-primary" id="fusion-btn-aplicar" onclick="aplicarFusionSucursal()" style="display:none">✅ Confirmar e Importar</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalFusionSucursal')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
