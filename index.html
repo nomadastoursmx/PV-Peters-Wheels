@@ -420,10 +420,10 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
     <div class="section" id="section-punto-venta">
       <div class="tabs">
         <div class="tab active" onclick="switchTab(this,'pv-venta')">🧾 Nueva Venta</div>
-        <div class="tab" onclick="switchTab(this,'pv-servicios-tab')">🔧 Servicios</div>
-        <div class="tab" onclick="switchTab(this,'pv-apartados-tab')">📦 Apartados</div>
-        <div class="tab" onclick="switchTab(this,'pv-gastos')">💸 Gastos</div>
-        <div class="tab" onclick="switchTab(this,'pv-historial')">📋 Historial</div>
+        <div class="tab" onclick="switchTab(this,'pv-servicios-tab');renderCfgServicios()">🔧 Servicios</div>
+        <div class="tab" onclick="switchTab(this,'pv-apartados-tab');renderApartados()">📦 Apartados</div>
+        <div class="tab" onclick="switchTab(this,'pv-gastos');renderGastos()">💸 Gastos</div>
+        <div class="tab" onclick="switchTab(this,'pv-historial');renderHistorial()">📋 Historial</div>
       </div>
       <div id="pv-venta">
         <div class="grid-2">
@@ -433,7 +433,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
               <div class="form-row">
                 <div class="form-group">
                   <label>Folio <span style="font-size:10px;color:var(--text3)">(auto)</span></label>
-                  <div style="display:flex;gap:6px"><input type="text" id="pv-vale" placeholder="Auto-generado" style="flex:1"><button class="btn btn-secondary btn-sm" onclick="generarFolio()" title="Nuevo folio">🔄</button></div>
+                  <div style="display:flex;gap:6px"><input type="text" id="pv-vale" placeholder="Auto-generado" style="flex:1"><button class="btn btn-secondary btn-sm" onclick="generarFolioManual()" title="Generar nuevo folio">🔄</button></div>
                 </div>
                 <div class="form-group"><label>Vendedor</label><select id="pv-vendedor"><option value="">-- Seleccionar --</option></select></div>
                 <div class="form-group"><label>Fecha</label><input type="date" id="pv-fecha"></div>
@@ -457,7 +457,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
             <div class="card">
               <div class="card-title">🚖 Taxi / Flete</div>
               <div class="form-row">
-                <div class="form-group"><label><label class="switch"><input type="checkbox" id="pv-taxi-check" onchange="toggleTaxi()"><span class="slider"></span></label> ¿Usó taxi?</label></div>
+                <div class="form-group"><label class="switch"><input type="checkbox" id="pv-taxi-check" onchange="toggleTaxi()"><span class="slider"></span></label> <span style="font-size:13px;color:var(--text2);cursor:pointer" onclick="document.getElementById('pv-taxi-check').click()">¿Usó taxi?</span></div>
                 <div class="form-group" id="pv-taxi-group" style="display:none"><label>Costo del taxi ($)</label><input type="number" id="pv-taxi-costo" placeholder="0.00" oninput="recalcTotals()"></div>
               </div>
             </div>
@@ -756,6 +756,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
           <p style="margin-top:12px;font-size:12px;color:var(--text3)">Respaldo total — reemplaza todos los datos actuales.</p>
           <hr class="divider">
           <button class="btn btn-danger" onclick="if(confirm('¿Eliminar TODOS los datos?'))clearAllData()">🗑️ Borrar todos los datos</button>
+          <button class="btn btn-secondary" onclick="limpiarHistorialAntiguo()" style="border-color:var(--accent);color:var(--accent)">🧹 Limpiar historial antiguo</button>
         </div>
       </div>
       <div id="cfg-usuarios" style="display:none">
@@ -798,6 +799,34 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
           </div>
         </div>
       </div>
+
+      <!-- Banner dinámico: estado del corte del día -->
+      <div id="corte-estado-banner" style="margin-bottom:16px"></div>
+
+      <!-- Botón cerrar corte (visible solo si el día está abierto) -->
+      <div id="corte-cerrar-box" style="display:none;margin-bottom:16px">
+        <div style="background:var(--surface);border:2px solid var(--accent);border-radius:var(--radius);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--accent);margin-bottom:4px">🔒 Cerrar Corte del Día</div>
+            <div style="font-size:12px;color:var(--text2)">Al cerrar el corte, las ventas de esta fecha y sucursal quedarán <strong style="color:var(--text)">bloqueadas</strong>. Solo un administrador podrá cancelarlas o eliminarlas con PIN.</div>
+          </div>
+          <button class="btn btn-primary" style="flex-shrink:0;font-size:14px;padding:12px 24px" onclick="cerrarCorte()">🔒 Cerrar Corte</button>
+        </div>
+      </div>
+
+      <!-- Historial de cortes cerrados -->
+      <div id="corte-historial-box" style="display:none;margin-bottom:16px">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title">📋 Cortes Cerrados <span class="badge" id="corte-historial-count">0</span></div>
+          <div class="table-wrap">
+            <table style="font-size:12px">
+              <thead><tr><th>Fecha</th><th>Sucursal</th><th>Cerrado por</th><th>Hora cierre</th><th class="td-right">Ventas</th><th class="td-right">Total</th><th class="td-right">Gastos</th><th class="td-right">Efectivo entregado</th><th id="corte-hist-acc-th"></th></tr></thead>
+              <tbody id="corte-historial-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <div class="grid-4" id="corte-stats" style="margin-bottom:16px"></div>
       <div class="grid-2">
         <div class="card">
@@ -1401,6 +1430,7 @@ let DB = {
   movimientos: [],
   historialUnificado: [],
   folioConsecutivo: {},
+  cortesCerrados: [],
   servicios: [    // {id,nombre,costo,precio,descripcion}
     { id:'sv1', nombre:'Montaje de llanta', costo:0, precio:80, descripcion:'Por pieza' },
     { id:'sv2', nombre:'Balanceo', costo:0, precio:60, descripcion:'Por pieza' },
@@ -1440,6 +1470,12 @@ function init() {
 function loadFromStorage() {
   const saved = localStorage.getItem('peters_wheels_db');
   if (saved) { try { DB = JSON.parse(saved); } catch(e){} }
+  // Migrate numeric ids to strings (legacy data compatibility)
+  ['ventas','apartados','gastos','movimientos','historialUnificado'].forEach(key => {
+    if (Array.isArray(DB[key])) {
+      DB[key].forEach(item => { if (item.id !== undefined) item.id = String(item.id); });
+    }
+  });
   if (!DB.proveedores) DB.proveedores = [];
   if (!DB.rines) DB.rines = [];
   if (!DB.historialUnificado) DB.historialUnificado = [];
@@ -1449,8 +1485,19 @@ function loadFromStorage() {
   if (!DB.usuarios)          DB.usuarios = [{ id:'u1', nombre:'Administrador', pin:'1234', rol:'admin' }];
   if (!DB.fusionesAplicadas) DB.fusionesAplicadas = [];
   if (!DB.traspasoIds)       DB.traspasoIds = {};
+  if (!DB.cortesCerrados)    DB.cortesCerrados = [];
 }
-function saveToStorage() { localStorage.setItem('peters_wheels_db', JSON.stringify(DB)); }
+function saveToStorage() {
+  try {
+    localStorage.setItem('peters_wheels_db', JSON.stringify(DB));
+  } catch(e) {
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      alert('⚠️ Almacenamiento lleno. Haz un respaldo (Exportar Datos) y considera limpiar el historial antiguo.');
+    } else {
+      console.error('Error al guardar datos:', e);
+    }
+  }
+}
 function setTodayDates() {
   const today = new Date().toISOString().slice(0,10);
   const ym = today.slice(0,7);
@@ -1458,7 +1505,10 @@ function setTodayDates() {
   const rm = document.getElementById('rep-mes'); if(rm) rm.value=ym;
 }
 function updateDateBadge() {
-  document.getElementById('dateBadge').textContent = new Date().toLocaleDateString('es-MX',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+  const now = new Date();
+  document.getElementById('dateBadge').textContent =
+    now.toLocaleDateString('es-MX',{weekday:'short',year:'numeric',month:'short',day:'numeric'}) +
+    ' · ' + now.toTimeString().slice(0,5);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1496,7 +1546,7 @@ function showSection(id) {
   }
   if (id==='reportes') renderReportes();
   if (id==='configuracion') renderConfig();
-  if (id==='corte-caja') { setTodayDateForCorte(); renderCorteCaja(); }
+  if (id==='corte-caja') { setTodayDateForCorte(); renderCorteCaja(); renderCortesHistorial(); }
   if (id==='historial-mov') { setTodayDateForHistorial(); renderHistorialUnificado(); }
   applyRoleUI();
 }
@@ -1549,6 +1599,7 @@ function refreshSelectsGlobal() {
   const activeSuc = DB.sucursales.find(s => s.id === activeSucId) || DB.sucursales[0];
   if(activeSuc) document.getElementById('sucursalBadge').textContent=activeSuc.nombre.toUpperCase();
   // Si no es admin y tiene sucursal asignada, fijar selector de sucursal
+  const isAdmin = usuarioActivo?.rol === 'admin';
   if (!isAdmin && usuarioActivo?.sucursal) {
     const invSucSel = document.getElementById('inv-suc-selector');
     if (invSucSel) {
@@ -1569,6 +1620,7 @@ function refreshSelectsGlobal() {
 
 // ══════════════════════════════════════════════════════════════
 // LOGO
+
 // ══════════════════════════════════════════════════════════════
 function updateLogoDisplay() {
   if(!DB.config.logoId) return;
@@ -2103,16 +2155,18 @@ function saveTraspaso(){
 let ventaACancelarId=null;
 function showCancelarVentaModal(ventaId, modoInicial) {
   ventaACancelarId = ventaId;
-  const v = DB.ventas.find(v => v.id === ventaId);
+  const v = DB.ventas.find(v => String(v.id) === String(ventaId));
   if (!v) return;
 
   // Info de la venta
   const prodsStr = (v.productos||[]).map(p => `${esc(p.desc||p.codigo)} ×${p.pz}`).join(', ') || '—';
   const srvStr   = (v.servicios||[]).map(s => esc(s.desc)).join(', ');
+  const corteDeLaVenta = getCorteCerrado(v.fecha, v.sucursal);
   document.getElementById('cancelar-venta-info').innerHTML =
     `<strong>Folio:</strong> ${esc(v.vale||'—')} &nbsp;·&nbsp; <strong>Fecha:</strong> ${v.fecha||'—'} &nbsp;·&nbsp; <strong>Sucursal:</strong> ${esc(getSucNombre(v.sucursal))} &nbsp;·&nbsp; <strong>Total:</strong> <span style="color:var(--accent)">${fmt(v.precioTotal)}</span><br>` +
     `<span style="color:var(--text2)">Productos: ${prodsStr}${srvStr?` | Servicios: ${srvStr}`:''}</span>` +
-    (v.cancelada ? `<br><span style="color:var(--red)">⚠️ Esta venta ya fue cancelada: ${esc(v.motivoCancelacion||'')}</span>` : '');
+    (v.cancelada ? `<br><span style="color:var(--red)">⚠️ Esta venta ya fue cancelada: ${esc(v.motivoCancelacion||'')}</span>` : '') +
+    (corteDeLaVenta ? `<br><div style="background:rgba(232,184,75,.1);border:1px solid rgba(232,184,75,.3);border-radius:6px;padding:8px 12px;margin-top:8px;font-size:12px;color:var(--accent)">🔒 <strong>Corte cerrado</strong> — Este día fue cerrado por <strong>${esc(corteDeLaVenta.cerradoPor)}</strong> a las ${corteDeLaVenta.horaCierre}. La acción continuará si el PIN de admin es correcto.</div>` : '');
 
   // Modo: cancelar o eliminar
   const modo = modoInicial || (v.cancelada ? 'eliminar' : 'cancelar');
@@ -2165,7 +2219,7 @@ function confirmarCancelacion() {
     return;
   }
 
-  const v = DB.ventas.find(v => v.id === ventaACancelarId);
+  const v = DB.ventas.find(v => String(v.id) === String(ventaACancelarId));
   if (!v) { closeModal('modalCancelarVenta'); return; }
 
   if (modo === 'eliminar') {
@@ -2193,7 +2247,7 @@ Esta acción NO se puede deshacer.
       usuario: getCurrentUserName(),
       monto: v.precioTotal,
     });
-    DB.ventas = DB.ventas.filter(vv => vv.id !== ventaACancelarId);
+    DB.ventas = DB.ventas.filter(vv => String(vv.id) !== String(ventaACancelarId));
     saveToStorage();
     closeModal('modalCancelarVenta');
     renderHistorial();
@@ -2240,7 +2294,7 @@ Cancelada por: ${adminUser.nombre}`);
 function addHistorial(entry){
   const now=new Date();
   DB.historialUnificado.push({
-    id:now.getTime()+Math.random(),
+    id:genUID(),
     uid:genUID(),
     fecha:now.toISOString().slice(0,10),
     hora:now.toTimeString().slice(0,5),
@@ -2286,6 +2340,163 @@ function renderHistorialUnificado(){
 }
 
 // ══════════════════════════════════════════════════════════════
+// CORTE DE CAJA — CIERRE DE DÍA
+// ══════════════════════════════════════════════════════════════
+
+/*
+  ESTRUCTURA DB.cortesCerrados = [{
+    id, fecha, sucursalId, sucursalNombre,
+    cerradoPor, horaCierre,
+    totalVentas, numVentas,
+    totalGastos, totalEfectivo,
+    snapshot: { ventas[], gastos[], pagosDia[] }
+  }]
+
+  BLOQUEO: una venta queda bloqueada si existe un corte cerrado
+  para (venta.fecha, venta.sucursal). El admin puede desbloquear
+  individualmente con PIN (cancelar/eliminar) — igual que hoy.
+*/
+
+function ensureCorteFields() {
+  if (!DB.cortesCerrados) DB.cortesCerrados = [];
+}
+
+// Devuelve el corte cerrado para (fecha, sucursalId) o null
+function getCorteCerrado(fecha, sucursalId) {
+  ensureCorteFields();
+  if (!sucursalId) return null;
+  return DB.cortesCerrados.find(c => c.fecha === fecha && c.sucursalId === sucursalId) || null;
+}
+
+// ¿Está bloqueada una venta? (tiene corte cerrado para su fecha+sucursal)
+function ventaBloqueada(venta) {
+  return !!getCorteCerrado(venta.fecha, venta.sucursal);
+}
+
+// Cerrar corte del día
+function cerrarCorte() {
+  const fecha = document.getElementById('corte-fecha')?.value || new Date().toISOString().slice(0,10);
+  const sucId = document.getElementById('corte-suc')?.value || '';
+
+  // Si no hay sucursal en el filtro, usar la del usuario activo o pedir que seleccione
+  if (!sucId) {
+    // Intentar con la sucursal del usuario activo
+    const sucUsuario = usuarioActivo?.sucursal;
+    if (sucUsuario) {
+      // Autoseleccionar en el combo
+      const corteSucSel = document.getElementById('corte-suc');
+      if (corteSucSel) corteSucSel.value = sucUsuario;
+      sucId = sucUsuario;
+    } else if (DB.sucursales.length === 1) {
+      // Solo hay una sucursal — usarla automáticamente
+      sucId = DB.sucursales[0].id;
+      const corteSucSel = document.getElementById('corte-suc');
+      if (corteSucSel) corteSucSel.value = sucId;
+    } else {
+      alert('Selecciona una sucursal específica en el filtro para cerrar el corte.');
+      document.getElementById('corte-suc')?.focus();
+      return;
+    }
+  }
+
+  const sucNombre = getSucNombre(sucId);
+  const ventas = DB.ventas.filter(v => v.fecha === fecha && v.sucursal === sucId && !v.cancelada);
+  const gastos = DB.gastos.filter(g => g.fecha === fecha && g.sucursal === sucId);
+
+  if (!ventas.length && !gastos.length) {
+    if (!confirm(`No hay ventas ni gastos registrados para ${sucNombre} el ${fecha}.\n¿Cerrar el corte de todos modos? (quedará registrado como día sin movimientos)`)) return;
+  }
+
+  const totalVentas = ventas.reduce((a,v) => a + (v.precioTotal||0), 0);
+  const totalGastos = gastos.reduce((a,g) => a + (g.monto||0), 0);
+
+  // Calcular efectivo
+  const efectivoVentas = ventas.reduce((a,v) => {
+    const pays = v.metodosPago||[{metodo:v.metodoPago,monto:v.precioTotal}];
+    return a + pays.filter(p=>(p.metodo||'').toUpperCase().includes('EFECTIVO')).reduce((s,p)=>s+(p.monto||0),0);
+  }, 0);
+  const totalEfectivo = Math.max(0, efectivoVentas - totalGastos);
+
+  const now = new Date();
+  const resumen = `📋 RESUMEN DEL CORTE\n\nSucursal: ${sucNombre}\nFecha: ${fecha}\n\n` +
+    `Ventas: ${ventas.length} operaciones — ${fmt(totalVentas)}\n` +
+    `Gastos: ${gastos.length} — ${fmt(totalGastos)}\n` +
+    `Efectivo a entregar: ${fmt(totalEfectivo)}\n\n` +
+    `Al confirmar, las ventas de este día quedarán bloqueadas.\n¿Cerrar el corte?`;
+
+  if (!confirm(resumen)) return;
+
+  ensureCorteFields();
+
+  // Snapshot de pagos del día (apartados)
+  const pagosDia = [];
+  (DB.apartados||[]).forEach(a => {
+    if (a.sucursal !== sucId) return;
+    (a.pagos||[]).forEach(p => { if (p.fecha === fecha) pagosDia.push({...p, folio:a.folio, cliente:a.cliente}); });
+  });
+
+  const corte = {
+    id: genUID(),
+    fecha,
+    sucursalId: sucId,
+    sucursalNombre: sucNombre,
+    cerradoPor: getCurrentUserName(),
+    horaCierre: now.toTimeString().slice(0,5),
+    totalVentas,
+    numVentas: ventas.length,
+    totalGastos,
+    totalEfectivo,
+    snapshot: {
+      ventas: ventas.map(v => ({id:v.id, vale:v.vale, hora:v.hora, vendedor:v.vendedor, precioTotal:v.precioTotal, metodoPago:v.metodoPago})),
+      gastos: gastos.map(g => ({concepto:g.concepto, monto:g.monto})),
+      pagosDia,
+    }
+  };
+
+  DB.cortesCerrados.push(corte);
+
+  // Registrar en historial
+  addHistorial({
+    tipo: 'corte',
+    folio: '',
+    descripcion: `Corte de caja cerrado — ${sucNombre} — ${ventas.length} ventas — Total: ${fmt(totalVentas)} — Por: ${corte.cerradoPor}`,
+    sucursal: sucId,
+    usuario: getCurrentUserName(),
+    monto: totalVentas,
+  });
+
+  saveToStorage();
+  renderCorteCaja();
+  alert(`✅ Corte cerrado exitosamente.\n\n${sucNombre} · ${fecha}\nCerrado por: ${corte.cerradoPor} a las ${corte.horaCierre}`);
+}
+
+// Reabrir corte (solo admin)
+function reabrirCorte(corteId) {
+  if (usuarioActivo?.rol !== 'admin') { alert('Solo administradores pueden reabrir un corte'); return; }
+  ensureCorteFields();
+  const corte = DB.cortesCerrados.find(c => String(c.id) === String(corteId));
+  if (!corte) return;
+  const pin = prompt(`Para reabrir el corte de ${corte.sucursalNombre} (${corte.fecha}), ingresa tu PIN de administrador:`);
+  if (!pin) return;
+  const adminUser = DB.usuarios.find(u => u.rol === 'admin' && u.pin === pin);
+  if (!adminUser) { alert('PIN incorrecto'); return; }
+  if (!confirm(`¿Reabrir el corte de ${corte.sucursalNombre} del ${corte.fecha}?\n\nLas ventas de ese día volverán a ser editables.`)) return;
+
+  DB.cortesCerrados = DB.cortesCerrados.filter(c => c.id !== corteId);
+  addHistorial({
+    tipo: 'corte',
+    folio: '',
+    descripcion: `Corte REABIERTO — ${corte.sucursalNombre} — ${corte.fecha} — Por: ${adminUser.nombre}`,
+    sucursal: corte.sucursalId,
+    usuario: getCurrentUserName(),
+    monto: 0,
+  });
+  saveToStorage();
+  renderCorteCaja();
+  alert(`✅ Corte reabierto. Las ventas del ${corte.fecha} en ${corte.sucursalNombre} vuelven a ser editables.`);
+}
+
+// ══════════════════════════════════════════════════════════════
 // CORTE DE CAJA
 // ══════════════════════════════════════════════════════════════
 function setTodayDateForCorte(){
@@ -2295,6 +2506,57 @@ function setTodayDateForCorte(){
 function renderCorteCaja(){
   const fecha=document.getElementById('corte-fecha')?.value||new Date().toISOString().slice(0,10);
   const suc=document.getElementById('corte-suc')?.value||'';
+
+  // ── Estado del corte: ¿cerrado? ──
+  ensureCorteFields();
+  const corteCerrado = suc ? getCorteCerrado(fecha, suc) : null;
+  const hayCortesCerradosEnFecha = suc
+    ? [corteCerrado].filter(Boolean)
+    : DB.cortesCerrados.filter(c => c.fecha === fecha);
+
+  // Banner de estado
+  const bannerEl = document.getElementById('corte-estado-banner');
+  if (bannerEl) {
+    if (corteCerrado) {
+      bannerEl.innerHTML = `
+        <div style="background:rgba(75,232,122,.08);border:1.5px solid var(--green);border-radius:var(--radius);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <span style="font-size:22px">🔒</span>
+          <div style="flex:1">
+            <div style="font-weight:700;color:var(--green);font-size:14px">Corte cerrado — ${esc(corteCerrado.sucursalNombre)} · ${fecha}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">Cerrado por <strong>${esc(corteCerrado.cerradoPor)}</strong> a las <strong>${corteCerrado.horaCierre}</strong> · ${corteCerrado.numVentas} ventas · ${fmt(corteCerrado.totalVentas)}</div>
+          </div>
+          ${usuarioActivo?.rol==='admin' ? `<button class="btn btn-secondary btn-sm" onclick="reabrirCorte('${corteCerrado.id}')" style="border-color:var(--accent);color:var(--accent)">🔓 Reabrir</button>` : ''}
+        </div>`;
+    } else if (suc) {
+      bannerEl.innerHTML = `
+        <div style="background:rgba(232,184,75,.06);border:1.5px solid var(--border);border-radius:var(--radius);padding:10px 18px;font-size:12px;color:var(--text2)">
+          📂 Corte del día <strong style="color:var(--text)">${fecha}</strong> — <strong style="color:var(--text)">${getSucNombre(suc)}</strong> — <span style="color:var(--accent)">Abierto</span>
+        </div>`;
+    } else {
+      // Sin sucursal seleccionada — mostrar resumen de cortes del día
+      const cerradosHoy = DB.cortesCerrados.filter(c => c.fecha === fecha);
+      const sucAbiertas = DB.sucursales.filter(s => !DB.cortesCerrados.find(c => c.fecha === fecha && c.sucursalId === s.id));
+      if (cerradosHoy.length || sucAbiertas.length) {
+        bannerEl.innerHTML = `
+          <div style="background:rgba(232,184,75,.06);border:1.5px solid var(--border);border-radius:var(--radius);padding:12px 18px;font-size:12px;color:var(--text2)">
+            📋 <strong style="color:var(--text)">${fecha}</strong> —
+            ${cerradosHoy.length ? `<span style="color:var(--green)">🔒 ${cerradosHoy.map(c=>esc(c.sucursalNombre)).join(', ')} cerrada(s)</span>` : ''}
+            ${cerradosHoy.length && sucAbiertas.length ? ' · ' : ''}
+            ${sucAbiertas.length ? `<span style="color:var(--accent)">📂 ${sucAbiertas.map(s=>esc(s.nombre)).join(', ')} abierta(s)</span>` : ''}
+            &nbsp;·&nbsp; <span style="color:var(--text3)">Selecciona una sucursal para ver su corte o cerrarlo</span>
+          </div>`;
+      } else {
+        bannerEl.innerHTML = '';
+      }
+    }
+  }
+
+  // Botón cerrar: visible siempre que el corte no esté cerrado
+  const cerrarBox = document.getElementById('corte-cerrar-box');
+  if (cerrarBox) cerrarBox.style.display = !corteCerrado ? '' : 'none';
+
+  // Historial de cortes cerrados
+  renderCortesHistorial();
 
   // ── Ventas completas del día ──
   const ventas=DB.ventas.filter(v=>v.fecha===fecha&&(!suc||v.sucursal===suc)&&!v.cancelada);
@@ -2320,6 +2582,15 @@ function renderCorteCaja(){
 
   // ── Totales ──
   const totalVentas=ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
+  // Incluir anticipos/pagos de apartados del período
+  const pagosApartadosMes = [];
+  (DB.apartados||[]).forEach(a => {
+    if (suc && a.sucursal !== suc) return;
+    (a.pagos||[]).forEach(p => {
+      if (p.fecha && p.fecha.startsWith(mes)) pagosApartadosMes.push(p);
+    });
+  });
+  const totalAnticiposMes = pagosApartadosMes.reduce((s,p)=>s+(p.monto||0),0);
   const totalAnticipos=pagosDia.reduce((a,p)=>a+p.monto,0);
   const totalEntradas=totalVentas+totalAnticipos;  // dinero real recibido
   const totalGastos=gastos.reduce((a,g)=>a+(g.monto||0),0);
@@ -2424,27 +2695,39 @@ function renderCorteCaja(){
 
   // ── Ventas del día ──
   const isAdminCorte = usuarioActivo?.rol === 'admin';
-  // Mostrar/ocultar columna de acciones
+  // Mostrar/ocultar columna de acciones (siempre visible para admin, para candados y acciones)
   const accionesTh = document.getElementById('corte-ventas-acciones-th');
   if (accionesTh) accionesTh.style.display = isAdminCorte ? '' : 'none';
 
   const vtbody=document.getElementById('corte-ventas-tbody');
   vtbody.innerHTML=ventas.length
-    ?[...ventas].reverse().map(v=>`<tr style="${v.cancelada?'opacity:.5':''}">
-        <td style="font-family:monospace;cursor:pointer" onclick="showVentaDetail(${v.id})">${esc(v.vale||'-')}</td>
-        <td style="cursor:pointer" onclick="showVentaDetail(${v.id})">${v.hora||'-'}</td>
-        <td style="cursor:pointer" onclick="showVentaDetail(${v.id})">${esc(v.vendedor||'-')}</td>
-        <td style="font-size:11px;cursor:pointer" onclick="showVentaDetail(${v.id})">${(v.metodosPago||[]).map(p=>`<span class="badge-pill badge-accent" style="font-size:10px;margin:1px">${esc(p.metodo)}</span>`).join('')||esc(v.metodoPago||'-')}</td>
-        <td style="font-size:11px;cursor:pointer" onclick="showVentaDetail(${v.id})">${[...(v.productos||[]).map(p=>esc(p.desc)),(v.servicios||[]).map(s=>esc(s.desc))].flat().join(', ')}</td>
-        <td class="td-right" style="cursor:pointer" onclick="showVentaDetail(${v.id})"><strong>${fmt(v.precioTotal)}</strong></td>
-        <td>${v.cancelada?'<span class="badge-pill badge-red">Cancelada</span>':'<span class="badge-pill badge-green">OK</span>'}</td>
-        ${isAdminCorte ? `<td style="white-space:nowrap">
-          ${!v.cancelada
-            ? `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal(${v.id},'cancelar')" title="Cancelar venta">🚫</button>
-               <button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal(${v.id},'eliminar')" title="Eliminar permanentemente" style="margin-left:2px;background:rgba(232,75,75,.3)">🗑️</button>`
-            : `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal(${v.id},'eliminar')" title="Eliminar permanentemente" style="background:rgba(232,75,75,.3)">🗑️</button>`}
-        </td>` : ''}
-      </tr>`).join('')
+    ?[...ventas].reverse().map(v=>{
+      const bloqueada = ventaBloqueada(v);
+      const estadoBadge = v.cancelada
+        ? '<span class="badge-pill badge-red">Cancelada</span>'
+        : bloqueada
+          ? '<span class="badge-pill badge-green">OK <span style=\"font-size:10px\">🔒</span></span>'
+          : '<span class="badge-pill badge-green">OK</span>';
+      const accionesCell = isAdminCorte ? `<td style="white-space:nowrap">
+        ${bloqueada
+          ? `<span style="font-size:10px;color:var(--text3);margin-right:4px" title="Corte cerrado">🔒</span>`
+          : ''}
+        ${!v.cancelada
+          ? `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal('${v.id}','cancelar')" title="${bloqueada?'⚠️ Corte cerrado — requiere PIN':'Cancelar venta'}">🚫</button>
+             <button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal('${v.id}','eliminar')" title="${bloqueada?'⚠️ Corte cerrado — requiere PIN':'Eliminar permanentemente'}" style="margin-left:2px;background:rgba(232,75,75,.3)">🗑️</button>`
+          : `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal('${v.id}','eliminar')" title="Eliminar permanentemente" style="background:rgba(232,75,75,.3)">🗑️</button>`}
+      </td>` : '';
+      return `<tr style="${v.cancelada?'opacity:.5':''}${bloqueada&&!v.cancelada?';background:rgba(75,232,122,.03)':''}">
+        <td style="font-family:monospace;cursor:pointer" onclick="showVentaDetail('${v.id}')">${esc(v.vale||'-')}</td>
+        <td style="cursor:pointer" onclick="showVentaDetail('${v.id}')">${v.hora||'-'}</td>
+        <td style="cursor:pointer" onclick="showVentaDetail('${v.id}')">${esc(v.vendedor||'-')}</td>
+        <td style="font-size:11px;cursor:pointer" onclick="showVentaDetail('${v.id}')">${(v.metodosPago||[]).map(p=>`<span class="badge-pill badge-accent" style="font-size:10px;margin:1px">${esc(p.metodo)}</span>`).join('')||esc(v.metodoPago||'-')}</td>
+        <td style="font-size:11px;cursor:pointer" onclick="showVentaDetail('${v.id}')">${[...(v.productos||[]).map(p=>esc(p.desc)),(v.servicios||[]).map(s=>esc(s.desc))].flat().join(', ')}</td>
+        <td class="td-right" style="cursor:pointer" onclick="showVentaDetail('${v.id}')"><strong>${fmt(v.precioTotal)}</strong></td>
+        <td>${estadoBadge}</td>
+        ${accionesCell}
+      </tr>`;
+    }).join('')
     :`<tr><td colspan="${isAdminCorte?8:7}" style="text-align:center;color:var(--text3);padding:16px">Sin ventas para esta fecha</td></tr>`;
 
   // ── Apartados/anticipos del día ──
@@ -2468,6 +2751,12 @@ function renderCorteCaja(){
 // ══════════════════════════════════════════════════════════════
 // PUNTO DE VENTA — FOLIO AUTO
 // ══════════════════════════════════════════════════════════════
+function generarFolioManual() {
+  const current = document.getElementById('pv-vale').value.trim();
+  if (current && !confirm('Ya hay un folio asignado (' + current + '). ¿Generar uno nuevo?')) return;
+  generarFolio();
+}
+
 function generarFolio() {
   const suc = document.getElementById('inv-suc-selector')?.value || DB.sucursales[0]?.id || 's1';
   const sucObj = DB.sucursales.find(s=>s.id===suc);
@@ -2825,6 +3114,21 @@ function saveSale() {
   if(!fecha){showAlert('sale-alert','error','Selecciona la fecha');return;}
   const pays=getPaymentRows();
   if(!pays.length){showAlert('sale-alert','error','Agrega al menos un método de pago');return;}
+  // Declarar suc AQUÍ para que esté disponible en el stock check
+  const suc = usuarioActivo?.sucursal || document.getElementById('inv-suc-selector')?.value || DB.sucursales[0]?.id;
+  // Validar stock suficiente antes de registrar
+  const stockErrors = [];
+  rows.forEach(r => {
+    if (!r.codigo) return;
+    const inv = r.tipo === 'rin' ? DB.rines : DB.inventario;
+    const item = inv.find(i => i.codigo === r.codigo && i.sucursal === (r.suc || suc));
+    if (!item) return; // producto manual, no del inventario
+    if (item.pz < r.pz) stockErrors.push(`"${r.desc}": disponible ${item.pz}, solicitado ${r.pz}`);
+  });
+  if (stockErrors.length) {
+    showAlert('sale-alert','error','⚠️ Stock insuficiente:\n' + stockErrors.join('\n'));
+    return;
+  }
   const cambioRows_=getCambioRows();
   const cambioTotal=cambioRows_.reduce((a,r)=>a+(r.valor*r.cant),0);
   const cambioDesc=cambioRows_.map(r=>r.desc).join(', ');
@@ -2838,10 +3142,9 @@ function saveSale() {
   const precioTotal=Math.max(0,subtotal-cambioTotal);
   const utilidad=precioTotal-subtotalCosto-comisionTarjeta-taxi;
   const comisionVendedor=utilidad>0?(utilidad*(DB.config.comisionPct||0)/100):0;
-  const suc=document.getElementById('inv-suc-selector')?.value||DB.sucursales[0]?.id;
   const now=new Date();
   const venta={
-    id:now.getTime(), uid:genUID(), vale, vendedor, fecha,
+    id:genUID(), uid:genUID(), vale, vendedor, fecha,
     hora:now.toTimeString().slice(0,5),
     sucursal:suc,
     productos:rows, servicios:srvRows,
@@ -3031,6 +3334,19 @@ function saveApartado() {
   if(!anticipo||anticipo<=0){errEl.textContent='Ingresa el monto del anticipo';return;}
   if(!metodoAnticipo){errEl.textContent='Selecciona el método de pago del anticipo';return;}
   if(anticipo>aptTotalVenta){errEl.textContent='El anticipo no puede ser mayor al total';return;}
+  // Validar stock antes de apartar
+  const aptStockErrors = [];
+  getProductRows().filter(r=>r.precio>0||r.desc).forEach(r => {
+    if (!r.codigo) return;
+    const inv = r.tipo === 'rin' ? DB.rines : DB.inventario;
+    const item = inv.find(i => i.codigo === r.codigo && i.sucursal === (r.suc || (usuarioActivo?.sucursal || DB.sucursales[0]?.id)));
+    if (!item) return;
+    if (item.pz < r.pz) aptStockErrors.push(`"${r.desc}": disponible ${item.pz}, solicitado ${r.pz}`);
+  });
+  if (aptStockErrors.length) {
+    errEl.textContent = '⚠️ Stock insuficiente: ' + aptStockErrors.join(' | ');
+    return;
+  }
 
   const rows=getProductRows().filter(r=>r.precio>0||r.desc);
   const srvRows=getServiceRows();
@@ -3038,12 +3354,12 @@ function saveApartado() {
   const folio=document.getElementById('pv-vale').value.trim()||generarFolio();
   const vendedor=document.getElementById('pv-vendedor').value;
   const fecha=document.getElementById('pv-fecha').value;
-  const suc=document.getElementById('inv-suc-selector')?.value||DB.sucursales[0]?.id;
+  const suc = usuarioActivo?.sucursal || document.getElementById('inv-suc-selector')?.value || DB.sucursales[0]?.id;
   const saldo=aptTotalVenta-anticipo;
   const now=new Date();
 
   const apartado={
-    id:now.getTime(), uid:genUID(), folio, fecha,
+    id:genUID(), uid:genUID(), folio, fecha,
     hora:now.toTimeString().slice(0,5),
     cliente, tel, vendedor, sucursal:suc,
     productos:rows, servicios:srvRows, cambioItems:cambioRows_,
@@ -3074,7 +3390,7 @@ function renderApartados() {
     const mSearch=!search||(a.folio+a.cliente).toLowerCase().includes(search);
     const mFiltro=!filtro||a.estado===filtro;
     return mSearch&&mFiltro;
-  }).sort((a,b)=>b.id-a.id);
+  }).sort((a,b)=>{ const da=a.fecha||''; const db=b.fecha||''; return db.localeCompare(da)||String(b.id).localeCompare(String(a.id)); });
   document.getElementById('apartados-count').textContent=items.length;
   const tbody=document.getElementById('apartados-tbody');
   if(!tbody) return;
@@ -3092,9 +3408,9 @@ function renderApartados() {
     <td><span class="badge-pill ${estadoMap[a.estado]||'badge-blue'}">${(a.estado||'activo').toUpperCase()}</span></td>
     <td>
       <div style="display:flex;gap:4px">
-        ${a.estado==='activo'?`<button class="btn btn-green btn-sm" onclick="showLiquidarModal(${a.id})">💰</button>`:''} 
-        ${a.estado==='activo'?`<button class="btn btn-secondary btn-sm" onclick="sendApartadoWhatsApp(${a.id})">💬</button>`:''}
-        ${a.estado==='activo'?`<button class="btn btn-danger btn-sm" onclick="cancelarApartado(${a.id})">✕</button>`:''}
+        ${a.estado==='activo'?`<button class="btn btn-green btn-sm" onclick="showLiquidarModal('${a.id}')">💰</button>`:''} 
+        ${a.estado==='activo'?`<button class="btn btn-secondary btn-sm" onclick="sendApartadoWhatsApp('${a.id}')">💬</button>`:''}
+        ${a.estado==='activo'?`<button class="btn btn-danger btn-sm" onclick="cancelarApartado('${a.id}')">✕</button>`:''}
       </div>
     </td>
   </tr>`).join('');
@@ -3102,7 +3418,7 @@ function renderApartados() {
 
 function showLiquidarModal(id) {
   aptLiquidarId=id;
-  const a=DB.apartados.find(x=>x.id===id); if(!a) return;
+  const a=DB.apartados.find(x=>String(x.id)===String(id)); if(!a) return;
   document.getElementById('liquidar-info').innerHTML=`
     <strong>${esc(a.folio)}</strong> — ${esc(a.cliente)}<br>
     Total: ${fmt(a.totalVenta)} | Anticipo pagado: ${fmt(a.anticipo)} | <strong style="color:var(--red)">Saldo: ${fmt(a.saldo)}</strong><br>
@@ -3117,14 +3433,14 @@ function showLiquidarModal(id) {
 }
 
 function calcSaldoLiquidar() {
-  const a=DB.apartados.find(x=>x.id===aptLiquidarId); if(!a) return;
+  const a=DB.apartados.find(x=>String(x.id)===String(aptLiquidarId)); if(!a) return;
   const monto=parseFloat(document.getElementById('liq-monto')?.value)||0;
   const nuevo=Math.max(0,a.saldo-monto);
   document.getElementById('liq-saldo-nuevo').innerHTML=`Saldo restante: <strong style="color:${nuevo>0?'var(--red)':'var(--green)'}">${fmt(nuevo)}</strong>`;
 }
 
 function saveLiquidacion() {
-  const a=DB.apartados.find(x=>x.id===aptLiquidarId); if(!a) return;
+  const a=DB.apartados.find(x=>String(x.id)===String(aptLiquidarId)); if(!a) return;
   const monto=parseFloat(document.getElementById('liq-monto').value)||0;
   const metodo=document.getElementById('liq-metodo').value;
   const notas=document.getElementById('liq-notas').value;
@@ -3157,11 +3473,12 @@ function saveLiquidacion() {
       if(mp&&mp.factor) comisionTarjeta+=p.monto*(mp.factor-1);
     });
     const subtotalCosto=(a.productos||[]).reduce((s,r)=>s+(r.subtotalCosto||0),0)+(a.servicios||[]).reduce((s,r)=>s+(r.subtotalCosto||0),0);
-    const utilidad=a.totalVenta-subtotalCosto-comisionTarjeta;
+    const taxi_apt = a.taxi||0;
+    const utilidad=a.totalVenta-subtotalCosto-comisionTarjeta-taxi_apt;
     const comisionVendedor=utilidad>0?(utilidad*(DB.config.comisionPct||0)/100):0;
 
     const venta={
-      id:now.getTime(),
+      id:genUID(),
       vale:a.folio,
       vendedor:a.vendedor||'',
       fecha:today,
@@ -3171,7 +3488,7 @@ function saveLiquidacion() {
       servicios:a.servicios||[],
       subtotal, subtotalProds, subtotalSrv, subtotalCosto,
       cambio:0, cambioDesc:'', cambioItems:[],
-      taxi:0, usaTaxi:false,
+      taxi:taxi_apt, usaTaxi:taxi_apt>0,
       metodosPago:todosMetodos,
       metodoPago:todosMetodos.map(p=>p.metodo).join(' + '),
       comisionTarjeta,
@@ -3203,8 +3520,10 @@ function saveLiquidacion() {
 
 function cancelarApartado(id) {
   if(!confirm('¿Cancelar este apartado? El inventario se restaurará.'))return;
-  const a=DB.apartados.find(x=>x.id===id); if(!a) return;
+  const a=DB.apartados.find(x=>String(x.id)===String(id)); if(!a) return;
   a.estado='cancelado';
+  a.canceladoPor = getCurrentUserName();
+  a.fechaCancelacion = new Date().toISOString().slice(0,10);
   // Restaurar inventario
   (a.productos||[]).forEach(r=>{
     if(!r.codigo)return;
@@ -3216,7 +3535,7 @@ function cancelarApartado(id) {
 }
 
 function sendApartadoWhatsApp(id) {
-  const a=DB.apartados.find(x=>x.id===id); if(!a) return;
+  const a=DB.apartados.find(x=>String(x.id)===String(id)); if(!a) return;
   const suc=getSucNombre(a.sucursal);
   let msg=`🔧 *PETERS WHEELS — APARTADO*\n`;
   msg+=`📋 Folio: *${a.folio}*\n`;
@@ -3230,7 +3549,12 @@ function sendApartadoWhatsApp(id) {
   msg+=`✅ Anticipo pagado: ${fmt(a.anticipo)}\n`;
   msg+=`⚠️ Saldo pendiente: *${fmt(a.saldo)}*\n`;
   if(a.comentario) msg+=`\n💬 ${a.comentario}`;
-  window.open('https://wa.me/?text='+encodeURIComponent(msg));
+  // Si hay teléfono del cliente, abrir chat directo; si no, solo texto
+  const tel = (a.tel||'').replace(/[^0-9]/g,'');
+  const waUrl = tel
+    ? `https://wa.me/52${tel}?text=${encodeURIComponent(msg)}`
+    : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(waUrl);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -3309,8 +3633,10 @@ function saveGasto() {
   const monto=parseFloat(document.getElementById('gasto-monto').value)||0;
   const sucursal=document.getElementById('gasto-sucursal').value;
   const notas=document.getElementById('gasto-notas').value;
+  if(!fecha){alert('Selecciona la fecha del gasto');return;}
   if(!concepto||!monto){alert('Completa concepto y monto');return;}
-  DB.gastos.push({uid:genUID(),id:Date.now(),fecha,concepto,monto,sucursal,notas});
+  if(!sucursal){alert('Selecciona la sucursal');return;}
+  DB.gastos.push({uid:genUID(),id:genUID(),fecha,concepto,monto,sucursal,notas});
   saveToStorage();renderGastos();
   document.getElementById('gasto-concepto').value='';document.getElementById('gasto-monto').value='';document.getElementById('gasto-notas').value='';
 }
@@ -3318,10 +3644,10 @@ function renderGastos() {
   const tbody=document.getElementById('gastos-tbody');
   const items=[...DB.gastos].reverse();
   if(!items.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Sin gastos</td></tr>';return;}
-  tbody.innerHTML=items.map(g=>`<tr><td>${g.fecha}</td><td>${g.concepto}</td><td>${getSucNombre(g.sucursal)}</td><td class="td-right">${fmt(g.monto)}</td><td>${g.notas||'-'}</td><td><button class="btn btn-danger btn-sm" onclick="deleteGasto(${g.id})">✕</button></td></tr>`).join('');
+  tbody.innerHTML=items.map(g=>`<tr><td>${g.fecha}</td><td>${g.concepto}</td><td>${getSucNombre(g.sucursal)}</td><td class="td-right">${fmt(g.monto)}</td><td>${g.notas||'-'}</td><td><button class="btn btn-danger btn-sm" onclick="deleteGasto('${g.id}')">✕</button></td></tr>`).join('');
 }
 function deleteGasto(id) {
-  const g = DB.gastos.find(x => x.id === id); if (!g) return;
+  const g = DB.gastos.find(x => String(x.id) === String(id)); if (!g) return;
   if (usuarioActivo?.rol !== 'admin') { alert('Solo los administradores pueden eliminar gastos'); return; }
   if (!confirm(`¿Eliminar el gasto "${g.concepto}" por ${fmt(g.monto)}?
 
@@ -3339,7 +3665,7 @@ Esta acción no se puede deshacer.`)) return;
 // HISTORIAL DEL DÍA
 // ══════════════════════════════════════════════════════════════
 function renderHistorial() {
-  const fecha=document.getElementById('historial-fecha')?.value||'';
+  const fecha=document.getElementById('historial-fecha')?.value||new Date().toISOString().slice(0,10);
   const suc=document.getElementById('historial-suc')?.value||'';
   const ventas=DB.ventas.filter(v=>(!fecha||v.fecha===fecha)&&(!suc||v.sucursal===suc));
   const gastosDia=DB.gastos.filter(g=>(!fecha||g.fecha===fecha)&&(!suc||g.sucursal===suc));
@@ -3352,21 +3678,26 @@ function renderHistorial() {
   }
   tbody.innerHTML=[...ventas].reverse().map(v=>{
     const metodos=(v.metodosPago||[]).map(p=>`<span class="badge-pill badge-accent" style="margin:1px;font-size:10px">${esc(p.metodo)}</span>`).join('')||`<span class="badge-pill badge-accent">${esc(v.metodoPago||'-')}</span>`;
-    const estadoV=v.cancelada?'<span class="badge-pill badge-red">Cancelada</span>':'<span class="badge-pill badge-green">OK</span>';
+    const _bloqH = (typeof ventaBloqueada === 'function') ? ventaBloqueada(v) : false;
+      const estadoV=v.cancelada
+        ?'<span class="badge-pill badge-red">Cancelada</span>'
+        :_bloqH
+          ?'<span class="badge-pill badge-green">OK <span style=\"font-size:10px\">🔒</span></span>'
+          :'<span class="badge-pill badge-green">OK</span>';
     return `<tr style="${v.cancelada?'opacity:.55;':''}" >
-      <td style="cursor:pointer" onclick="showVentaDetail(${v.id})">${esc(v.vale||'-')}</td>
-      <td style="cursor:pointer" onclick="showVentaDetail(${v.id})">${esc(v.vendedor||'-')}</td>
+      <td style="cursor:pointer" onclick="showVentaDetail('${v.id}')">${esc(v.vale||'-')}</td>
+      <td style="cursor:pointer" onclick="showVentaDetail('${v.id}')">${esc(v.vendedor||'-')}</td>
       <td>${metodos}</td>
       <td>${v.factura==='si'?'<span class="badge-pill badge-blue">Sí</span>':'–'}</td>
-      <td class="td-right" style="cursor:pointer" onclick="showVentaDetail(${v.id})">${fmt(v.subtotal)}</td>
-      <td class="td-right" style="cursor:pointer" onclick="showVentaDetail(${v.id})">${fmt(v.comisionTarjeta||0)}</td>
-      <td class="td-right" style="cursor:pointer" onclick="showVentaDetail(${v.id})">${fmt(v.taxi||0)}</td>
-      <td class="td-right" style="cursor:pointer" onclick="showVentaDetail(${v.id})"><span style="color:var(--green)">${fmt(v.utilidad||0)}</span></td>
-      <td class="td-right" style="cursor:pointer" onclick="showVentaDetail(${v.id})"><strong>${fmt(v.precioTotal||0)}</strong></td>
+      <td class="td-right" style="cursor:pointer" onclick="showVentaDetail('${v.id}')">${fmt(v.subtotal)}</td>
+      <td class="td-right" style="cursor:pointer" onclick="showVentaDetail('${v.id}')">${fmt(v.comisionTarjeta||0)}</td>
+      <td class="td-right" style="cursor:pointer" onclick="showVentaDetail('${v.id}')">${fmt(v.taxi||0)}</td>
+      <td class="td-right" style="cursor:pointer" onclick="showVentaDetail('${v.id}')"><span style="color:var(--green)">${fmt(v.utilidad||0)}</span></td>
+      <td class="td-right" style="cursor:pointer" onclick="showVentaDetail('${v.id}')"><strong>${fmt(v.precioTotal||0)}</strong></td>
       <td>${estadoV}</td>
       <td style="white-space:nowrap">
-        ${!v.cancelada && usuarioActivo?.rol==='admin' ? `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal(${v.id},'cancelar')" title="Cancelar venta">🚫</button>` : ''}
-        ${usuarioActivo?.rol==='admin' ? `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal(${v.id},'eliminar')" title="Eliminar permanentemente" style="margin-left:2px;background:rgba(232,75,75,.25)">🗑️</button>` : ''}
+        ${!v.cancelada && usuarioActivo?.rol==='admin' ? `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal('${v.id}','cancelar')" title="Cancelar venta">🚫</button>` : ''}
+        ${usuarioActivo?.rol==='admin' ? `<button class="btn btn-danger btn-sm" onclick="showCancelarVentaModal('${v.id}','eliminar')" title="Eliminar permanentemente" style="margin-left:2px;background:rgba(232,75,75,.25)">🗑️</button>` : ''}
       </td>
     </tr>`;
   }).join('');
@@ -3389,7 +3720,7 @@ function deleteVenta(id){
 }
 
 function showVentaDetail(id) {
-  const v=DB.ventas.find(v2=>v2.id===id); if(!v) return;
+  const v=DB.ventas.find(v2=>String(v2.id)===String(id)); if(!v) return;
   const metodosHtml=(v.metodosPago&&v.metodosPago.length)?v.metodosPago.map(p=>`<tr><td>${esc(p.metodo)}</td><td class="td-right">${fmt(p.monto)}</td></tr>`).join(''):`<tr><td>${esc(v.metodoPago||'-')}</td><td class="td-right">${fmt(v.precioTotal)}</td></tr>`;
   const cambioBlock=(v.cambioItems&&v.cambioItems.length)?`<div class="table-wrap" style="margin-bottom:12px"><table><thead><tr><th colspan="4">🔄 Recibido a cambio</th></tr><tr><th>Descripción</th><th>Estado</th><th>Cant.</th><th class="td-right">Valor</th></tr></thead><tbody>${v.cambioItems.map(c=>`<tr><td>${esc(c.desc)}</td><td>${esc(c.estado)}</td><td>${c.cant}</td><td class="td-right">${fmt(c.valor)}</td></tr>`).join('')}</tbody></table></div>`:(v.cambioDesc?`<p style="font-size:13px;margin-bottom:8px">🔄 <strong>A cambio:</strong> ${esc(v.cambioDesc)} – ${fmt(v.cambio)}</p>`:'');
   document.getElementById('venta-detail-content').innerHTML=`
@@ -3429,10 +3760,10 @@ function showVentaDetail(id) {
     let btns = '<button class="btn btn-secondary" onclick="closeModal(&quot;modalVentaDetail&quot;)">Cerrar</button>';
     if (usuarioActivo?.rol === 'admin') {
       if (!v.cancelada) {
-        btns += `<button class="btn btn-danger" onclick="closeModal('modalVentaDetail');showCancelarVentaModal(${vid},'cancelar')" style="margin-left:8px">🚫 Cancelar venta</button>`;
-        btns += `<button class="btn btn-danger" onclick="closeModal('modalVentaDetail');showCancelarVentaModal(${vid},'eliminar')" style="margin-left:4px;background:rgba(232,75,75,.3)">🗑️ Eliminar</button>`;
+        btns += `<button class="btn btn-danger" onclick="closeModal('modalVentaDetail');showCancelarVentaModal('${vid}','cancelar')" style="margin-left:8px">🚫 Cancelar venta</button>`;
+        btns += `<button class="btn btn-danger" onclick="closeModal('modalVentaDetail');showCancelarVentaModal('${vid}','eliminar')" style="margin-left:4px;background:rgba(232,75,75,.3)">🗑️ Eliminar</button>`;
       } else {
-        btns += `<button class="btn btn-danger" onclick="closeModal('modalVentaDetail');showCancelarVentaModal(${vid},'eliminar')" style="margin-left:8px">🗑️ Eliminar permanentemente</button>`;
+        btns += `<button class="btn btn-danger" onclick="closeModal('modalVentaDetail');showCancelarVentaModal('${vid}','eliminar')" style="margin-left:8px">🗑️ Eliminar permanentemente</button>`;
       }
     }
     accionesEl.innerHTML = btns;
@@ -3449,10 +3780,19 @@ function renderReportes() {
   const suc=document.getElementById('rep-sucursal')?.value||'';
   const diaEsp=document.getElementById('rep-dia-especifico')?.value||'';
   // For charts/stats: use full month. For table: apply day filter if set
-  const ventas=DB.ventas.filter(v=>v.fecha&&v.fecha.startsWith(mes)&&(!suc||v.sucursal===suc));
+  const ventas=DB.ventas.filter(v=>v.fecha&&v.fecha.startsWith(mes)&&(!suc||v.sucursal===suc)&&!v.cancelada);
   const gastos=DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(mes)&&(!suc||g.sucursal===suc));
   const ventasTabla=diaEsp?ventas.filter(v=>v.fecha===diaEsp):ventas;
   const totalVentas=ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
+  // Incluir anticipos/pagos de apartados del período
+  const pagosApartadosMes = [];
+  (DB.apartados||[]).forEach(a => {
+    if (suc && a.sucursal !== suc) return;
+    (a.pagos||[]).forEach(p => {
+      if (p.fecha && p.fecha.startsWith(mes)) pagosApartadosMes.push(p);
+    });
+  });
+  const totalAnticiposMes = pagosApartadosMes.reduce((s,p)=>s+(p.monto||0),0);
   const totalGastos=gastos.reduce((a,g)=>a+(g.monto||0),0);
   const totalComTarj=ventas.reduce((a,v)=>a+(v.comisionTarjeta||0),0);
   const totalComVend=ventas.reduce((a,v)=>a+(v.comisionVendedor||0),0);
@@ -3474,7 +3814,7 @@ function renderReportes() {
   const cambios=ventas.filter(v=>v.cambioDesc||v.cambio>0);
   document.getElementById('rep-cambio-tbody').innerHTML=cambios.length?cambios.map(v=>`<tr><td>${esc(v.cambioDesc)}</td><td class="td-right">${fmt(v.cambio)}</td><td>${v.fecha}</td></tr>`).join(''):'<tr><td colspan="3" style="color:var(--text3);text-align:center;padding:12px">Sin productos a cambio</td></tr>';
   // Table: uses filtered (by day if set)
-  document.getElementById('rep-tabla-ventas').innerHTML=ventasTabla.length?[...ventasTabla].reverse().map(v=>`<tr onclick="showVentaDetail(${v.id})" style="cursor:pointer"><td>${esc(v.vale||'-')}</td><td>${v.fecha}</td><td>${esc(getSucNombre(v.sucursal))}</td><td>${esc(v.vendedor||'-')}</td><td><span class="badge-pill badge-accent">${esc(v.metodoPago||'-')}</span></td><td class="td-right">${fmt(v.subtotal)}</td><td class="td-right">${fmt(v.comisionTarjeta||0)}</td><td class="td-right">${fmt(v.comisionVendedor||0)}</td><td class="td-right">${fmt(v.taxi||0)}</td><td class="td-right"><strong>${fmt(v.precioTotal)}</strong></td></tr>`).join(''):`<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:24px">Sin ventas${diaEsp?' para '+diaEsp:''}</td></tr>`;
+  document.getElementById('rep-tabla-ventas').innerHTML=ventasTabla.length?[...ventasTabla].reverse().map(v=>`<tr onclick="showVentaDetail('${v.id}')" style="cursor:pointer"><td>${esc(v.vale||'-')}</td><td>${v.fecha}</td><td>${esc(getSucNombre(v.sucursal))}</td><td>${esc(v.vendedor||'-')}</td><td><span class="badge-pill badge-accent">${esc(v.metodoPago||'-')}</span></td><td class="td-right">${fmt(v.subtotal)}</td><td class="td-right">${fmt(v.comisionTarjeta||0)}</td><td class="td-right">${fmt(v.comisionVendedor||0)}</td><td class="td-right">${fmt(v.taxi||0)}</td><td class="td-right"><strong>${fmt(v.precioTotal)}</strong></td></tr>`).join(''):`<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:24px">Sin ventas${diaEsp?' para '+diaEsp:''}</td></tr>`;
 }
 function downloadReportCSV(){
   const mes=document.getElementById('rep-mes')?.value||'';
@@ -4089,6 +4429,7 @@ function _updateRinPreview() {
 function filterMovMasivoSearch(id) {
   const sel = document.getElementById(`mmrow-select-${id}`); if (!sel) return;
   const suc = document.getElementById('movMasivo-sucursal')?.value || '';
+  const q = (document.getElementById(`mmrow-search-${id}`)?.value || '').toLowerCase().trim();
   const inv = movMasivoTipo === 'rines' ? DB.rines : DB.inventario;
   const items = inv.filter(i => {
     const matchSuc = !suc || i.sucursal === suc;
@@ -4845,6 +5186,35 @@ function aplicarCorteSucursal() {
   alert(`✅ Se aplicaron ${aplicados} movimiento(s) al inventario.\nRevisa el Historial para ver el detalle.`);
 }
 
+function renderCortesHistorial() {
+  ensureCorteFields();
+  const histBox = document.getElementById('corte-historial-box');
+  const tbody = document.getElementById('corte-historial-tbody');
+  const countEl = document.getElementById('corte-historial-count');
+  const accTh = document.getElementById('corte-hist-acc-th');
+  if (!histBox || !tbody) return;
+
+  const isAdmin = usuarioActivo?.rol === 'admin';
+  if (accTh) accTh.style.display = isAdmin ? '' : 'none';
+
+  const cortes = [...DB.cortesCerrados].sort((a,b) => b.fecha.localeCompare(a.fecha) || b.horaCierre.localeCompare(a.horaCierre));
+  if (!cortes.length) { histBox.style.display = 'none'; return; }
+  histBox.style.display = '';
+  if (countEl) countEl.textContent = cortes.length;
+
+  tbody.innerHTML = cortes.map(c => `<tr>
+    <td><strong>${c.fecha}</strong></td>
+    <td>${esc(c.sucursalNombre)}</td>
+    <td>${esc(c.cerradoPor)}</td>
+    <td>${c.horaCierre}</td>
+    <td class="td-right">${c.numVentas}</td>
+    <td class="td-right"><strong style="color:var(--accent)">${fmt(c.totalVentas)}</strong></td>
+    <td class="td-right" style="color:var(--red)">${fmt(c.totalGastos)}</td>
+    <td class="td-right" style="color:var(--green)">${fmt(c.totalEfectivo)}</td>
+    ${isAdmin ? `<td><button class="btn btn-secondary btn-sm" onclick="reabrirCorte('${c.id}')" style="border-color:var(--accent);color:var(--accent);white-space:nowrap">🔓 Reabrir</button></td>` : '<td></td>'}
+  </tr>`).join('');
+}
+
 function downloadCorteCajaCSV() {
   const fecha = document.getElementById('corte-fecha')?.value || new Date().toISOString().slice(0,10);
   const suc = document.getElementById('corte-suc')?.value || '';
@@ -5030,12 +5400,32 @@ function importJSONFile(input){
       if(!DB.servicios)DB.servicios=[];
       if(!DB.apartados)DB.apartados=[];
       if(!DB.usuarios)DB.usuarios=[{id:'u1',nombre:'Administrador',pin:'1234',rol:'admin'}];
-      saveToStorage();renderAll();alert('✅ Datos cargados correctamente');
+      if(!DB.fusionesAplicadas)DB.fusionesAplicadas=[];
+      if(!DB.traspasoIds)DB.traspasoIds={};
+      if(!DB.cortesCerrados)DB.cortesCerrados=[];
+      saveToStorage();renderAll();refreshSelectsGlobal();renderDashboard();alert('✅ Datos cargados correctamente');
     }catch{alert('Error al leer el archivo JSON');}
   };
   reader.readAsText(input.files[0]);
 }
 function clearAllData(){localStorage.removeItem('peters_wheels_db');location.reload();}
+
+function limpiarHistorialAntiguo() {
+  const meses = parseInt(prompt('¿Cuántos meses de historial deseas conservar? (ej: 3)', '3'));
+  if (!meses || isNaN(meses) || meses < 1) return;
+  const corte = new Date();
+  corte.setMonth(corte.getMonth() - meses);
+  const fechaCorte = corte.toISOString().slice(0,10);
+  const antesH = DB.historialUnificado.length;
+  DB.historialUnificado = DB.historialUnificado.filter(h => (h.fecha||'') >= fechaCorte);
+  const eliminadosH = antesH - DB.historialUnificado.length;
+  // También limpiar movimientos viejos
+  const antesM = DB.movimientos?.length || 0;
+  if (DB.movimientos) DB.movimientos = DB.movimientos.filter(m => (m.fecha||'') >= fechaCorte);
+  const eliminadosM = antesM - (DB.movimientos?.length || 0);
+  saveToStorage();
+  alert(`✅ Limpieza completada:\n• ${eliminadosH} entradas de historial eliminadas\n• ${eliminadosM} movimientos eliminados\nSe conservaron los últimos ${meses} mes(es).`);
+}
 
 // ══════════════════════════════════════════════════════════════
 // SISTEMA DE FUSIÓN SUCURSAL → MATRIZ
@@ -5124,8 +5514,17 @@ function leerJSONSucursal(input) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
+      if (!data || typeof data !== 'object') {
+        alert('El archivo no contiene un JSON válido.');
+        return;
+      }
       if (data._meta?.tipo !== 'exportacion_sucursal') {
-        alert('Este archivo no es una exportación de sucursal válida.\nUsa \"Exportar JSON de esta Sucursal\" en la sucursal correspondiente.');
+        // Podría ser un backup general (exportJSON), no una exportación de sucursal
+        if (data.ventas !== undefined && data.inventario !== undefined && data._meta === undefined) {
+          alert('Este archivo parece ser un backup general (Exportar Datos).\nPara importarlo usa el botón "📥 Importar backup JSON" en Configuración → Datos.\nPara fusionar datos de sucursal, usa "Exportar JSON de esta Sucursal" en la sucursal correspondiente.');
+        } else {
+          alert('Este archivo no es una exportación de sucursal válida.\nUsa "Exportar JSON de esta Sucursal" en la sucursal correspondiente.');
+        }
         return;
       }
       analizarFusion(data);
