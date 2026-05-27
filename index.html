@@ -123,6 +123,18 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
 @media(max-width:900px){.grid-4{grid-template-columns:1fr 1fr;}.grid-3{grid-template-columns:1fr 1fr;}}
 @media(max-width:600px){.sidebar{width:56px;min-width:56px;}.logo-text,.nav-item span,.nav-label{display:none;}.main{margin-left:56px;}.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}.product-row{grid-template-columns:1fr 1fr 1fr;}}
 @media print{.sidebar,.topbar,.btn,.tabs{display:none!important;}.main{margin:0;}}
+/* ── TEMA CLARO ── */
+html.theme-light {
+  --bg: #f0f2f5; --surface: #ffffff; --surface2: #f5f7fa; --surface3: #eaecef;
+  --border: #d0d7e3; --accent: #c9922a; --accent2: #a87520;
+  --red: #c0392b; --green: #27ae60; --blue: #2980b9;
+  --text: #1a202c; --text2: #4a5568; --text3: #718096;
+  --shadow: 0 4px 24px rgba(0,0,0,0.12);
+}
+html.theme-light ::-webkit-scrollbar-track{background:#f0f2f5;}
+html.theme-light ::-webkit-scrollbar-thumb{background:#c0c8d8;}
+html.theme-light select option{background:#ffffff;color:#1a202c;}
+html.theme-light .nav-item.active{background:linear-gradient(135deg,rgba(201,146,42,.15),rgba(201,146,42,.06));}
 </style>
 </head>
 <body>
@@ -221,6 +233,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
     <div class="topbar-title" id="topbarTitle">DASHBOARD</div>
     <div class="topbar-right">
       <div class="date-badge" id="dateBadge"></div>
+      <button id="theme-toggle-btn" onclick="toggleTheme()" class="btn btn-secondary btn-sm" style="border-color:var(--border)" title="Cambiar tema">☀️ Tema claro</button>
       <div id="topbar-user-badge" style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px">
         <span id="topbar-user-icon">👤</span><span id="topbar-user-name">—</span>
       </div>
@@ -356,7 +369,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>ID</th><th>Sucursal</th><th>Código</th><th>Estado</th><th>Marca</th><th>Medida</th><th>Ancho</th><th>Barrenación</th><th>Offset</th><th>CB</th><th>Material</th><th>Descripción</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th><th class="td-right">Utilidad</th></tr></thead>
+              <thead><tr><th>ID</th><th>Sucursal</th><th>Código</th><th>Estado</th><th>Marca</th><th>Medida</th><th>Ancho</th><th>Barrenación</th><th>Offset</th><th>CB</th><th>Material</th><th>Descripción</th><th class="td-right">Pz</th><th class="td-right">Costo</th><th class="td-right">Precio</th><th class="td-right">Utilidad</th><th>Foto</th></tr></thead>
               <tbody id="inv-rines-tbody"></tbody>
             </table>
           </div>
@@ -460,6 +473,23 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
                 <div class="form-group"><label class="switch"><input type="checkbox" id="pv-taxi-check" onchange="toggleTaxi()"><span class="slider"></span></label> <span style="font-size:13px;color:var(--text2);cursor:pointer" onclick="document.getElementById('pv-taxi-check').click()">¿Usó taxi?</span></div>
                 <div class="form-group" id="pv-taxi-group" style="display:none"><label>Costo del taxi ($)</label><input type="number" id="pv-taxi-costo" placeholder="0.00" oninput="recalcTotals()"></div>
               </div>
+            <div class="card" style="border-color:rgba(75,141,232,.3)">
+              <div class="card-title">&#128179; Incremento por Tarjeta</div>
+              <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Agrega un monto extra al total para cubrir la comision bancaria cuando el cliente paga con tarjeta.</div>
+              <div class="form-row" style="align-items:flex-end">
+                <div class="form-group">
+                  <label class="switch"><input type="checkbox" id="pv-card-surcharge-check" onchange="toggleCardSurcharge()"><span class="slider"></span></label>
+                  <span style="font-size:13px;color:var(--text2);cursor:pointer;margin-left:8px" onclick="document.getElementById('pv-card-surcharge-check').click()">Trasladar comision al cliente</span>
+                </div>
+              </div>
+              <div id="pv-card-surcharge-group" style="display:none">
+                <div class="form-row">
+                  <div class="form-group"><label>% Comision a trasladar</label><input type="number" id="pv-card-surcharge-pct" placeholder="Ej: 3.5" min="0" max="20" step="0.1" oninput="recalcCardSurcharge()"></div>
+                  <div class="form-group"><label>Incremento ($)</label><input type="number" id="pv-card-surcharge-monto" placeholder="0.00" oninput="recalcTotals()" style="border-color:var(--blue)"></div>
+                </div>
+                <div style="font-size:11px;color:var(--text3)">El monto se suma al total a cobrar. Puedes ingresarlo manualmente.</div>
+              </div>
+            </div>
             </div>
             <div class="card">
               <div class="card-title">💳 Métodos de Pago</div>
@@ -486,6 +516,7 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
                 <div class="total-line"><span class="lbl">Mercancía a cambio</span><span class="val red" id="res-cambio">-$0.00</span></div>
                 <div class="total-line"><span class="lbl">Comisión tarjeta</span><span class="val red" id="res-comision">$0.00</span></div>
                 <div class="total-line"><span class="lbl">Costo taxi</span><span class="val red" id="res-taxi">$0.00</span></div>
+                <div class="total-line" style="display:none"><span class="lbl">Cargo tarjeta cliente</span><span class="val blue" id="res-card-surcharge">$0.00</span></div>
                 <div class="total-line"><span class="lbl">Costo total</span><span class="val red" id="res-costo-total">$0.00</span></div>
                 <hr class="divider" style="margin:8px 0">
                 <div class="total-line"><span class="lbl">Total a cobrar</span><span class="val" id="res-precio-cobrar">$0.00</span></div>
@@ -587,9 +618,20 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
     <div class="section" id="section-reportes">
       <div class="card">
         <div class="card-title">📊 Filtros de Reporte</div>
+        <!-- Botones rápidos de período -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+          <button class="btn btn-secondary btn-sm" onclick="setRepPeriod('hoy')">📅 Hoy</button>
+          <button class="btn btn-secondary btn-sm" onclick="setRepPeriod('semana')">📅 Esta semana</button>
+          <button class="btn btn-secondary btn-sm" onclick="setRepPeriod('mes')">📅 Este mes</button>
+          <button class="btn btn-secondary btn-sm" onclick="setRepPeriod('anio')">📅 Este año</button>
+          <span style="font-size:11px;color:var(--text3);align-self:center;margin-left:4px">o usa los filtros manuales →</span>
+        </div>
         <div class="form-row">
           <div class="form-group"><label>Mes</label><input type="month" id="rep-mes" oninput="renderReportes()"></div>
+          <div class="form-group"><label>Desde</label><input type="date" id="rep-desde" oninput="renderReportes()"></div>
+          <div class="form-group"><label>Hasta</label><input type="date" id="rep-hasta" oninput="renderReportes()"></div>
           <div class="form-group"><label>Sucursal</label><select id="rep-sucursal" onchange="renderReportes()"><option value="">Todas</option></select></div>
+          <div class="form-group"><label>Vendedor</label><select id="rep-vendedor" onchange="renderReportes()"><option value="">Todos</option></select></div>
           <div class="form-group" style="justify-content:flex-end;padding-top:20px">
             <div class="btn-group">
               <button class="btn btn-secondary" onclick="downloadReportPDF()">📄 PDF</button>
@@ -600,15 +642,72 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
         </div>
       </div>
       <div class="grid-4" id="rep-stats" style="margin-bottom:16px"></div>
+
+      <!-- Analisis e interpretacion -->
+      <div class="card" id="rep-analisis-card" style="border-color:rgba(232,184,75,.4);margin-bottom:16px">
+        <div class="card-title">🧠 Análisis del Período <span class="badge" style="background:var(--accent);color:#000;font-size:10px">AUTO</span></div>
+        <div id="rep-analisis-texto" style="font-size:13px;color:var(--text2);line-height:1.9"></div>
+      </div>
+
       <div class="grid-2">
         <div class="card"><div class="card-title">📅 Ventas por Día</div><div class="chart-wrap"><canvas id="chartRepVentas"></canvas></div></div>
         <div class="card"><div class="card-title">💳 Métodos de Pago</div><div class="chart-wrap"><canvas id="chartRepMetodos"></canvas></div></div>
       </div>
       <div class="grid-2">
         <div class="card"><div class="card-title">💸 Resumen de Gastos y Comisiones</div><div class="chart-wrap"><canvas id="chartRepGastos"></canvas></div></div>
+        <div class="card"><div class="card-title">🏷️ Marcas más Vendidas</div><div class="chart-wrap"><canvas id="chartRepMarcas"></canvas></div></div>
+      </div>
+
+      <!-- Productos mas vendidos -->
+      <div class="card">
+        <div class="card-title">🔥 Productos más Vendidos <span class="badge" id="rep-prod-count">0</span></div>
+        <div class="chart-wrap" style="height:200px;margin-bottom:12px"><canvas id="chartRepProductos"></canvas></div>
+        <div class="table-wrap" style="max-height:320px;overflow-y:auto">
+          <table>
+            <thead><tr><th>Código</th><th>Descripción</th><th>Medida</th><th class="td-right">Pzas</th><th class="td-right">Total</th><th class="td-right">Stock actual</th><th>Estado</th></tr></thead>
+            <tbody id="rep-prod-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Marcas mas vendidas -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🏷️ Marcas más Vendidas</div>
+          <div class="table-wrap" style="max-height:280px;overflow-y:auto">
+            <table><thead><tr><th>Marca</th><th class="td-right">Pzas</th><th class="td-right">Total</th><th class="td-right">% del período</th></tr></thead>
+            <tbody id="rep-marcas-tbody"></tbody></table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">🔧 Servicios más Vendidos</div>
+          <div class="table-wrap" style="max-height:280px;overflow-y:auto">
+            <table><thead><tr><th>Servicio</th><th class="td-right">Veces</th><th class="td-right">Total</th></tr></thead>
+            <tbody id="rep-srv-tbody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de comisiones por vendedor -->
+      <div class="card">
+        <div class="card-title">👤 Comisiones y Totales por Vendedor</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Vendedor</th><th class="td-right"># Ventas</th><th class="td-right">Total Vendido</th><th class="td-right">Utilidad</th><th class="td-right">% Comisión</th><th class="td-right">Comisión Total</th></tr></thead>
+            <tbody id="rep-tabla-vendedores"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid-2">
         <div class="card">
           <div class="card-title">🔄 Productos Recibidos a Cambio</div>
           <div class="table-wrap" style="max-height:240px;overflow-y:auto"><table><thead><tr><th>Descripción</th><th class="td-right">Valor</th><th>Fecha</th></tr></thead><tbody id="rep-cambio-tbody"></tbody></table></div>
+        </div>
+        <div class="card">
+          <div class="card-title">⚠️ Inventario en Alerta</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Productos vendidos en el período con stock actual bajo o agotado</div>
+          <div class="table-wrap" style="max-height:240px;overflow-y:auto"><table><thead><tr><th>Código</th><th>Descripción</th><th class="td-right">Stock</th><th>Estado</th></tr></thead><tbody id="rep-stock-alerta-tbody"></tbody></table></div>
         </div>
       </div>
       <div class="card">
@@ -648,6 +747,17 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
           </div>
           <div class="form-row">
             <div class="form-group"><label>Comisión a vendedor por utilidad (%)</label><input type="number" id="cfg-comision-pct" placeholder="Ej: 5" min="0" max="100" step="0.5"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group full">
+              <label>📸 URL base de fotos de rines (Dropbox)</label>
+              <input type="text" id="cfg-rines-foto-url" placeholder="Ej: https://www.dropbox.com/sh/XXXX/carpeta?preview=" style="text-transform:none">
+              <div style="font-size:11px;color:var(--text3);margin-top:4px">
+                El sistema abre <strong>{URL base}{codigo}.jpg</strong> al presionar el botón de foto en un rin. 
+                En Dropbox: comparte la carpeta, copia el link y reemplaza <code>?dl=0</code> por <code>?preview=</code>.
+                También funciona con Google Drive, OneDrive o cualquier URL que acepte el nombre del archivo al final.
+              </div>
+            </div>
           </div>
           <button class="btn btn-primary" onclick="saveConfig()">💾 Guardar Configuración</button>
         </div>
@@ -910,7 +1020,6 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
   </div>
 </div>
 
-<!-- MODAL TRASPASO -->
 <div class="modal-overlay" id="modalTraspaso">
   <div class="modal">
     <div class="modal-title">↔️ Traspaso entre Sucursales</div>
@@ -925,7 +1034,15 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
     <div id="tras-products-list" style="max-height:180px;overflow-y:auto;margin-bottom:12px;border:1px solid var(--border);border-radius:8px"></div>
     <div class="form-row">
       <div class="form-group"><label>Cantidad *</label><input type="number" id="tras-cantidad" min="1" placeholder="0"></div>
-      <div class="form-group w2"><label>Motivo</label><input type="text" id="tras-motivo" placeholder="Ej: Reposición sucursal..."></div>
+      <div class="form-group w2"><label>Motivo / Descripción</label><input type="text" id="tras-motivo" placeholder="Ej: Reposición sucursal..."></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>N° Referencia / Nota general <span style="color:var(--text3);font-weight:400;text-transform:none;font-size:10px">(para evitar duplicados)</span></label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="tras-referencia" placeholder="Se genera automáticamente..." style="flex:1" readonly>
+          <button class="btn btn-secondary btn-sm" onclick="regenerarRefTraspaso()" title="Generar nueva referencia">🔄</button>
+        </div>
+      </div>
     </div>
     <div id="tras-selected" style="background:var(--surface2);border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px;color:var(--text2)">Ningún producto seleccionado</div>
     <div class="btn-group">
@@ -1237,8 +1354,9 @@ input:checked+.slider:before{transform:translateX(18px);background:#000;}
       <div class="form-group full">
         <label>Código *</label>
         <div style="display:flex;gap:6px;align-items:stretch">
-          <input type="text" id="edit-rin-codigo" placeholder="Se genera automático o escríbelo manualmente" style="flex:1;font-family:monospace">
+          <input type="text" id="edit-rin-codigo" placeholder="Se genera automático o escríbelo manualmente" style="flex:1;font-family:monospace" oninput="_updateRinPreview()">
           <button class="btn btn-secondary btn-sm" onclick="autoGenerarCodigoModalForce('rin')" title="Generar código desde los datos" style="white-space:nowrap;flex-shrink:0">🔄 Auto-código</button>
+          <button class="btn btn-secondary btn-sm" onclick="verFotoRinModal()" title="Ver foto del rin" style="white-space:nowrap;flex-shrink:0">📸 Ver foto</button>
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:3px">
           Formato: <span style="font-family:monospace;color:var(--accent)">MARCA-R{MEDIDA}-{ANCHO}-{BARR}-ET{OFFSET}-ESTADO</span> &nbsp;·&nbsp; Ej: <span style="font-family:monospace">ENK-R15-6J-4x100-ET38-N</span>
@@ -1938,7 +2056,12 @@ function renderRinesInventory() {
       <td class="td-right">${fmt(i.costo)}</td>
       <td class="td-right">${fmt(i.precio)}</td>
       <td class="td-right"><span class="badge-pill ${util>0?'badge-green':'badge-red'}">${fmt(util)} (${pct}%)</span></td>
-      <td>${isAdmin?`<div style="display:flex;gap:4px"><button class="btn btn-secondary btn-sm" onclick="openEditRin(${realIdx})">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteRin(${realIdx})">✕</button></div>`:''}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-secondary btn-sm" onclick="verFotoRin('${esc(i.codigo)}')" title="Ver foto del rin" style="padding:6px 9px">📸</button>
+          ${isAdmin?`<button class="btn btn-secondary btn-sm" onclick="openEditRin(${realIdx})">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteRin(${realIdx})">✕</button>`:''}
+        </div>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -2086,6 +2209,16 @@ function renderSucursalRines() {
 // TRASPASOS
 // ══════════════════════════════════════════════════════════════
 let trasSelectedProduct=null;
+function _generarRefTraspaso() {
+  const now = new Date();
+  const d = now.toISOString().slice(0,10).replace(/-/g,'');
+  const h = now.toTimeString().slice(0,5).replace(':','');
+  return `TRP-${d}-${h}-${Math.random().toString(36).slice(2,5).toUpperCase()}`;
+}
+function regenerarRefTraspaso() {
+  const el = document.getElementById('tras-referencia');
+  if (el) el.value = _generarRefTraspaso();
+}
 function showTraspasoModal(){
   trasSelectedProduct=null;
   document.getElementById('tras-search').value='';
@@ -2093,6 +2226,9 @@ function showTraspasoModal(){
   document.getElementById('tras-motivo').value='';
   document.getElementById('tras-selected').textContent='Ningún producto seleccionado';
   document.getElementById('tras-products-list').innerHTML='';
+  // Auto-generar referencia única al abrir el modal
+  const refEl = document.getElementById('tras-referencia');
+  if (refEl) refEl.value = _generarRefTraspaso();
   refreshSelectsGlobal();
   document.getElementById('modalTraspaso').classList.add('open');
 }
@@ -2124,6 +2260,8 @@ function saveTraspaso(){
   const destino=document.getElementById('tras-destino')?.value;
   const cant=parseInt(document.getElementById('tras-cantidad')?.value)||0;
   const motivo=document.getElementById('tras-motivo')?.value.trim()||'Traspaso';
+  // Referencia única — garantiza que no se duplique al fusionar JSONs
+  const referencia=document.getElementById('tras-referencia')?.value.trim()||_generarRefTraspaso();
   if(!origen||!destino){alert('Selecciona origen y destino');return;}
   if(origen===destino){alert('El origen y destino no pueden ser iguales');return;}
   if(!cant||cant<1){alert('Ingresa la cantidad');return;}
@@ -2140,13 +2278,20 @@ function saveTraspaso(){
   const fecha=now.toISOString().slice(0,10);
   const hora=now.toTimeString().slice(0,5);
   const desc=trasSelectedProduct.descripcion||`${trasSelectedProduct.marca} ${trasSelectedProduct.medida_rin}"`;
-  const _tid = generarTraspasoId();
+  const _tid = referencia; // Usar la referencia visible como traspasoId para anti-duplicados
   const _tipoProd = trasSelectedProduct.tipoProd || 'llantas';
-  DB.movimientos.push({uid:genUID(),traspasoId:_tid,subTipo:'salida',tipoProducto:_tipoProd,fecha,hora,tipo:'traspaso',sucursal:origen,codigo:trasSelectedProduct.codigo,descripcion:`${desc} — Traspaso → ${getSucNombre(destino)}: ${motivo}`,cantidad:cant,motivo:`Traspaso → ${getSucNombre(destino)}: ${motivo}`});
-  DB.movimientos.push({uid:genUID(),traspasoId:_tid,subTipo:'entrada',tipoProducto:_tipoProd,fecha,hora,tipo:'traspaso',sucursal:destino,codigo:trasSelectedProduct.codigo,descripcion:`${desc} — Traspaso ← ${getSucNombre(origen)}: ${motivo}`,cantidad:cant,motivo:`Traspaso ← ${getSucNombre(origen)}: ${motivo}`});
-  addHistorial({tipo:'traspaso',folio:'',descripcion:`Traspaso x${cant} ${desc} de ${getSucNombre(origen)} → ${getSucNombre(destino)}`,sucursal:origen,usuario:getCurrentUserName(),monto:0});
+  // Registrar el traspasoId para evitar que se aplique de nuevo al fusionar
+  ensureFusionFields();
+  DB.traspasoIds[_tid] = true;
+  DB.movimientos.push({uid:genUID(),traspasoId:_tid,referencia,subTipo:'salida',tipoProducto:_tipoProd,fecha,hora,tipo:'traspaso',sucursal:origen,codigo:trasSelectedProduct.codigo,descripcion:`${desc} — Traspaso → ${getSucNombre(destino)}: ${motivo}`,cantidad:cant,motivo:`Traspaso → ${getSucNombre(destino)}: ${motivo}`});
+  DB.movimientos.push({uid:genUID(),traspasoId:_tid,referencia,subTipo:'entrada',tipoProducto:_tipoProd,fecha,hora,tipo:'traspaso',sucursal:destino,codigo:trasSelectedProduct.codigo,descripcion:`${desc} — Traspaso ← ${getSucNombre(origen)}: ${motivo}`,cantidad:cant,motivo:`Traspaso ← ${getSucNombre(origen)}: ${motivo}`});
+  addHistorial({tipo:'traspaso',folio:referencia,descripcion:`Traspaso x${cant} ${desc} de ${getSucNombre(origen)} → ${getSucNombre(destino)} | Ref: ${referencia}`,sucursal:origen,usuario:getCurrentUserName(),monto:0});
   saveToStorage();closeModal('modalTraspaso');loadSucursalInventory();
-  alert(`✅ Traspaso completado: ${cant} × ${desc}`);
+  const _origenNom = getSucNombre(origen);
+  const _destinoNom = getSucNombre(destino);
+  if(confirm('Traspaso completado: ' + cant + ' x ' + desc + '\nRef: ' + referencia + '\n\n¿Enviar por WhatsApp al destino?')){
+    enviarTraspasoWhatsApp(desc, cant, _origenNom, _destinoNom, motivo, referencia, fecha, hora);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2376,7 +2521,7 @@ function ventaBloqueada(venta) {
 // Cerrar corte del día
 function cerrarCorte() {
   const fecha = document.getElementById('corte-fecha')?.value || new Date().toISOString().slice(0,10);
-  const sucId = document.getElementById('corte-suc')?.value || '';
+  let sucId = document.getElementById('corte-suc')?.value || '';
 
   // Si no hay sucursal en el filtro, usar la del usuario activo o pedir que seleccione
   if (!sucId) {
@@ -2408,7 +2553,10 @@ function cerrarCorte() {
   }
 
   const totalVentas = ventas.reduce((a,v) => a + (v.precioTotal||0), 0);
-  const totalGastos = gastos.reduce((a,g) => a + (g.monto||0), 0);
+  const totalGastosRegistrados = gastos.reduce((a,g) => a + (g.monto||0), 0);
+  // ── CORRECCIÓN: incluir taxi de ventas en el total de gastos del corte ──
+  const totalTaxiCorte = ventas.reduce((a,v) => a + (v.taxi||0), 0);
+  const totalGastos = totalGastosRegistrados + totalTaxiCorte;
 
   // Calcular efectivo
   const efectivoVentas = ventas.reduce((a,v) => {
@@ -2420,7 +2568,9 @@ function cerrarCorte() {
   const now = new Date();
   const resumen = `📋 RESUMEN DEL CORTE\n\nSucursal: ${sucNombre}\nFecha: ${fecha}\n\n` +
     `Ventas: ${ventas.length} operaciones — ${fmt(totalVentas)}\n` +
-    `Gastos: ${gastos.length} — ${fmt(totalGastos)}\n` +
+    `Gastos: ${gastos.length} — ${fmt(totalGastosRegistrados)}` +
+    (totalTaxiCorte>0 ? `\nTaxi: ${fmt(totalTaxiCorte)}` : '') +
+    `\nTotal salidas: ${fmt(totalGastos)}\n` +
     `Efectivo a entregar: ${fmt(totalEfectivo)}\n\n` +
     `Al confirmar, las ventas de este día quedarán bloqueadas.\n¿Cerrar el corte?`;
 
@@ -2587,13 +2737,19 @@ function renderCorteCaja(){
   (DB.apartados||[]).forEach(a => {
     if (suc && a.sucursal !== suc) return;
     (a.pagos||[]).forEach(p => {
-      if (p.fecha && p.fecha.startsWith(mes)) pagosApartadosMes.push(p);
+      if (p.fecha && p.fecha.startsWith(fecha.slice(0,7))) pagosApartadosMes.push(p);
     });
   });
   const totalAnticiposMes = pagosApartadosMes.reduce((s,p)=>s+(p.monto||0),0);
   const totalAnticipos=pagosDia.reduce((a,p)=>a+p.monto,0);
   const totalEntradas=totalVentas+totalAnticipos;  // dinero real recibido
-  const totalGastos=gastos.reduce((a,g)=>a+(g.monto||0),0);
+
+  // ── CORRECCIÓN BUG: incluir gastos de taxi de ventas en el total de gastos ──
+  // El taxi se guarda en venta.taxi (no en DB.gastos), por eso no aparecía en el corte
+  const totalTaxiVentas = ventas.reduce((a,v)=>a+(v.taxi||0),0);
+  const totalGastosRegistrados=gastos.reduce((a,g)=>a+(g.monto||0),0);
+  const totalGastos=totalGastosRegistrados+totalTaxiVentas;
+
   const totalUtilidad=ventas.reduce((a,v)=>a+(v.utilidad||0),0);
   const totalComVend=ventas.reduce((a,v)=>a+(v.comisionVendedor||0),0);
 
@@ -2604,6 +2760,7 @@ function renderCorteCaja(){
   },0);
   const efectivoAnticipos = pagosDia.filter(p=>(p.metodo||'').toUpperCase().includes('EFECTIVO')).reduce((a,p)=>a+p.monto,0);
   const totalEfectivoRecibido = efectivoVentas + efectivoAnticipos;
+  // El taxi se paga en efectivo: se descuenta de la caja igual que un gasto normal
   const efectivoAEntregar = Math.max(0, totalEfectivoRecibido - totalGastos);
 
   document.getElementById('corte-stats').innerHTML=`
@@ -2647,7 +2804,9 @@ function renderCorteCaja(){
       <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--text2)">
         <div>💵 Efectivo en ventas: <strong style="color:var(--text)">${fmt(efectivoVentas)}</strong></div>
         <div>💵 Efectivo en anticipos: <strong style="color:var(--text)">${fmt(efectivoAnticipos)}</strong></div>
-        <div>💸 Total gastos del día: <strong style="color:var(--red)">${fmt(totalGastos)}</strong></div>
+        <div>💸 Total gastos del día: <strong style="color:var(--red)">${fmt(totalGastosRegistrados)}</strong></div>
+        ${totalTaxiVentas>0?`<div>🚖 Taxi (ventas): <strong style="color:var(--red)">${fmt(totalTaxiVentas)}</strong></div>`:''}
+        <div style="border-top:1px solid rgba(255,255,255,.1);margin-top:4px;padding-top:4px">💸 Total salidas: <strong style="color:var(--red)">${fmt(totalGastos)}</strong></div>
       </div>
     </div>
   `;
@@ -2687,10 +2846,15 @@ function renderCorteCaja(){
     mtbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:12px">Sin movimientos</td></tr>';
   }
 
-  // ── Gastos ──
+  // ── Gastos (incluye taxi de ventas) ──
   const gtbody=document.getElementById('corte-gastos-tbody');
-  gtbody.innerHTML=gastos.length
-    ?gastos.map(g=>`<tr><td>${esc(g.concepto)}</td><td>${esc(getSucNombre(g.sucursal))}</td><td class="td-right" style="color:var(--red)">${fmt(g.monto)}</td></tr>`).join('')
+  const gastosRows = gastos.map(g=>`<tr><td>${esc(g.concepto)}</td><td>${esc(getSucNombre(g.sucursal))}</td><td class="td-right" style="color:var(--red)">${fmt(g.monto)}</td></tr>`);
+  // Agregar taxi por venta que lo usó
+  ventas.filter(v=>v.taxi>0).forEach(v=>{
+    gastosRows.push(`<tr><td>🚖 Taxi — Venta ${esc(v.vale||'')}</td><td>${esc(getSucNombre(v.sucursal))}</td><td class="td-right" style="color:var(--red)">${fmt(v.taxi)}</td></tr>`);
+  });
+  gtbody.innerHTML=gastosRows.length
+    ?gastosRows.join('')
     :'<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:12px">Sin gastos</td></tr>';
 
   // ── Ventas del día ──
@@ -3066,6 +3230,56 @@ function getProductRows() {
 function toggleTaxi(){document.getElementById('pv-taxi-group').style.display=document.getElementById('pv-taxi-check').checked?'':'none';recalcTotals();}
 function toggleFactura(){document.getElementById('pv-factura-fields').style.display=document.getElementById('pv-factura').value==='si'?'':'none';}
 
+// ── Comisión tarjeta trasladable al cliente ──
+function toggleCardSurcharge(){
+  document.getElementById('pv-card-surcharge-group').style.display=document.getElementById('pv-card-surcharge-check').checked?'':'none';
+  recalcTotals();
+}
+function recalcCardSurcharge(){
+  const pct=parseFloat(document.getElementById('pv-card-surcharge-pct')?.value)||0;
+  const rows=getProductRows();
+  const srvRows=getServiceRows();
+  const cambioRows_=getCambioRows();
+  const subtotal=rows.reduce((a,r)=>a+r.subtotal,0)+srvRows.reduce((a,r)=>a+r.subtotal,0);
+  const cambioTotal=cambioRows_.reduce((a,r)=>a+(r.valor*r.cant),0);
+  const base=Math.max(0,subtotal-cambioTotal);
+  const monto=base*(pct/100);
+  const montoEl=document.getElementById('pv-card-surcharge-monto');
+  if(montoEl) montoEl.value=monto.toFixed(2);
+  recalcTotals();
+}
+
+// ── Tema claro/oscuro ──
+function toggleTheme(){
+  const isLight=document.documentElement.classList.toggle('theme-light');
+  localStorage.setItem('pw_theme',isLight?'light':'dark');
+  const btn=document.getElementById('theme-toggle-btn');
+  if(btn) btn.textContent=isLight?'🌙 Tema oscuro':'☀️ Tema claro';
+}
+function initTheme(){
+  const saved=localStorage.getItem('pw_theme');
+  if(saved==='light'){
+    document.documentElement.classList.add('theme-light');
+    const btn=document.getElementById('theme-toggle-btn');
+    if(btn) btn.textContent='🌙 Tema oscuro';
+  }
+}
+
+// ── WhatsApp para traslados ──
+function enviarTraspasoWhatsApp(desc, cant, origen, destino, motivo, referencia, fecha, hora){
+  var msg = '*PETERS WHEELS - TRASPASO DE MERCANCIA*\n';
+  msg += 'Referencia: *' + referencia + '*\n';
+  msg += 'Fecha: ' + fecha + '  Hora: ' + hora + '\n\n';
+  msg += '*-- DETALLE --*\n';
+  msg += 'Producto: ' + desc + '\n';
+  msg += 'Cantidad: ' + cant + ' pz\n';
+  msg += 'Origen: ' + origen + '\n';
+  msg += 'Destino: *' + destino + '*\n';
+  if(motivo && motivo !== 'Traspaso') msg += 'Motivo: ' + motivo + '\n';
+  msg += '\nPor favor confirma la recepcion de ' + cant + ' pz al llegar.';
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+
 function recalcTotals() {
   const rows=getProductRows();
   const srvRows=getServiceRows();
@@ -3076,6 +3290,7 @@ function recalcTotals() {
   const cambioRows_=getCambioRows();
   const cambioTotal=cambioRows_.reduce((a,r)=>a+(r.valor*r.cant),0);
   const taxi=document.getElementById('pv-taxi-check')?.checked?(parseFloat(document.getElementById('pv-taxi-costo')?.value)||0):0;
+  const cardSurcharge=document.getElementById('pv-card-surcharge-check')?.checked?(parseFloat(document.getElementById('pv-card-surcharge-monto')?.value)||0):0;
   const pays=getPaymentRows();
   let comisionTarjeta=0;
   pays.forEach(p=>{
@@ -3083,23 +3298,37 @@ function recalcTotals() {
     if(mp&&mp.factor) comisionTarjeta+=p.monto*(mp.factor-1);
   });
   const pagadoTotal=pays.reduce((a,p)=>a+p.monto,0);
-  const totalACobrar=Math.max(0,subtotal-cambioTotal);
+  const totalACobrar=Math.max(0,subtotal-cambioTotal+cardSurcharge);
   const costoTotal=subtotalCosto+cambioTotal+comisionTarjeta+taxi;
-  const utilidad=totalACobrar-subtotalCosto-comisionTarjeta-taxi;
+  const utilidad=totalACobrar-subtotalCosto-comisionTarjeta-taxi-cardSurcharge;
   const comisionVendedor=utilidad>0?(utilidad*(DB.config.comisionPct||0)/100):0;
   // Subtotal label shows productos + servicios
   const subtotalLabel=srvRows.length>0?`${fmt(subtotalProductos)} prod + ${fmt(subtotalServicios)} srv`:fmt(subtotalProductos+subtotalServicios);
   setText('res-subtotal',subtotalLabel);
   setText('res-cambio','-'+fmt(cambioTotal));
   setText('res-comision',fmt(comisionTarjeta));setText('res-taxi',fmt(taxi));
+  // Show card surcharge in totals if active
+  const surchargeEl=document.getElementById('res-card-surcharge');
+  if(surchargeEl) surchargeEl.closest('.total-line').style.display=cardSurcharge>0?'':'none';
+  if(surchargeEl) surchargeEl.textContent=fmt(cardSurcharge);
   setText('res-costo-total',fmt(costoTotal));setText('res-precio-cobrar',fmt(totalACobrar));
   setText('res-utilidad',fmt(utilidad));setText('res-comision-vendedor',fmt(comisionVendedor));
   setText('res-pagado',fmt(pagadoTotal));setText('res-total',fmt(totalACobrar));
-  const diff=Math.abs(pagadoTotal-totalACobrar);
+  const diff=pagadoTotal-totalACobrar; // positivo = exceso, negativo = falta
   const pv=document.getElementById('payment-validation');
   if(pv){
-    if(pays.length>0&&diff>0.50) pv.textContent=`⚠️ Diferencia: ${fmt(totalACobrar-pagadoTotal)} — el total pagado no coincide`;
-    else pv.textContent='';
+    if(pays.length>0&&Math.abs(diff)>0.50){
+      if(cardSurcharge>0&&Math.abs(Math.abs(diff)-cardSurcharge)<0.51){
+        // La diferencia es exactamente el surcharge — informar, no alertar
+        pv.style.color='var(--blue)';
+        pv.textContent='El cargo de tarjeta ('+fmt(cardSurcharge)+') no esta incluido en las filas de pago. Ajusta el monto de algun metodo o agrega una fila extra.';
+      } else {
+        pv.style.color='var(--red)';
+        pv.textContent='Diferencia: '+fmt(Math.abs(diff))+' — el total pagado '+(diff<0?'es menor':'supera')+' al total a cobrar';
+      }
+    } else {
+      pv.textContent='';
+    }
   }
 }
 
@@ -3133,14 +3362,16 @@ function saveSale() {
   const cambioTotal=cambioRows_.reduce((a,r)=>a+(r.valor*r.cant),0);
   const cambioDesc=cambioRows_.map(r=>r.desc).join(', ');
   const taxi=document.getElementById('pv-taxi-check')?.checked?(parseFloat(document.getElementById('pv-taxi-costo')?.value)||0):0;
+  const cardSurcharge=document.getElementById('pv-card-surcharge-check')?.checked?(parseFloat(document.getElementById('pv-card-surcharge-monto')?.value)||0):0;
   let comisionTarjeta=0;
   pays.forEach(p=>{const mp=DB.metodosPago.find(m=>m.nombre===p.metodo);if(mp&&mp.factor)comisionTarjeta+=p.monto*(mp.factor-1);});
   const subtotalProds=rows.reduce((a,r)=>a+r.subtotal,0);
   const subtotalSrv=srvRows.reduce((a,r)=>a+r.subtotal,0);
   const subtotal=subtotalProds+subtotalSrv;
   const subtotalCosto=rows.reduce((a,r)=>a+r.subtotalCosto,0)+srvRows.reduce((a,r)=>a+r.subtotalCosto,0);
-  const precioTotal=Math.max(0,subtotal-cambioTotal);
-  const utilidad=precioTotal-subtotalCosto-comisionTarjeta-taxi;
+  // precioTotal incluye el incremento por tarjeta que se traslada al cliente
+  const precioTotal=Math.max(0,subtotal-cambioTotal+cardSurcharge);
+  const utilidad=precioTotal-subtotalCosto-comisionTarjeta-taxi-cardSurcharge;
   const comisionVendedor=utilidad>0?(utilidad*(DB.config.comisionPct||0)/100):0;
   const now=new Date();
   const venta={
@@ -3151,6 +3382,7 @@ function saveSale() {
     subtotal, subtotalProds, subtotalSrv, subtotalCosto,
     cambio:cambioTotal, cambioDesc, cambioItems:cambioRows_,
     taxi, usaTaxi:document.getElementById('pv-taxi-check')?.checked,
+    cardSurcharge, usaCardSurcharge:cardSurcharge>0,
     metodosPago:pays, metodoPago:pays.map(p=>p.metodo).join(' + '),
     comisionTarjeta,
     factura:document.getElementById('pv-factura')?.value,
@@ -3214,6 +3446,10 @@ function clearSaleForm() {
   if(document.getElementById('pv-factura-fields')) document.getElementById('pv-factura-fields').style.display='none';
   if(document.getElementById('pv-taxi-check')) document.getElementById('pv-taxi-check').checked=false;
   if(document.getElementById('pv-taxi-group')) document.getElementById('pv-taxi-group').style.display='none';
+  if(document.getElementById('pv-card-surcharge-check')) document.getElementById('pv-card-surcharge-check').checked=false;
+  if(document.getElementById('pv-card-surcharge-group')) document.getElementById('pv-card-surcharge-group').style.display='none';
+  if(document.getElementById('pv-card-surcharge-pct')) document.getElementById('pv-card-surcharge-pct').value='';
+  if(document.getElementById('pv-card-surcharge-monto')) document.getElementById('pv-card-surcharge-monto').value='';
   recalcTotals();
 }
 
@@ -3537,23 +3773,22 @@ function cancelarApartado(id) {
 function sendApartadoWhatsApp(id) {
   const a=DB.apartados.find(x=>String(x.id)===String(id)); if(!a) return;
   const suc=getSucNombre(a.sucursal);
-  let msg=`🔧 *PETERS WHEELS — APARTADO*\n`;
-  msg+=`📋 Folio: *${a.folio}*\n`;
-  msg+=`📅 Fecha: ${a.fecha}\n`;
-  msg+=`🏪 Sucursal: ${suc}\n`;
-  msg+=`👤 Cliente: ${a.cliente}\n\n`;
-  msg+=`*── PRODUCTOS ──*\n`;
-  (a.productos||[]).forEach(p=>{msg+=`• ${p.desc} x${p.pz} = ${fmt(p.subtotal)}\n`;});
-  (a.servicios||[]).forEach(s=>{msg+=`🔧 ${s.desc} = ${fmt(s.precio)}\n`;});
-  msg+=`\n*Total: ${fmt(a.totalVenta)}*\n`;
-  msg+=`✅ Anticipo pagado: ${fmt(a.anticipo)}\n`;
-  msg+=`⚠️ Saldo pendiente: *${fmt(a.saldo)}*\n`;
-  if(a.comentario) msg+=`\n💬 ${a.comentario}`;
-  // Si hay teléfono del cliente, abrir chat directo; si no, solo texto
-  const tel = (a.tel||'').replace(/[^0-9]/g,'');
-  const waUrl = tel
-    ? `https://wa.me/52${tel}?text=${encodeURIComponent(msg)}`
-    : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  let msg='*PETERS WHEELS - APARTADO*\n';
+  msg+='Folio: *'+a.folio+'*\n';
+  msg+='Fecha: '+a.fecha+'\n';
+  msg+='Sucursal: '+suc+'\n';
+  msg+='Cliente: '+a.cliente+'\n\n';
+  msg+='*-- PRODUCTOS --*\n';
+  (a.productos||[]).forEach(p=>{msg+='- '+p.desc+' x'+p.pz+' = '+fmt(p.subtotal)+'\n';});
+  (a.servicios||[]).forEach(s=>{msg+='- '+s.desc+' = '+fmt(s.precio)+'\n';});
+  msg+='\n*Total: '+fmt(a.totalVenta)+'*\n';
+  msg+='Anticipo pagado: '+fmt(a.anticipo)+'\n';
+  msg+='Saldo pendiente: *'+fmt(a.saldo)+'*\n';
+  if(a.comentario) msg+='\nNota: '+a.comentario;
+  const tel=(a.tel||'').replace(/[^0-9]/g,'');
+  const waUrl=tel
+    ?'https://wa.me/52'+tel+'?text='+encodeURIComponent(msg)
+    :'https://wa.me/?text='+encodeURIComponent(msg);
   window.open(waUrl);
 }
 
@@ -3609,18 +3844,19 @@ function sendTicketWhatsApp() {
   const srvRows=getServiceRows();
   const pays=getPaymentRows();
   const cambios=getCambioRows();
-  let msg=`🔧 *PETERS WHEELS*\n`;
-  msg+=`📋 Folio: *${vale}*\n`;
-  msg+=`📅 Fecha: ${fecha}\n`;
-  msg+=`🏪 Sucursal: ${suc}\n`;
-  msg+=`👤 Vendedor: ${vendedor}\n\n`;
-  if(rows.length){msg+=`*── PRODUCTOS ──*\n`;rows.forEach(r=>{msg+=`• ${r.desc} x${r.pz} = ${fmt(r.subtotal)}\n`;});}
-  if(srvRows.length){msg+=`\n*── SERVICIOS ──*\n`;srvRows.forEach(s=>{msg+=`🔧 ${s.desc} = ${fmt(s.precio)}\n`;});}
-  msg+=`\n*Subtotal: ${fmt([...rows,...srvRows].reduce((a,r)=>a+r.subtotal,0))}*\n`;
-  if(cambios.length){msg+=`\n🔄 *A CAMBIO:*\n`;cambios.forEach(c=>{msg+=`• ${c.desc} (${c.estado}) x${c.cant} = ${fmt(c.valor)}\n`;});}
-  if(pays.length){msg+=`\n💳 *PAGO:*\n`;pays.forEach(p=>{msg+=`• ${p.metodo}: ${fmt(p.monto)}\n`;});}
+  let msg='*PETERS WHEELS*\n';
+  msg+='Folio: *'+vale+'*\n';
+  msg+='Fecha: '+fecha+'\n';
+  msg+='Sucursal: '+suc+'\n';
+  msg+='Vendedor: '+vendedor+'\n\n';
+  if(rows.length){msg+='*-- PRODUCTOS --*\n';rows.forEach(r=>{msg+='- '+r.desc+' x'+r.pz+' = '+fmt(r.subtotal)+'\n';});}
+  if(srvRows.length){msg+='\n*-- SERVICIOS --*\n';srvRows.forEach(s=>{msg+='- '+s.desc+' = '+fmt(s.precio)+'\n';});}
+  const subtotal=[...rows,...srvRows].reduce((a,r)=>a+r.subtotal,0);
+  msg+='\n*Subtotal: '+fmt(subtotal)+'*\n';
+  if(cambios.length){msg+='\n*A CAMBIO:*\n';cambios.forEach(c=>{msg+='- '+c.desc+' ('+c.estado+') x'+c.cant+' = '+fmt(c.valor)+'\n';});}
+  if(pays.length){msg+='\n*PAGO:*\n';pays.forEach(p=>{msg+='- '+p.metodo+': '+fmt(p.monto)+'\n';});}
   const total=parseFloat(document.getElementById('res-total')?.textContent?.replace(/[$,]/g,'')||0);
-  msg+=`\n*TOTAL: ${fmt(total)}*\n\nGracias por su compra 🙏`;
+  msg+='\n*TOTAL: '+fmt(total)+'*\n\nGracias por su compra.';
   window.open('https://wa.me/?text='+encodeURIComponent(msg));
 }
 
@@ -3743,6 +3979,7 @@ function showVentaDetail(id) {
     </div>
     ${cambioBlock}
     ${v.usaTaxi?`<p style="font-size:13px;margin-bottom:8px">🚖 <strong>Taxi:</strong> ${fmt(v.taxi)}</p>`:''}
+    ${v.cardSurcharge>0?`<p style="font-size:13px;margin-bottom:8px">💳 <strong>Cargo tarjeta trasladado al cliente:</strong> ${fmt(v.cardSurcharge)}</p>`:''}
     ${v.factura==='si'?`<p style="font-size:13px;margin-bottom:8px">🧾 <strong>Factura:</strong> ${esc(v.facturaNombre||'')} – ${esc(v.facturaRFC||'')}</p>`:''}
     ${v.comentario?`<p style="font-size:13px;margin-bottom:8px">💬 ${esc(v.comentario)}</p>`:''}
     <div class="sale-total-box" style="margin-top:12px">
@@ -3775,13 +4012,62 @@ function showVentaDetail(id) {
 // REPORTES
 // ══════════════════════════════════════════════════════════════
 let repCharts={};
+
+function setRepPeriod(period) {
+  const today = new Date();
+  const fmt0 = d => d.toISOString().slice(0,10);
+  const fmtM = d => d.toISOString().slice(0,7);
+  const desdeEl = document.getElementById('rep-desde');
+  const hastaEl = document.getElementById('rep-hasta');
+  const mesEl   = document.getElementById('rep-mes');
+  // Clear month filter when using range
+  if(mesEl) mesEl.value = '';
+  if(period === 'hoy') {
+    if(desdeEl) desdeEl.value = fmt0(today);
+    if(hastaEl) hastaEl.value = fmt0(today);
+  } else if(period === 'semana') {
+    const day = today.getDay(); // 0=Dom, 1=Lun, ..., 6=Sab
+    const diffToMonday = day === 0 ? 6 : day - 1; // días desde el lunes
+    const monday = new Date(today); monday.setDate(today.getDate() - diffToMonday);
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+    if(desdeEl) desdeEl.value = fmt0(monday);
+    if(hastaEl) hastaEl.value = fmt0(sunday);
+  } else if(period === 'mes') {
+    if(mesEl) mesEl.value = fmtM(today);
+    if(desdeEl) desdeEl.value = '';
+    if(hastaEl) hastaEl.value = '';
+  } else if(period === 'anio') {
+    if(desdeEl) desdeEl.value = today.getFullYear()+'-01-01';
+    if(hastaEl) hastaEl.value = today.getFullYear()+'-12-31';
+  }
+  renderReportes();
+}
+
 function renderReportes() {
-  const mes=document.getElementById('rep-mes')?.value||new Date().toISOString().slice(0,7);
+  const mes=document.getElementById('rep-mes')?.value||'';
+  const desde=document.getElementById('rep-desde')?.value||'';
+  const hasta=document.getElementById('rep-hasta')?.value||'';
   const suc=document.getElementById('rep-sucursal')?.value||'';
+  const vendFiltro=document.getElementById('rep-vendedor')?.value||'';
   const diaEsp=document.getElementById('rep-dia-especifico')?.value||'';
-  // For charts/stats: use full month. For table: apply day filter if set
-  const ventas=DB.ventas.filter(v=>v.fecha&&v.fecha.startsWith(mes)&&(!suc||v.sucursal===suc)&&!v.cancelada);
-  const gastos=DB.gastos.filter(g=>g.fecha&&g.fecha.startsWith(mes)&&(!suc||g.sucursal===suc));
+  // Populate vendedor filter
+  const vendSel=document.getElementById('rep-vendedor');
+  if(vendSel&&vendSel.options.length<=1){
+    DB.vendedores.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;vendSel.appendChild(o);});
+  }
+  // Build date filter function
+  function enPeriodo(fecha) {
+    if(!fecha) return false;
+    if(mes) return fecha.startsWith(mes);
+    if(desde && hasta) return fecha >= desde && fecha <= hasta;
+    if(desde) return fecha >= desde;
+    if(hasta) return fecha <= hasta;
+    // Default: this month
+    return fecha.startsWith(new Date().toISOString().slice(0,7));
+  }
+  // For charts/stats: use full period. For table: apply day filter if set
+  const ventas=DB.ventas.filter(v=>v.fecha&&enPeriodo(v.fecha)&&(!suc||v.sucursal===suc)&&(!vendFiltro||v.vendedor===vendFiltro)&&!v.cancelada);
+  const gastos=DB.gastos.filter(g=>g.fecha&&enPeriodo(g.fecha)&&(!suc||g.sucursal===suc));
   const ventasTabla=diaEsp?ventas.filter(v=>v.fecha===diaEsp):ventas;
   const totalVentas=ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
   // Incluir anticipos/pagos de apartados del período
@@ -3789,7 +4075,7 @@ function renderReportes() {
   (DB.apartados||[]).forEach(a => {
     if (suc && a.sucursal !== suc) return;
     (a.pagos||[]).forEach(p => {
-      if (p.fecha && p.fecha.startsWith(mes)) pagosApartadosMes.push(p);
+      if (p.fecha && enPeriodo(p.fecha)) pagosApartadosMes.push(p);
     });
   });
   const totalAnticiposMes = pagosApartadosMes.reduce((s,p)=>s+(p.monto||0),0);
@@ -3802,17 +4088,218 @@ function renderReportes() {
   const dias=Object.keys(ventasPorDia).sort();
   const mejorDia=dias.length?dias.reduce((a,b)=>ventasPorDia[a]>=ventasPorDia[b]?a:b):null;
   const peorDia=dias.length?dias.reduce((a,b)=>ventasPorDia[a]<=ventasPorDia[b]?a:b):null;
+  // ── Stats cards ampliadas ──
+  const totalPiezas = ventas.reduce((a,v)=>(v.productos||[]).reduce((b,p)=>b+(p.pz||0),a),0);
+  const ticketPromedio = ventas.length ? totalVentas/ventas.length : 0;
+  const margenPct = totalVentas > 0 ? (totalUtilidad/totalVentas*100) : 0;
+  const totalSrvs = ventas.reduce((a,v)=>(v.servicios||[]).reduce((b,s)=>b+1,a),0);
   document.getElementById('rep-stats').innerHTML=`
-    <div class="stat-card"><div class="stat-label">Total Ventas</div><div class="stat-value accent">${fmt(totalVentas)}</div><div class="stat-sub">${ventas.length} ventas</div></div>
-    <div class="stat-card"><div class="stat-label">Mejor Día</div><div class="stat-value green" style="font-size:18px">${mejorDia||'-'}</div><div class="stat-sub">${fmt(ventasPorDia[mejorDia]||0)}</div></div>
-    <div class="stat-card"><div class="stat-label">Día Más Bajo</div><div class="stat-value red" style="font-size:18px">${peorDia||'-'}</div><div class="stat-sub">${fmt(ventasPorDia[peorDia]||0)}</div></div>
-    <div class="stat-card"><div class="stat-label">Utilidad Estimada</div><div class="stat-value blue">${fmt(totalUtilidad)}</div><div class="stat-sub">Com. vendedores: ${fmt(totalComVend)}</div></div>`;
+    <div class="stat-card"><div class="stat-label">Total Ventas</div><div class="stat-value accent">${fmt(totalVentas)}</div><div class="stat-sub">${ventas.length} operaciones</div></div>
+    <div class="stat-card"><div class="stat-label">Ticket Promedio</div><div class="stat-value blue">${fmt(ticketPromedio)}</div><div class="stat-sub">${totalPiezas} piezas vendidas</div></div>
+    <div class="stat-card"><div class="stat-label">Utilidad</div><div class="stat-value green">${fmt(totalUtilidad)}</div><div class="stat-sub">Margen: ${margenPct.toFixed(1)}%</div></div>
+    <div class="stat-card"><div class="stat-label">Mejor Día</div><div class="stat-value accent" style="font-size:18px">${mejorDia||'-'}</div><div class="stat-sub">${fmt(ventasPorDia[mejorDia]||0)}</div></div>`;
+
   renderChart('chartRepVentas',repCharts,'bar',dias,[{label:'Ventas',data:dias.map(d=>ventasPorDia[d]),backgroundColor:'rgba(232,184,75,0.7)',borderColor:'#e8b84b',borderWidth:1}]);
-  const metCount={};ventas.forEach(v=>{if(v.metodoPago)metCount[v.metodoPago]=(metCount[v.metodoPago]||0)+(v.precioTotal||0);});
+  const metCount={};
+  ventas.forEach(v=>{
+    (v.metodosPago||[{metodo:v.metodoPago,monto:v.precioTotal}]).forEach(p=>{
+      if(p.metodo) metCount[p.metodo]=(metCount[p.metodo]||0)+(p.monto||0);
+    });
+  });
   renderChart('chartRepMetodos',repCharts,'doughnut',Object.keys(metCount),[{data:Object.values(metCount),backgroundColor:['#e8b84b','#4be87a','#4b8de8','#e84b4b','#be4be8','#4be8d8','#e8824b','#8ae84b','#e8e84b','#84b4e8']}]);
-  renderChart('chartRepGastos',repCharts,'bar',['Ventas','Gastos Gen.','Com. Tarjeta','Com. Vendedores'],[{label:'Monto',data:[totalVentas,totalGastos,totalComTarj,totalComVend],backgroundColor:['rgba(75,232,122,.7)','rgba(232,75,75,.7)','rgba(232,75,75,.5)','rgba(232,184,75,.7)']}]);
+  renderChart('chartRepGastos',repCharts,'bar',['Ventas','Gastos','Com. Tarjeta','Com. Vendedores'],[{label:'Monto',data:[totalVentas,totalGastos,totalComTarj,totalComVend],backgroundColor:['rgba(75,232,122,.7)','rgba(232,75,75,.7)','rgba(232,75,75,.5)','rgba(232,184,75,.7)']}]);
+
+  // ── Productos más vendidos ──
+  const prodMap = {};
+  ventas.forEach(v=>{
+    (v.productos||[]).forEach(p=>{
+      const key = p.codigo||p.desc||'?';
+      if(!prodMap[key]) prodMap[key]={codigo:p.codigo||'',desc:p.desc||'',pz:0,total:0,tipo:p.tipo||'lnt'};
+      prodMap[key].pz += (p.pz||0);
+      prodMap[key].total += (p.subtotal||0);
+    });
+  });
+  const prodEntries = Object.values(prodMap).sort((a,b)=>b.pz-a.pz);
+  const top10Prods = prodEntries.slice(0,10);
+  if(document.getElementById('rep-prod-count')) document.getElementById('rep-prod-count').textContent=prodEntries.length;
+  renderChart('chartRepProductos',repCharts,'bar',
+    top10Prods.map(p=>(p.desc||p.codigo||'?').substring(0,18)),
+    [{label:'Piezas',data:top10Prods.map(p=>p.pz),backgroundColor:'rgba(232,184,75,0.75)',borderColor:'#e8b84b',borderWidth:1,indexAxis:'y'}]
+  );
+  const prodTbody = document.getElementById('rep-prod-tbody');
+  if(prodTbody){
+    prodTbody.innerHTML = prodEntries.length ? prodEntries.map(p=>{
+      // Buscar stock actual en inventario
+      const inv = p.tipo==='rin' ? DB.rines : DB.inventario;
+      const items = inv.filter(i=>i.codigo===p.codigo&&(!suc||i.sucursal===suc));
+      const stockTotal = items.reduce((a,i)=>a+(i.pz||0),0);
+      const medida = items[0]?.medida || items[0]?.medida_rin || '';
+      let stockBadge, stockColor;
+      if(!p.codigo||items.length===0){ stockBadge='<span class="badge-pill" style="background:rgba(100,100,100,.2);color:var(--text3)">Manual</span>'; stockColor='var(--text3)'; }
+      else if(stockTotal===0){ stockBadge='<span class="badge-pill badge-red">AGOTADO</span>'; stockColor='var(--red)'; }
+      else if(stockTotal<3){ stockBadge='<span class="badge-pill badge-accent">BAJO</span>'; stockColor='var(--accent)'; }
+      else{ stockBadge='<span class="badge-pill badge-green">OK</span>'; stockColor='var(--green)'; }
+      return `<tr>
+        <td style="font-family:monospace;font-size:11px">${esc(p.codigo||'—')}</td>
+        <td>${esc(p.desc)}</td>
+        <td style="font-size:11px;color:var(--text2)">${esc(medida)}</td>
+        <td class="td-right"><strong>${p.pz}</strong></td>
+        <td class="td-right">${fmt(p.total)}</td>
+        <td class="td-right" style="color:${stockColor};font-weight:700">${p.codigo?stockTotal:'—'}</td>
+        <td>${stockBadge}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:16px">Sin productos en el período</td></tr>';
+  }
+
+  // ── Marcas más vendidas ──
+  const marcaMap = {};
+  ventas.forEach(v=>{
+    (v.productos||[]).forEach(p=>{
+      // Intentar obtener marca real del inventario
+      let marca = '';
+      if(p.codigo){
+        const inv = p.tipo==='rin' ? DB.rines : DB.inventario;
+        const item = inv.find(i=>i.codigo===p.codigo);
+        marca = item?.marca || '';
+      }
+      // Fallback: primera palabra del desc
+      if(!marca && p.desc) marca = p.desc.split(' ')[0] || 'SIN MARCA';
+      marca = marca.toUpperCase().trim() || 'SIN MARCA';
+      if(!marcaMap[marca]) marcaMap[marca]={pz:0,total:0};
+      marcaMap[marca].pz += (p.pz||0);
+      marcaMap[marca].total += (p.subtotal||0);
+    });
+  });
+  const marcaEntries = Object.entries(marcaMap).sort((a,b)=>b[1].pz-a[1].pz);
+  const top8Marcas = marcaEntries.slice(0,8);
+  renderChart('chartRepMarcas',repCharts,'doughnut',
+    top8Marcas.map(([m])=>m),
+    [{data:top8Marcas.map(([,d])=>d.pz),backgroundColor:['#e8b84b','#4be87a','#4b8de8','#e84b4b','#be4be8','#4be8d8','#e8824b','#8ae84b']}]
+  );
+  const totalPzPeriodo = marcaEntries.reduce((a,[,d])=>a+d.pz,0)||1;
+  const marcasTbody = document.getElementById('rep-marcas-tbody');
+  if(marcasTbody){
+    marcasTbody.innerHTML = marcaEntries.length ? marcaEntries.map(([m,d])=>`<tr>
+      <td><strong>${esc(m)}</strong></td>
+      <td class="td-right">${d.pz}</td>
+      <td class="td-right">${fmt(d.total)}</td>
+      <td class="td-right" style="color:var(--text2)">${(d.pz/totalPzPeriodo*100).toFixed(1)}%</td>
+    </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:12px">Sin datos</td></tr>';
+  }
+
+  // ── Servicios más vendidos ──
+  const srvMap = {};
+  ventas.forEach(v=>{
+    (v.servicios||[]).forEach(s=>{
+      const key = s.desc||'Servicio';
+      if(!srvMap[key]) srvMap[key]={veces:0,total:0};
+      srvMap[key].veces++;
+      srvMap[key].total += (s.precio||s.subtotal||0);
+    });
+  });
+  const srvEntries = Object.entries(srvMap).sort((a,b)=>b[1].veces-a[1].veces);
+  const srvTbody = document.getElementById('rep-srv-tbody');
+  if(srvTbody){
+    srvTbody.innerHTML = srvEntries.length ? srvEntries.map(([s,d])=>`<tr>
+      <td>${esc(s)}</td>
+      <td class="td-right"><strong>${d.veces}</strong></td>
+      <td class="td-right">${fmt(d.total)}</td>
+    </tr>`).join('') : '<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:12px">Sin servicios en el período</td></tr>';
+  }
+
+  // ── Inventario en alerta ──
+  const vendidosCodigos = new Set(prodEntries.filter(p=>p.codigo).map(p=>p.codigo));
+  const alertaItems = [];
+  [...DB.inventario, ...DB.rines].forEach(item=>{
+    if(!vendidosCodigos.has(item.codigo)) return;
+    if(suc && item.sucursal !== suc) return;
+    if(item.pz <= 2){
+      const desc = item.descripcion || `${item.marca||''} ${item.medida_rin||''}`;
+      alertaItems.push({codigo:item.codigo, desc, pz:item.pz, sucursal:item.sucursal});
+    }
+  });
+  const alertaTbody = document.getElementById('rep-stock-alerta-tbody');
+  if(alertaTbody){
+    alertaTbody.innerHTML = alertaItems.length ? alertaItems.sort((a,b)=>a.pz-b.pz).map(i=>`<tr>
+      <td style="font-family:monospace;font-size:11px">${esc(i.codigo)}</td>
+      <td style="font-size:12px">${esc(i.desc)}<br><span style="font-size:10px;color:var(--text3)">${esc(getSucNombre(i.sucursal))}</span></td>
+      <td class="td-right" style="font-weight:700;color:${i.pz===0?'var(--red)':'var(--accent)'}">${i.pz}</td>
+      <td>${i.pz===0?'<span class="badge-pill badge-red">AGOTADO</span>':'<span class="badge-pill badge-accent">BAJO</span>'}</td>
+    </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:12px">Sin alertas — buen stock</td></tr>';
+  }
+
+  // ── Analisis e interpretacion automatica ──
+  const analisisEl = document.getElementById('rep-analisis-texto');
+  if(analisisEl){
+    if(!ventas.length){
+      analisisEl.innerHTML = '<span style="color:var(--text3)">Sin ventas en el período seleccionado.</span>';
+    } else {
+      const textos = [];
+      // Producto estrella
+      if(prodEntries.length) textos.push(`El producto mas vendido fue <strong>${esc(prodEntries[0].desc)}</strong> con <strong>${prodEntries[0].pz} piezas</strong> por un total de <strong>${fmt(prodEntries[0].total)}</strong>.`);
+      // Marca dominante
+      if(marcaEntries.length) textos.push(`La marca dominante fue <strong>${esc(marcaEntries[0][0])}</strong> con ${marcaEntries[0][1].pz} piezas (${(marcaEntries[0][1].pz/totalPzPeriodo*100).toFixed(0)}% del total).`);
+      // Mejor dia
+      if(mejorDia) textos.push(`El mejor dia de ventas fue <strong>${mejorDia}</strong> con <strong>${fmt(ventasPorDia[mejorDia])}</strong> en un solo dia.`);
+      // Vendedor top
+      const vendTop = Object.entries(vendMap||{}).sort((a,b)=>b[1].total-a[1].total)[0];
+      if(vendTop && vendTop[0] !== '(sin vendedor)') textos.push(`El vendedor con mayor volumen fue <strong>${esc(vendTop[0])}</strong> con ${fmt(vendTop[1].total)} en ${vendTop[1].ventas} ventas.`);
+      // Metodo de pago dominante
+      const metTop = Object.entries(metCount).sort((a,b)=>b[1]-a[1])[0];
+      if(metTop){
+        const pctMet = (metTop[1]/totalVentas*100).toFixed(0);
+        textos.push(`El metodo de pago mas usado fue <strong>${esc(metTop[0])}</strong>, representando el <strong>${pctMet}%</strong> del total cobrado.`);
+      }
+      // Margen
+      textos.push(`El margen de utilidad del periodo fue <strong>${margenPct.toFixed(1)}%</strong> (${fmt(totalUtilidad)} de utilidad sobre ${fmt(totalVentas)} en ventas).`);
+      // Alerta stock
+      const agotados = alertaItems.filter(i=>i.pz===0);
+      if(agotados.length) textos.push(`<span style="color:var(--red)">Atencion: ${agotados.length} producto(s) que vendiste en este periodo estan <strong>agotados</strong>. Considera hacer un pedido.</span>`);
+      // Tendencia: primera vs segunda mitad
+      if(dias.length >= 4){
+        const mid = Math.floor(dias.length/2);
+        const primeraMitad = dias.slice(0,mid).reduce((a,d)=>a+ventasPorDia[d],0);
+        const segundaMitad = dias.slice(mid).reduce((a,d)=>a+ventasPorDia[d],0);
+        if(segundaMitad > primeraMitad*1.1) textos.push(`<span style="color:var(--green)">Tendencia positiva: la segunda mitad del periodo genero mas ventas que la primera.</span>`);
+        else if(primeraMitad > segundaMitad*1.1) textos.push(`<span style="color:var(--accent)">La segunda mitad del periodo tuvo menos actividad que la primera.</span>`);
+      }
+      analisisEl.innerHTML = textos.map(t=>`<div style="padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)">${t}</div>`).join('');
+    }
+  }
+
   const cambios=ventas.filter(v=>v.cambioDesc||v.cambio>0);
   document.getElementById('rep-cambio-tbody').innerHTML=cambios.length?cambios.map(v=>`<tr><td>${esc(v.cambioDesc)}</td><td class="td-right">${fmt(v.cambio)}</td><td>${v.fecha}</td></tr>`).join(''):'<tr><td colspan="3" style="color:var(--text3);text-align:center;padding:12px">Sin productos a cambio</td></tr>';
+
+  // ── Tabla comisiones por vendedor ──
+  const vendMap={};
+  ventas.forEach(v=>{
+    const vend=v.vendedor||'(sin vendedor)';
+    if(!vendMap[vend]) vendMap[vend]={ventas:0,total:0,utilidad:0,comision:0};
+    vendMap[vend].ventas++;
+    vendMap[vend].total+=(v.precioTotal||0);
+    vendMap[vend].utilidad+=(v.utilidad||0);
+    vendMap[vend].comision+=(v.comisionVendedor||0);
+  });
+  const vendTbody=document.getElementById('rep-tabla-vendedores');
+  if(vendTbody){
+    const entries=Object.entries(vendMap).sort((a,b)=>b[1].total-a[1].total);
+    vendTbody.innerHTML=entries.length?entries.map(([vend,d])=>`<tr>
+      <td><strong>${esc(vend)}</strong></td>
+      <td class="td-right">${d.ventas}</td>
+      <td class="td-right"><strong style="color:var(--accent)">${fmt(d.total)}</strong></td>
+      <td class="td-right" style="color:var(--green)">${fmt(d.utilidad)}</td>
+      <td class="td-right" style="color:var(--text2)">${DB.config.comisionPct||0}%</td>
+      <td class="td-right"><strong style="color:var(--accent)">${fmt(d.comision)}</strong></td>
+    </tr>`).join('')+`<tr style="border-top:2px solid var(--border);font-weight:700">
+      <td>TOTAL</td>
+      <td class="td-right">${entries.reduce((a,[,d])=>a+d.ventas,0)}</td>
+      <td class="td-right" style="color:var(--accent)">${fmt(entries.reduce((a,[,d])=>a+d.total,0))}</td>
+      <td class="td-right" style="color:var(--green)">${fmt(entries.reduce((a,[,d])=>a+d.utilidad,0))}</td>
+      <td></td>
+      <td class="td-right" style="color:var(--accent)">${fmt(entries.reduce((a,[,d])=>a+d.comision,0))}</td>
+    </tr>`
+    :'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Sin ventas en este período</td></tr>';
+  }
   // Table: uses filtered (by day if set)
   document.getElementById('rep-tabla-ventas').innerHTML=ventasTabla.length?[...ventasTabla].reverse().map(v=>`<tr onclick="showVentaDetail('${v.id}')" style="cursor:pointer"><td>${esc(v.vale||'-')}</td><td>${v.fecha}</td><td>${esc(getSucNombre(v.sucursal))}</td><td>${esc(v.vendedor||'-')}</td><td><span class="badge-pill badge-accent">${esc(v.metodoPago||'-')}</span></td><td class="td-right">${fmt(v.subtotal)}</td><td class="td-right">${fmt(v.comisionTarjeta||0)}</td><td class="td-right">${fmt(v.comisionVendedor||0)}</td><td class="td-right">${fmt(v.taxi||0)}</td><td class="td-right"><strong>${fmt(v.precioTotal)}</strong></td></tr>`).join(''):`<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:24px">Sin ventas${diaEsp?' para '+diaEsp:''}</td></tr>`;
 }
@@ -3845,26 +4332,265 @@ function downloadDayCSV(){
   downloadFile(`ventas_${label}.csv`,csv,'text/csv');
 }
 function downloadReportPDF(){
-  const{jsPDF}=window.jspdf;const doc=new jsPDF();
-  doc.setFontSize(18);doc.text('Peters Wheels – Reporte de Ventas',14,20);
+  const{jsPDF}=window.jspdf; const doc=new jsPDF();
   const mes=document.getElementById('rep-mes')?.value||'';
-  const diaEsp=document.getElementById('rep-dia-especifico')?.value||'';
-  doc.setFontSize(11);doc.text('Período: '+(diaEsp||mes),14,30);
+  const desde=document.getElementById('rep-desde')?.value||'';
+  const hasta=document.getElementById('rep-hasta')?.value||'';
   const suc=document.getElementById('rep-sucursal')?.value||'';
-  let ventas=DB.ventas.filter(v=>(!mes||v.fecha?.startsWith(mes))&&(!suc||v.sucursal===suc));
-  if(diaEsp) ventas=ventas.filter(v=>v.fecha===diaEsp);
-  let y=45;doc.setFontSize(9);
-  ventas.forEach(v=>{if(y>270){doc.addPage();y=20;}doc.text(`${v.fecha} | Vale: ${v.vale} | ${v.vendedor} | ${v.metodoPago} | $${v.precioTotal}`,14,y);y+=7;});
-  doc.save('reporte_peters_wheels.pdf');
+  const periodoLabel=mes||(desde&&hasta?desde+' al '+hasta:desde||hasta||new Date().toISOString().slice(0,7));
+  const sucLabel=suc?getSucNombre(suc):'Todas las sucursales';
+  function enPer(f){ if(!f)return false; if(mes)return f.startsWith(mes); if(desde&&hasta)return f>=desde&&f<=hasta; if(desde)return f>=desde; if(hasta)return f<=hasta; return f.startsWith(new Date().toISOString().slice(0,7)); }
+  const ventas=DB.ventas.filter(v=>v.fecha&&enPer(v.fecha)&&(!suc||v.sucursal===suc)&&!v.cancelada);
+  const gastos=DB.gastos.filter(g=>g.fecha&&enPer(g.fecha)&&(!suc||g.sucursal===suc));
+  const totalVentas=ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
+  const totalGastos=gastos.reduce((a,g)=>a+(g.monto||0),0);
+  const totalUtilidad=ventas.reduce((a,v)=>a+(v.utilidad||0),0);
+  const totalComVend=ventas.reduce((a,v)=>a+(v.comisionVendedor||0),0);
+  const totalPiezas=ventas.reduce((a,v)=>(v.productos||[]).reduce((b,p)=>b+(p.pz||0),a),0);
+  const margen=totalVentas>0?(totalUtilidad/totalVentas*100):0;
+
+  // ── Helpers ──
+  function pdfHeader(pageNum){
+    doc.setFillColor(22,26,34); doc.rect(0,0,210,24,'F');
+    doc.setTextColor(232,184,75); doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('PETERS WHEELS',14,10);
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(160,170,185);
+    doc.text('Reporte Ejecutivo de Ventas',14,17);
+    doc.text('Periodo: '+periodoLabel,105,10,{align:'center'});
+    doc.text('Sucursal: '+sucLabel,105,17,{align:'center'});
+    doc.text('Generado: '+new Date().toLocaleDateString('es-MX'),196,17,{align:'right'});
+  }
+  function sectionTitle(title,yPos,r,g,b){
+    doc.setFillColor(r||40,40,55); doc.rect(14,yPos,182,7,'F');
+    doc.setTextColor(232,184,75); doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text(title,17,yPos+5);
+    doc.setFont('helvetica','normal'); doc.setTextColor(50,50,65);
+    return yPos+11;
+  }
+  function checkPage(yPos,needed){ if(yPos+needed>278){doc.addPage();pdfHeader();return 30;} return yPos; }
+  function rowBg(idx,yPos,h){ if(idx%2===0){doc.setFillColor(247,248,251);doc.rect(14,yPos-1,182,h,'F');} }
+
+  // ── Página 1: Resumen ejecutivo ──
+  pdfHeader();
+  let y=30;
+
+  // Tarjetas resumen
+  const cards=[
+    {l:'Total Ventas',v:'$'+totalVentas.toFixed(2),c:[39,174,96]},
+    {l:'Total Gastos',v:'$'+totalGastos.toFixed(2),c:[192,57,43]},
+    {l:'Utilidad Neta',v:'$'+totalUtilidad.toFixed(2),c:[41,128,185]},
+    {l:'Margen',v:margen.toFixed(1)+'%',c:[142,68,173]},
+  ];
+  cards.forEach((card,i)=>{
+    const x=14+i*49;
+    doc.setFillColor(245,247,250); doc.roundedRect(x,y,46,18,2,2,'F');
+    doc.setFontSize(7); doc.setTextColor(100,110,125); doc.text(card.l,x+23,y+6,{align:'center'});
+    doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...card.c);
+    doc.text(card.v,x+23,y+14,{align:'center'});
+    doc.setFont('helvetica','normal');
+  });
+  y+=22;
+
+  // Mini stats fila 2
+  const stats2=[
+    {l:'Operaciones',v:String(ventas.length)},{l:'Piezas vendidas',v:String(totalPiezas)},
+    {l:'Ticket promedio',v:'$'+(ventas.length?totalVentas/ventas.length:0).toFixed(2)},
+    {l:'Com. vendedores',v:'$'+totalComVend.toFixed(2)},
+  ];
+  stats2.forEach((s,i)=>{
+    const x=14+i*49;
+    doc.setFontSize(7); doc.setTextColor(110,120,135); doc.text(s.l,x,y+4);
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(40,50,65);
+    doc.text(s.v,x,y+10);
+    doc.setFont('helvetica','normal');
+  });
+  y+=16;
+
+  // ── Top 5 productos más vendidos ──
+  const prodMap={};
+  ventas.forEach(v=>{ (v.productos||[]).forEach(p=>{ const k=p.codigo||p.desc||'?'; if(!prodMap[k]) prodMap[k]={codigo:p.codigo||'',desc:p.desc||'',pz:0,total:0,tipo:p.tipo||'lnt'}; prodMap[k].pz+=(p.pz||0); prodMap[k].total+=(p.subtotal||0); }); });
+  const prodTop=Object.values(prodMap).sort((a,b)=>b.pz-a.pz).slice(0,5);
+  if(prodTop.length){
+    y=sectionTitle('TOP 5 PRODUCTOS MAS VENDIDOS',y);
+    doc.setFontSize(7); doc.setTextColor(100,110,125);
+    ['#','Codigo','Descripcion','Medida','Piezas','Total'].forEach((h,i)=>doc.text(h,[14,20,36,110,140,158][i],y-3));
+    y+=1;
+    prodTop.forEach((p,idx)=>{
+      y=checkPage(y,8);
+      rowBg(idx,y,7);
+      const inv=p.tipo==='rin'?DB.rines:DB.inventario;
+      const item=inv.find(i=>i.codigo===p.codigo);
+      const medida=item?.medida||item?.medida_rin||'';
+      doc.setTextColor(50,50,65); doc.setFontSize(7);
+      doc.text(String(idx+1),14,y+4);
+      doc.setFont('helvetica','bold'); doc.text((p.codigo||'—').substring(0,10),20,y+4); doc.setFont('helvetica','normal');
+      doc.text((p.desc||'').substring(0,38),36,y+4);
+      doc.text(medida.substring(0,14),110,y+4);
+      doc.setFont('helvetica','bold'); doc.setTextColor(41,128,185); doc.text(String(p.pz),148,y+4); doc.setFont('helvetica','normal');
+      doc.setTextColor(39,174,96); doc.text('$'+p.total.toFixed(2),158,y+4);
+      doc.setTextColor(50,50,65);
+      y+=7;
+    });
+    y+=3;
+  }
+
+  // ── Marcas más vendidas ──
+  const marcaMap={};
+  ventas.forEach(v=>{ (v.productos||[]).forEach(p=>{ let m=''; if(p.codigo){ const inv=p.tipo==='rin'?DB.rines:DB.inventario; m=(inv.find(i=>i.codigo===p.codigo)?.marca)||''; } if(!m&&p.desc) m=p.desc.split(' ')[0]||'SIN MARCA'; m=(m||'SIN MARCA').toUpperCase(); if(!marcaMap[m])marcaMap[m]={pz:0,total:0}; marcaMap[m].pz+=(p.pz||0); marcaMap[m].total+=(p.subtotal||0); }); });
+  const marcaTop=Object.entries(marcaMap).sort((a,b)=>b[1].pz-a[1].pz).slice(0,8);
+  const totalMarcaPz=marcaTop.reduce((a,[,d])=>a+d.pz,0)||1;
+  if(marcaTop.length){
+    y=checkPage(y,14);
+    y=sectionTitle('MARCAS MAS VENDIDAS (TOP 8)',y);
+    doc.setFontSize(7); doc.setTextColor(100,110,125);
+    ['Marca','Piezas','Total recaudado','% del periodo'].forEach((h,i)=>doc.text(h,[14,60,90,150][i],y-3));
+    y+=1;
+    marcaTop.forEach(([m,d],idx)=>{
+      y=checkPage(y,7);
+      rowBg(idx,y,6);
+      doc.setTextColor(50,50,65); doc.setFontSize(7);
+      doc.setFont('helvetica','bold'); doc.text(m.substring(0,22),14,y+4); doc.setFont('helvetica','normal');
+      doc.setTextColor(41,128,185); doc.text(String(d.pz),68,y+4);
+      doc.setTextColor(39,174,96); doc.text('$'+d.total.toFixed(2),90,y+4);
+      doc.setTextColor(100,110,125); doc.text((d.pz/totalMarcaPz*100).toFixed(1)+'%',156,y+4);
+      doc.setTextColor(50,50,65);
+      y+=6;
+    });
+    y+=3;
+  }
+
+  // ── Vendedores y comisiones ──
+  const vendMap={};
+  ventas.forEach(v=>{ const vd=v.vendedor||'Sin asignar'; if(!vendMap[vd])vendMap[vd]={n:0,total:0,utilidad:0,com:0}; vendMap[vd].n++;vendMap[vd].total+=(v.precioTotal||0);vendMap[vd].utilidad+=(v.utilidad||0);vendMap[vd].com+=(v.comisionVendedor||0); });
+  const vendEntries=Object.entries(vendMap).sort((a,b)=>b[1].total-a[1].total);
+  if(vendEntries.length){
+    y=checkPage(y,14);
+    y=sectionTitle('COMISIONES POR VENDEDOR',y);
+    doc.setFontSize(7); doc.setTextColor(100,110,125);
+    ['Vendedor','Ventas','Total','Utilidad','Comision'].forEach((h,i)=>doc.text(h,[14,60,88,125,162][i],y-3));
+    y+=1;
+    vendEntries.forEach(([vd,d],idx)=>{
+      y=checkPage(y,7);
+      rowBg(idx,y,6);
+      doc.setTextColor(50,50,65); doc.setFontSize(7);
+      doc.setFont('helvetica','bold'); doc.text(vd.substring(0,22),14,y+4); doc.setFont('helvetica','normal');
+      doc.text(String(d.n),66,y+4);
+      doc.setTextColor(41,128,185); doc.text('$'+d.total.toFixed(2),88,y+4);
+      doc.setTextColor(39,174,96); doc.text('$'+d.utilidad.toFixed(2),125,y+4);
+      doc.setTextColor(232,184,75); doc.text('$'+d.com.toFixed(2),162,y+4);
+      doc.setTextColor(50,50,65);
+      y+=6;
+    });
+    y+=3;
+  }
+
+  // ── Nueva página: Detalle completo de ventas ──
+  doc.addPage(); pdfHeader(); y=30;
+  y=sectionTitle('DETALLE COMPLETO DE VENTAS — '+ventas.length+' OPERACIONES',y);
+  doc.setFontSize(6.5); doc.setTextColor(100,110,125);
+  ['Folio','Fecha','Vendedor','Productos / Servicios','Metodo','Subtotal','Com.T','Taxi','Total'].forEach((h,i)=>doc.text(h,[14,34,52,72,128,148,162,172,182][i],y-3));
+  y+=1;
+  [...ventas].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')).forEach((v,idx)=>{
+    const prodsStr=(v.productos||[]).map(p=>`${(p.desc||p.codigo||'').substring(0,15)} x${p.pz}`).concat((v.servicios||[]).map(s=>s.desc.substring(0,12))).join(', ').substring(0,40);
+    const rowH=8;
+    y=checkPage(y,rowH);
+    rowBg(idx,y,rowH-1);
+    doc.setTextColor(50,50,65); doc.setFontSize(6.5);
+    doc.setFont('helvetica','bold'); doc.text((v.vale||'').substring(0,10),14,y+4); doc.setFont('helvetica','normal');
+    doc.text(v.fecha||'',34,y+4);
+    doc.text((v.vendedor||'').substring(0,10),52,y+4);
+    doc.text(prodsStr,72,y+4);
+    doc.text((v.metodoPago||'').substring(0,14),128,y+4);
+    doc.text('$'+(v.subtotal||0).toFixed(0),148,y+4);
+    doc.text('$'+(v.comisionTarjeta||0).toFixed(0),162,y+4);
+    doc.text('$'+(v.taxi||0).toFixed(0),172,y+4);
+    doc.setFont('helvetica','bold'); doc.setTextColor(30,100,170); doc.text('$'+(v.precioTotal||0).toFixed(2),182,y+4);
+    doc.setFont('helvetica','normal'); doc.setTextColor(50,50,65);
+    y+=rowH;
+  });
+
+  // ── Nueva página: Estado actual del inventario ──
+  doc.addPage(); pdfHeader(); y=30;
+  y=sectionTitle('ESTADO ACTUAL DEL INVENTARIO — PRODUCTOS VENDIDOS EN EL PERIODO',y);
+  const vendCodigos=new Set(Object.values(prodMap).filter(p=>p.codigo).map(p=>p.codigo));
+  const invRelevante=[...DB.inventario,...DB.rines].filter(i=>vendCodigos.has(i.codigo)&&(!suc||i.sucursal===suc));
+  doc.setFontSize(7); doc.setTextColor(100,110,125);
+  ['Codigo','Descripcion / Producto','Sucursal','Medida','Estado','Stock','Costo','Precio'].forEach((h,i)=>doc.text(h,[14,34,80,110,128,145,157,170][i],y-3));
+  y+=1;
+  invRelevante.sort((a,b)=>a.pz-b.pz).forEach((item,idx)=>{
+    y=checkPage(y,7);
+    rowBg(idx,y,6);
+    const desc=(item.descripcion||`${item.marca||''} ${item.medida_rin||''}`).substring(0,20);
+    const medida=(item.medida||item.medida_rin||'').substring(0,10);
+    let stockColor=[50,50,65];
+    if(item.pz===0) stockColor=[192,57,43];
+    else if(item.pz<3) stockColor=[180,130,20];
+    doc.setTextColor(50,50,65); doc.setFontSize(7);
+    doc.setFont('helvetica','bold'); doc.text((item.codigo||'').substring(0,10),14,y+4); doc.setFont('helvetica','normal');
+    doc.text(desc,34,y+4);
+    doc.text(getSucNombre(item.sucursal).substring(0,14),80,y+4);
+    doc.text(medida,110,y+4);
+    doc.text((item.estado||'').substring(0,8),128,y+4);
+    doc.setFont('helvetica','bold'); doc.setTextColor(...stockColor); doc.text(String(item.pz),149,y+4); doc.setFont('helvetica','normal');
+    doc.setTextColor(100,110,125); doc.text('$'+(item.costo||0).toFixed(0),157,y+4);
+    doc.setTextColor(50,50,65); doc.text('$'+(item.precio||0).toFixed(0),170,y+4);
+    y+=6;
+  });
+  if(!invRelevante.length){ doc.setTextColor(120,130,145); doc.setFontSize(9); doc.text('Sin productos de inventario identificados en este periodo.',14,y+10); y+=16; }
+
+  // Gastos
+  if(gastos.length){
+    y=checkPage(y,16);
+    y+=4; y=sectionTitle('GASTOS DEL PERIODO',y,140,40,40);
+    doc.setFontSize(7); doc.setTextColor(100,110,125);
+    ['Concepto','Sucursal','Monto','Notas'].forEach((h,i)=>doc.text(h,[14,80,130,155][i],y-3));
+    y+=1;
+    gastos.forEach((g,idx)=>{
+      y=checkPage(y,6);
+      rowBg(idx,y,5);
+      doc.setTextColor(80,30,30); doc.setFontSize(7);
+      doc.text((g.concepto||'').substring(0,32),14,y+4);
+      doc.text(getSucNombre(g.sucursal).substring(0,16),80,y+4);
+      doc.setFont('helvetica','bold'); doc.text('$'+(g.monto||0).toFixed(2),130,y+4); doc.setFont('helvetica','normal');
+      doc.setTextColor(120,100,100); doc.text((g.notas||'').substring(0,22),155,y+4);
+      y+=6;
+    });
+    y+=3;
+    doc.setFont('helvetica','bold'); doc.setTextColor(192,57,43);
+    doc.text('Total gastos del periodo: $'+totalGastos.toFixed(2),14,y);
+  }
+
+  // Footer en todas las paginas
+  const pageCount=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pageCount;i++){
+    doc.setPage(i);
+    doc.setFontSize(7); doc.setTextColor(150,155,165);
+    doc.text(DB.config.nombre+' — Reporte '+periodoLabel+' — '+sucLabel,14,290);
+    doc.text('Pagina '+i+' de '+pageCount,196,290,{align:'right'});
+  }
+  doc.save('reporte_'+periodoLabel.replace(/[\s\/]/g,'_')+'.pdf');
 }
 function shareWhatsApp(){
   const mes=document.getElementById('rep-mes')?.value||'';
+  const desde=document.getElementById('rep-desde')?.value||'';
+  const hasta=document.getElementById('rep-hasta')?.value||'';
   const diaEsp=document.getElementById('rep-dia-especifico')?.value||'';
   const suc=document.getElementById('rep-sucursal')?.value||'';
-  let ventas=DB.ventas.filter(v=>(!mes||v.fecha?.startsWith(mes))&&(!suc||v.sucursal===suc));
+  const periodo=diaEsp||mes||(desde&&hasta?desde+' al '+hasta:'este mes');
+  let ventas=DB.ventas.filter(v=>v.fecha&&(!suc||v.sucursal===suc)&&!v.cancelada);
   if(diaEsp) ventas=ventas.filter(v=>v.fecha===diaEsp);
+  else if(mes) ventas=ventas.filter(v=>v.fecha&&v.fecha.startsWith(mes));
+  else if(desde||hasta) ventas=ventas.filter(v=>(!desde||v.fecha>=desde)&&(!hasta||v.fecha<=hasta));
   const total=ventas.reduce((a,v)=>a+(v.precioTotal||0),0);
-  window.open('https://wa.me/?text='+encodeURIComponent(`*Peters Wheels – Reporte ${diaEsp||mes}*\nTotal ventas: $${total.toFixed(2)}\nN° ventas: ${ventas.length}\nGenerado: ${new Date().toLocaleDateString('es-MX')}`));
+  const comVend=ventas.reduce((a,v)=>a+(v.comisionVendedor||0),0);
+  var msg='*PETERS WHEELS - REPORTE*\n';
+  msg+='Periodo: '+periodo+'\n';
+  msg+='Sucursal: '+(suc?getSucNombre(suc):'Todas')+'\n\n';
+  msg+='Total ventas: *$'+total.toFixed(2)+'*\n';
+  msg+='Num. ventas: '+ventas.length+'\n';
+  msg+='Com. vendedores: $'+comVend.toFixed(2)+'\n';
+  msg+='Generado: '+new Date().toLocaleDateString('es-MX');
+  window.open('https://wa.me/?text='+encodeURIComponent(msg));
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -4045,6 +4771,8 @@ document.addEventListener('keydown', e => {
 
 // Build user list on page load
 buildLoginUserList();
+// Apply saved theme
+initTheme();
 
 // ══════════════════════════════════════════════════════════════
 // GESTIÓN DE USUARIOS (Configuración)
@@ -4692,7 +5420,7 @@ function saveEditProduct() {
   }
 
   const prod = {
-    id:          isNew ? '' : (DB.inventario[idx]?.id || ''),
+    id:          isNew ? genUID() : (DB.inventario[idx]?.id || genUID()),
     codigo,
     marca,
     descripcion,
@@ -4716,7 +5444,7 @@ function deleteProduct(idx) {
   const p = DB.inventario[idx]; if (!p) return;
   if (!confirm(`¿Eliminar "${p.codigo} – ${p.descripcion}"?\n\nEsta acción NO puede deshacerse y el stock no se puede recuperar.`)) return;
   addHistorial({ tipo:'salida', folio:'', descripcion:`Producto eliminado: ${p.codigo} — ${p.descripcion} (${p.pz} pz)`, sucursal:p.sucursal, usuario:getCurrentUserName(), monto:0 });
-  DB.inventario.splice(idx, 1);
+  DB.inventario = DB.inventario.filter(i => !(i.codigo === p.codigo && i.sucursal === p.sucursal));
   saveToStorage(); renderGlobalInventory();
 }
 
@@ -4812,7 +5540,7 @@ function saveEditRin() {
 
   const matEl = document.getElementById('edit-rin-material');
   const rin = {
-    id:          isNew ? '' : (DB.rines[idx]?.id || ''),
+    id:          isNew ? genUID() : (DB.rines[idx]?.id || genUID()),
     codigo, marca,
     estado:      document.getElementById('edit-rin-estado').value,
     sucursal,
@@ -4839,7 +5567,7 @@ function deleteRin(idx) {
   const r = DB.rines[idx]; if (!r) return;
   if (!confirm(`¿Eliminar rin "${r.codigo} – ${r.marca} ${r.medida_rin}"?\n\nEsta acción NO puede deshacerse.`)) return;
   addHistorial({ tipo:'salida', folio:'', descripcion:`Rin eliminado: ${r.codigo} — ${r.marca} ${r.medida_rin}" (${r.pz} pz)`, sucursal:r.sucursal, usuario:getCurrentUserName(), monto:0 });
-  DB.rines.splice(idx, 1);
+  DB.rines = DB.rines.filter(i => !(i.codigo === r.codigo && i.sucursal === r.sucursal));
   saveToStorage(); renderRinesInventory();
 }
 
@@ -5260,6 +5988,7 @@ function renderConfig() {
   document.getElementById('cfg-nombre').value=DB.config.nombre||'Peters Wheels';
   document.getElementById('cfg-logo-id').value=DB.config.logoId||'';
   document.getElementById('cfg-comision-pct').value=DB.config.comisionPct||5;
+  if(document.getElementById('cfg-rines-foto-url')) document.getElementById('cfg-rines-foto-url').value=DB.config.rinesFotoUrl||'';
   renderCfgSucursales();renderCfgVendedores();renderCfgProveedores();renderCfgMetodos();renderCfgServicios();renderCfgUsuarios();
   // Poblar select de sucursal de usuarios
   const sucSel = document.getElementById('cfg-usr-sucursal');
@@ -5276,6 +6005,7 @@ function saveConfig(){
   DB.config.nombre=document.getElementById('cfg-nombre').value;
   DB.config.logoId=document.getElementById('cfg-logo-id').value;
   DB.config.comisionPct=parseFloat(document.getElementById('cfg-comision-pct').value)||0;
+  DB.config.rinesFotoUrl=(document.getElementById('cfg-rines-foto-url')?.value||'').trim();
   saveToStorage();updateLogoDisplay();refreshSelectsGlobal();
   alert('✅ Configuración guardada.');
 }
@@ -5541,13 +6271,36 @@ function analizarFusion(data) {
   _fusionPayload = data;
 
   const meta = data._meta;
+
+  // ── CORRECCIÓN ANTI-DUPLICADOS: normalizar UIDs antes de comparar ──
+  // Registros creados antes del sistema de UIDs no tienen uid → se les asigna
+  // una clave determinista basada en sus datos para evitar duplicados silenciosos.
+  function ensureUid(record, prefix) {
+    if (record.uid) return record.uid;
+    // Clave determinista: combinación de campos únicos del registro
+    const key = prefix + ':' + (record.vale||record.folio||record.id||'') +
+                ':' + (record.fecha||'') + ':' + (record.precioTotal||record.monto||'0') +
+                ':' + (record.vendedor||record.concepto||record.cliente||'');
+    record.uid = 'LEGACY-' + btoa(key).slice(0,20);
+    return record.uid;
+  }
+  (data.ventas||[]).forEach(v => ensureUid(v, 'V'));
+  (data.gastos||[]).forEach(g => ensureUid(g, 'G'));
+  (data.apartados||[]).forEach(a => ensureUid(a, 'A'));
+  (data.historialUnificado||[]).forEach(h => ensureUid(h, 'H'));
+
+  // También normalizar los registros locales que aún no tienen uid
+  DB.ventas.forEach(v => ensureUid(v, 'V'));
+  DB.gastos.forEach(g => ensureUid(g, 'G'));
+  DB.apartados.forEach(a => ensureUid(a, 'A'));
+
   const yaImportados = new Set(DB.fusionesAplicadas);
 
-  // ── Contar qué es nuevo ──
-  const ventasNuevas    = (data.ventas||[]).filter(v => v.uid && !yaImportados.has(v.uid));
-  const gastosNuevos    = (data.gastos||[]).filter(g => g.uid && !yaImportados.has(g.uid));
-  const apartadosNuevos = (data.apartados||[]).filter(a => a.uid && !yaImportados.has(a.uid));
-  const histNuevo       = (data.historialUnificado||[]).filter(h => h.uid && !yaImportados.has(h.uid));
+  // ── Contar qué es nuevo (ahora todos tienen uid) ──
+  const ventasNuevas    = (data.ventas||[]).filter(v => !yaImportados.has(v.uid));
+  const gastosNuevos    = (data.gastos||[]).filter(g => !yaImportados.has(g.uid));
+  const apartadosNuevos = (data.apartados||[]).filter(a => !yaImportados.has(a.uid));
+  const histNuevo       = (data.historialUnificado||[]).filter(h => !yaImportados.has(h.uid));
 
   // ── Detectar traspasos ──
   // Un traspaso = movimiento de tipo 'traspaso' con traspasoId
@@ -5810,6 +6563,96 @@ function aplicarFusionSucursal() {
 // PARCHE: asignar UID y traspasoId al registrar traspasos
 // ══════════════════════════
 // Se llama desde saveTraspaso() — ver código abajo
+// ══════════════════════════════════════════════════════════════
+// FOTO DE RIN — popup con imagen desde Dropbox/Drive/URL base
+// ══════════════════════════════════════════════════════════════
+function verFotoRin(codigo) {
+  const rin = DB.rines.find(r => r.codigo === codigo);
+  const baseUrl = (DB.config.rinesFotoUrl || '').trim();
+
+  // Mostrar info del rin
+  const infoEl = document.getElementById('fotoRin-info');
+  if(rin && infoEl) {
+    infoEl.innerHTML =
+      '<strong style="color:var(--text);font-family:monospace">' + esc(rin.codigo) + '</strong>' +
+      ' &nbsp;·&nbsp; ' + esc(rin.marca||'') +
+      ' &nbsp;·&nbsp; ' + (rin.medida_rin||'') + '" ' + (rin.ancho||'') + 'J' +
+      ' &nbsp;·&nbsp; Barrenación: ' + esc(rin.barrenacion||'-') +
+      ' &nbsp;·&nbsp; Offset: ' + esc(rin.offset||'-') +
+      '<br>Estado: ' + esc(rin.estado||'-') +
+      ' &nbsp;·&nbsp; Stock: <strong>' + (rin.pz||0) + ' pz</strong>' +
+      ' &nbsp;·&nbsp; Precio: <strong style="color:var(--accent)">' + fmt(rin.precio||0) + '</strong>';
+  }
+
+  document.getElementById('fotoRin-titulo').textContent = 'Foto — ' + codigo;
+
+  // Construir URL de la imagen
+  const imgEl    = document.getElementById('fotoRin-img');
+  const phEl     = document.getElementById('fotoRin-placeholder');
+  const phTxtEl  = document.getElementById('fotoRin-placeholder-txt');
+  const openBtn  = document.getElementById('fotoRin-open-btn');
+  const urlDisp  = document.getElementById('fotoRin-url-display');
+
+  // Reset estado
+  imgEl.style.display = 'none';
+  phEl.style.display = '';
+  imgEl.src = '';
+
+  if(!baseUrl) {
+    phTxtEl.innerHTML = '⚠️ No hay URL base configurada.<br><span style="font-size:11px">Ve a <strong>Configuración → General</strong> y agrega la URL de tu carpeta de Dropbox.</span>';
+    if(openBtn) openBtn.style.display = 'none';
+    if(urlDisp) urlDisp.textContent = '';
+    document.getElementById('modalFotoRin').classList.add('open');
+    return;
+  }
+
+  // Intentar extensiones comunes: jpg, jpeg, png, webp
+  const exts = ['jpg','jpeg','png','webp'];
+  let currentExt = 0;
+
+  function tryNext() {
+    if(currentExt >= exts.length) { fotoRinError(); return; }
+    const ext = exts[currentExt++];
+    const url = baseUrl + encodeURIComponent(codigo + '.' + ext);
+    phTxtEl.textContent = 'Buscando imagen...';
+    imgEl.src = url;
+    if(openBtn){ openBtn.style.display = ''; openBtn.dataset.url = url; }
+    if(urlDisp) urlDisp.textContent = url;
+  }
+
+  // El onerror del img llamará a fotoRinError, pero para intentar siguientes extensiones
+  // re-asignamos el handler aquí
+  imgEl.onerror = function() {
+    if(currentExt < exts.length) { tryNext(); }
+    else { fotoRinError(); }
+  };
+  imgEl.onload = function() {
+    imgEl.style.display = 'block';
+    phEl.style.display = 'none';
+  };
+
+  tryNext();
+  document.getElementById('modalFotoRin').classList.add('open');
+}
+
+function fotoRinError() {
+  const phEl    = document.getElementById('fotoRin-placeholder');
+  const phTxtEl = document.getElementById('fotoRin-placeholder-txt');
+  const imgEl   = document.getElementById('fotoRin-img');
+  imgEl.style.display = 'none';
+  phEl.style.display = '';
+  phTxtEl.innerHTML = '📷 No se encontró la imagen.<br><span style="font-size:11px">Verifica que exista un archivo con el código como nombre (ej: <strong>' +
+    (document.getElementById('fotoRin-titulo')?.textContent?.replace('Foto — ','') || 'CODIGO') +
+    '.jpg</strong>) en tu carpeta de Dropbox.</span>';
+}
+
+// Abre la foto del rin actualmente en el modal de edición
+function verFotoRinModal() {
+  const codigo = document.getElementById('edit-rin-codigo')?.value.trim();
+  if(!codigo){ alert('Escribe o genera el código del rin primero'); return; }
+  verFotoRin(codigo);
+}
+
 function generarTraspasoId() {
   return 'TRP-' + genUID();
 }
@@ -5820,7 +6663,22 @@ function generarTraspasoId() {
 function renderChart(canvasId,registry,type,labels,datasets){
   const canvas=document.getElementById(canvasId); if(!canvas) return;
   if(registry[canvasId]) registry[canvasId].destroy();
-  registry[canvasId]=new Chart(canvas,{type,data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a9ab0',font:{family:'Barlow',size:11}}}},scales:type==='doughnut'||type==='pie'?{}:{x:{ticks:{color:'#8a9ab0',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},y:{ticks:{color:'#8a9ab0',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}}}}});
+  const isHBar = type==='bar' && datasets[0]?.indexAxis==='y';
+  const noScales = type==='doughnut'||type==='pie';
+  const scalesOpt = noScales ? {} : {
+    x:{ticks:{color:'#8a9ab0',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},
+    y:{ticks:{color:'#8a9ab0',font:{size:isHBar?9:10},maxTicksLimit:isHBar?12:undefined},grid:{color:'rgba(255,255,255,.05)'}}
+  };
+  registry[canvasId]=new Chart(canvas,{
+    type,
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      indexAxis: isHBar ? 'y' : undefined,
+      plugins:{legend:{labels:{color:'#8a9ab0',font:{family:'Barlow',size:11}}}},
+      scales: scalesOpt
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -5979,6 +6837,36 @@ window.addEventListener('focus',()=>{
     <div class="btn-group">
       <button class="btn btn-primary" id="fusion-btn-aplicar" onclick="aplicarFusionSucursal()" style="display:none">✅ Confirmar e Importar</button>
       <button class="btn btn-secondary" onclick="closeModal('modalFusionSucursal')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL FOTO RIN ══ -->
+<div class="modal-overlay" id="modalFotoRin" onclick="if(event.target===this)closeModal('modalFotoRin')">
+  <div class="modal" style="max-width:520px;text-align:center;padding:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="modal-title" id="fotoRin-titulo" style="margin-bottom:0;font-size:16px">Foto del Rin</div>
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('modalFotoRin')">✕ Cerrar</button>
+    </div>
+    <!-- Info del rin -->
+    <div id="fotoRin-info" style="background:var(--surface2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);text-align:left;line-height:1.8"></div>
+    <!-- Imagen -->
+    <div id="fotoRin-img-wrap" style="background:var(--surface2);border-radius:10px;overflow:hidden;min-height:200px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;position:relative">
+      <img id="fotoRin-img" src="" alt="Foto del rin"
+        style="max-width:100%;max-height:420px;object-fit:contain;display:none;border-radius:6px"
+        onload="document.getElementById('fotoRin-img').style.display='block';document.getElementById('fotoRin-placeholder').style.display='none';"
+        onerror="fotoRinError()">
+      <div id="fotoRin-placeholder" style="text-align:center;padding:32px 20px">
+        <div style="font-size:48px;margin-bottom:10px">🖼️</div>
+        <div id="fotoRin-placeholder-txt" style="font-size:13px;color:var(--text2)">Cargando imagen...</div>
+      </div>
+    </div>
+    <!-- URL directa por si quiere abrirla -->
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" id="fotoRin-open-btn" onclick="window.open(document.getElementById('fotoRin-open-btn').dataset.url,'_blank')" style="display:none">
+        🔗 Abrir en nueva pestaña
+      </button>
+      <div id="fotoRin-url-display" style="font-size:10px;color:var(--text3);word-break:break-all;max-width:400px;margin-top:4px"></div>
     </div>
   </div>
 </div>
